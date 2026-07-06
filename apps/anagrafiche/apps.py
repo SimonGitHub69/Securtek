@@ -1,5 +1,5 @@
 from django.apps import AppConfig
 
-class ClientiConfig(AppConfig):
+class AnagraficheConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
-    name = "apps.clienti"
+    name = "apps.anagrafiche"

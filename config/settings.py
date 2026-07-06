@@ -39,10 +39,8 @@ ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
 # Application definition
 
 "apps.core.apps.CoreConfig",
-"apps.clienti.apps.ClientiConfig",
+"apps.anagrafiche.apps.AnagraficheConfig",
 "apps.pratiche.apps.PraticheConfig",
-"apps.tecnici.apps.TecniciConfig",
-"apps.calendario.apps.CalendarioConfig",
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -53,10 +51,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     "apps.core.apps.CoreConfig",
     "apps.accounts.apps.AccountsConfig",    
-    "apps.clienti.apps.ClientiConfig",
+    "apps.anagrafiche.apps.AnagraficheConfig",
     "apps.pratiche.apps.PraticheConfig",
-    "apps.tecnici.apps.TecniciConfig",
-    "apps.calendario.apps.CalendarioConfig",
 ]
 
 MIDDLEWARE = [
