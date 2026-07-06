@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     "apps.accounts.apps.AccountsConfig",    
     "apps.anagrafiche.apps.AnagraficheConfig",
     "apps.pratiche.apps.PraticheConfig",
+    "apps.dashboard.apps.DashboardConfig",
 ]
 
 MIDDLEWARE = [
