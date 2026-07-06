@@ -1,7 +1,3 @@
-from .base import BaseForm
-from .model import BaseModelForm
+from .base import BaseModel
 
-__all__ = [
-    "BaseForm",
-    "BaseModelForm",
-]
+__all__ = ["BaseModel"]
