@@ -4,6 +4,88 @@
 Anagrafiche
 {% endblock %}
 
+{% block extra_css %}
+{{ block.super }}
+<style>
+.st-confirm {
+    background: rgba(15, 23, 42, 0.45);
+    bottom: 0;
+    display: flex;
+    left: 0;
+    padding: 1rem;
+    position: fixed;
+    right: 0;
+    top: 0;
+    z-index: 1080;
+}
+
+.st-confirm[hidden] {
+    display: none;
+}
+
+.st-confirm-dialog {
+    background: var(--tblr-bg-surface, #fff);
+    border-radius: 8px;
+    box-shadow: 0 1rem 3rem rgba(15, 23, 42, 0.2);
+    margin: auto;
+    max-width: 420px;
+    overflow: hidden;
+    width: 100%;
+}
+
+.st-confirm-body {
+    display: flex;
+    gap: 1rem;
+    padding: 1.25rem 1.25rem 1rem;
+}
+
+.st-confirm-icon {
+    align-items: center;
+    background: rgba(214, 57, 57, 0.12);
+    border-radius: 8px;
+    color: var(--tblr-danger, #d63939);
+    display: flex;
+    flex: 0 0 44px;
+    height: 44px;
+    justify-content: center;
+    width: 44px;
+}
+
+.st-confirm-icon .ti {
+    font-size: 1.35rem;
+}
+
+.st-confirm-title {
+    color: var(--tblr-body-color, #1f2937);
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.35;
+    margin-bottom: 0.35rem;
+}
+
+.st-confirm-text {
+    color: var(--tblr-secondary, #667085);
+    font-size: 0.875rem;
+    line-height: 1.45;
+}
+
+.st-confirm-name {
+    color: var(--tblr-body-color, #1f2937);
+    font-weight: 600;
+}
+
+.st-confirm-footer {
+    align-items: center;
+    background: var(--tblr-bg-surface-secondary, #f8fafc);
+    border-top: 1px solid var(--tblr-border-color, #e6e8eb);
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    padding: 0.75rem 1.25rem;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 
 <div class="container-xl">
@@ -62,6 +144,8 @@ Anagrafiche
                         <th>Partita IVA</th>
                         <th>Email</th>
                         <th>Telefono</th>
+                        <th>Contatti</th>
+                        <th>Indirizzi</th>
                         <th class="text-end">Azioni</th>
                     </tr>
                 </thead>
@@ -69,40 +153,44 @@ Anagrafiche
                 <tbody>
                     {% for anagrafica in anagrafiche %}
                     <tr>
-                        <td>{{ anagrafica.ragione_sociale }}</td>
+                        <td>
+                            <a href="{% url 'anagrafiche:anagrafica_detail' anagrafica.pk %}"
+                               class="text-reset fw-bold">
+                                {{ anagrafica.ragione_sociale }}
+                            </a>
+                        </td>
                         <td>{{ anagrafica.partita_iva }}</td>
                         <td>{{ anagrafica.email }}</td>
                         <td>{{ anagrafica.telefono }}</td>
+                        <td>
+                            <span class="badge bg-blue-lt">{{ anagrafica.contatti_attivi }}</span>
+                        </td>
+                        <td>
+                            <span class="badge bg-green-lt">{{ anagrafica.indirizzi_attivi }}</span>
+                        </td>
 
                         <td class="text-end">
 
-                            <a href="{% url 'anagrafiche:anagrafica_update' anagrafica.pk %}"
+                            <a href="{% url 'anagrafiche:anagrafica_detail' anagrafica.pk %}"
                             class="btn btn-icon btn-outline-primary"
-                            title="Modifica">
+                            title="Scheda e modifica">
 
                                 <i class="ti ti-edit"></i>
                             </a>
 
-                            <a href="{% url 'anagrafiche:anagrafica_detail' anagrafica.pk %}"
-                                class="btn btn-icon btn-outline-info"
-                                title="Dettaglio">
-
-                                <i class="ti ti-eye"></i>
-                            </a>
-
-                            <a href="#"
-                            class="btn btn-icon btn-outline-danger"
-                            title="Elimina">
-
+                            <button type="button"
+                                    class="btn btn-icon btn-outline-danger js-delete-anagrafica"
+                                    title="Elimina"
+                                    data-delete-action="{% url 'anagrafiche:anagrafica_delete' anagrafica.pk %}"
+                                    data-delete-name="{{ anagrafica.ragione_sociale }}">
                                 <i class="ti ti-trash"></i>
-
-                            </a>
+                            </button>
 
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="5" class="text-center text-muted">
+                        <td colspan="7" class="text-center text-muted">
                             Nessuna azienda presente
                         </td>
                     </tr>
@@ -115,4 +203,81 @@ Anagrafiche
 
 </div>
 
+<div class="st-confirm" id="deleteAnagraficaModal" hidden>
+    <div class="st-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="deleteAnagraficaTitle">
+        <form method="post" id="deleteAnagraficaForm">
+            {% csrf_token %}
+
+            <div class="st-confirm-body">
+                <div class="st-confirm-icon">
+                    <i class="ti ti-trash"></i>
+                </div>
+
+                <div>
+                    <div class="st-confirm-title" id="deleteAnagraficaTitle">
+                        Eliminare questa anagrafica?
+                    </div>
+                    <div class="st-confirm-text">
+                        <span class="st-confirm-name" id="deleteAnagraficaName">Anagrafica selezionata</span>
+                        non sarà più visibile nella lista.
+                    </div>
+                </div>
+            </div>
+
+            <div class="st-confirm-footer">
+                <button type="button" class="btn btn-outline-secondary js-delete-cancel">
+                    Annulla
+                </button>
+                <button type="submit" class="btn btn-danger">
+                    <i class="ti ti-trash"></i>
+                    Elimina
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const modalElement = document.getElementById("deleteAnagraficaModal");
+    const form = document.getElementById("deleteAnagraficaForm");
+    const nameElement = document.getElementById("deleteAnagraficaName");
+    const cancelButton = modalElement ? modalElement.querySelector(".js-delete-cancel") : null;
+
+    if (!modalElement || !form || !nameElement || !cancelButton) {
+        return;
+    }
+
+    function closeModal() {
+        modalElement.hidden = true;
+        form.removeAttribute("action");
+    }
+
+    document.querySelectorAll(".js-delete-anagrafica").forEach(function (button) {
+        button.addEventListener("click", function () {
+            form.action = button.dataset.deleteAction;
+            nameElement.textContent = button.dataset.deleteName || "L'anagrafica selezionata non sarà più visibile nella lista.";
+            modalElement.hidden = false;
+        });
+    });
+
+    cancelButton.addEventListener("click", closeModal);
+
+    modalElement.addEventListener("click", function (event) {
+        if (event.target === modalElement) {
+            closeModal();
+        }
+    });
+
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && !modalElement.hidden) {
+            closeModal();
+        }
+    });
+});
+</script>
 {% endblock %}

@@ -94,6 +94,10 @@
 
         </div>
 
+    </div>
+
+
+    <div class="row mt-3">
 
         <div class="col-lg-6">
 
@@ -101,38 +105,165 @@
 
                 <div class="card-header">
                     <h3 class="card-title">
-                        Informazioni
+                        Contatti
                     </h3>
+                    <div class="card-actions">
+                        <a href="{% url 'anagrafiche:contatto_create' anagrafica.pk %}" class="btn btn-primary btn-sm">
+                            <i class="ti ti-plus"></i>
+                            Aggiungi
+                        </a>
+                    </div>
                 </div>
 
                 <div class="card-body">
 
-                    <p>
-                        <strong>Stato:</strong>
+                    {% if contatti %}
 
-                        <span class="badge bg-success">
-                            Attiva
-                        </span>
-                    </p>
+                        <div class="list-group list-group-flush">
 
-                    <p>
-                        Questa schermata sarà estesa con:
+                            {% for contatto in contatti %}
 
-                    </p>
+                                <div class="list-group-item px-0">
+                                    <div class="d-flex justify-content-between align-items-start gap-3">
+                                        <div>
+                                            <div class="fw-bold">
+                                                {{ contatto.get_tipo_display }}
 
-                    <ul>
+                                                {% if contatto.principale %}
+                                                    <span class="badge bg-primary-lt ms-2">Principale</span>
+                                                {% endif %}
+                                            </div>
 
-                        <li>Contatti</li>
+                                            <div>{{ contatto.valore }}</div>
 
-                        <li>Indirizzi</li>
+                                            {% if contatto.descrizione %}
+                                                <div class="text-secondary small">
+                                                    {{ contatto.descrizione }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
 
-                        <li>Documenti</li>
+                                        <div class="btn-list flex-nowrap">
+                                            <a href="{% url 'anagrafiche:contatto_update' anagrafica.pk contatto.pk %}"
+                                               class="btn btn-outline-primary btn-sm">
+                                                <i class="ti ti-edit"></i>
+                                                Modifica
+                                            </a>
 
-                        <li>Storico</li>
+                                            <form method="post"
+                                                  action="{% url 'anagrafiche:contatto_delete' anagrafica.pk contatto.pk %}">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-outline-danger btn-sm">
+                                                    <i class="ti ti-trash"></i>
+                                                    Elimina
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
 
-                        <li>Note</li>
+                            {% endfor %}
 
-                    </ul>
+                        </div>
+
+                    {% else %}
+
+                        <div class="empty">
+                            <div class="empty-icon">
+                                <i class="ti ti-address-book"></i>
+                            </div>
+                            <p class="empty-title">Nessun contatto registrato</p>
+                        </div>
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="col-lg-6">
+
+            <div class="card">
+
+                <div class="card-header">
+                    <h3 class="card-title">
+                        Indirizzi
+                    </h3>
+                    <div class="card-actions">
+                        <a href="{% url 'anagrafiche:indirizzo_create' anagrafica.pk %}" class="btn btn-primary btn-sm">
+                            <i class="ti ti-plus"></i>
+                            Aggiungi
+                        </a>
+                    </div>
+                </div>
+
+                <div class="card-body">
+
+                    {% if indirizzi %}
+
+                        <div class="list-group list-group-flush">
+
+                            {% for indirizzo in indirizzi %}
+
+                                <div class="list-group-item px-0">
+                                    <div class="d-flex justify-content-between align-items-start gap-3">
+                                        <div>
+                                            <div class="fw-bold">
+                                                {{ indirizzo.get_tipo_display }}
+
+                                                {% if indirizzo.principale %}
+                                                    <span class="badge bg-primary-lt ms-2">Principale</span>
+                                                {% endif %}
+                                            </div>
+
+                                            <div>
+                                                {{ indirizzo.indirizzo }}{% if indirizzo.civico %}, {{ indirizzo.civico }}{% endif %}
+                                            </div>
+
+                                            <div class="text-secondary small">
+                                                {% if indirizzo.cap %}{{ indirizzo.cap }}{% endif %}
+                                                {% if indirizzo.comune %} {{ indirizzo.comune }}{% endif %}
+                                                {% if indirizzo.provincia %} ({{ indirizzo.provincia }}){% endif %}
+                                                {% if indirizzo.nazione %} - {{ indirizzo.nazione }}{% endif %}
+                                            </div>
+                                        </div>
+
+                                        <div class="btn-list flex-nowrap">
+                                            <a href="{% url 'anagrafiche:indirizzo_update' anagrafica.pk indirizzo.pk %}"
+                                               class="btn btn-outline-primary btn-sm">
+                                                <i class="ti ti-edit"></i>
+                                                Modifica
+                                            </a>
+
+                                            <form method="post"
+                                                  action="{% url 'anagrafiche:indirizzo_delete' anagrafica.pk indirizzo.pk %}">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-outline-danger btn-sm">
+                                                    <i class="ti ti-trash"></i>
+                                                    Elimina
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            {% endfor %}
+
+                        </div>
+
+                    {% else %}
+
+                        <div class="empty">
+                            <div class="empty-icon">
+                                <i class="ti ti-map-pin"></i>
+                            </div>
+                            <p class="empty-title">Nessun indirizzo registrato</p>
+                        </div>
+
+                    {% endif %}
 
                 </div>
 

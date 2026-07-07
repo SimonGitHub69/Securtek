@@ -1,0 +1,64 @@
+{% extends "base/layout.html" %}
+
+{% block page_title %}
+{{ page_title }}
+{% endblock %}
+
+{% block content %}
+
+<div class="container-xl">
+
+    <div class="page-header d-print-none mb-3">
+        <div class="row align-items-center">
+            <div class="col">
+                <h2 class="page-title">{{ page_title }}</h2>
+                <div class="text-secondary">{{ anagrafica.ragione_sociale }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="card-body">
+                {% for field in form %}
+                    {% if field.field.widget.input_type == "checkbox" %}
+                        <div class="mb-3 form-check">
+                            {{ field }}
+                            <label class="form-check-label" for="{{ field.id_for_label }}">
+                                {{ field.label }}
+                            </label>
+                            {% if field.errors %}
+                                <div class="invalid-feedback d-block">{{ field.errors|join:", " }}</div>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <div class="mb-3">
+                            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.help_text %}
+                                <div class="form-hint">{{ field.help_text }}</div>
+                            {% endif %}
+                            {% if field.errors %}
+                                <div class="invalid-feedback d-block">{{ field.errors|join:", " }}</div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            <div class="card-footer text-end">
+                <a href="{% url 'anagrafiche:anagrafica_detail' anagrafica.pk %}" class="btn btn-secondary">
+                    Annulla
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    Salva
+                </button>
+            </div>
+        </form>
+    </div>
+
+</div>
+
+{% endblock %}
