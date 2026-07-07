@@ -1,0 +1,18 @@
+.navbar{
+    height:72px;
+    background:#fff;
+}
+
+.navbar .form-control{
+    border-radius:12px;
+}
+
+.avatar{
+    width:40px;
+    height:40px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:700;
+}

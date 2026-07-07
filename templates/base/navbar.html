@@ -1,16 +1,94 @@
-<header class="navbar navbar-expand-md d-print-none">
+<header class="navbar navbar-expand-lg border-bottom bg-white">
 
-    <div class="container-xl">
+    <div class="container-fluid">
 
-        <div class="navbar-nav flex-row ms-auto">
+        <!-- Titolo pagina -->
+        <div class="d-flex align-items-center">
 
-            <div class="nav-item">
+            <h3 class="mb-0 fw-bold">
+                {% block page_title %}
+                    Dashboard
+                {% endblock %}
+            </h3>
 
-                <span class="nav-link">
+        </div>
 
-                    {{ request.user }}
+        <!-- Parte destra -->
+        <div class="d-flex align-items-center ms-auto gap-3">
 
-                </span>
+            <!-- Ricerca -->
+            <div class="d-none d-lg-block">
+
+                <input
+                    type="text"
+                    class="form-control"
+                    style="width:300px"
+                    placeholder="Cerca...">
+
+            </div>
+
+            <!-- Notifiche -->
+            <button class="btn btn-icon btn-outline-secondary">
+
+                <i class="ti ti-bell"></i>
+
+            </button>
+
+            <!-- Tema -->
+            <button class="btn btn-icon btn-outline-secondary">
+
+                <i class="ti ti-moon"></i>
+
+            </button>
+
+            <!-- Utente -->
+            <div class="dropdown">
+
+                <a href="#"
+                   class="d-flex align-items-center text-decoration-none"
+                   data-bs-toggle="dropdown">
+
+                    <div class="avatar avatar-sm bg-primary text-white">
+
+                        {{ request.user.first_name|default:request.user.username|first|upper }}
+
+                    </div>
+
+                    <div class="ms-2 text-start">
+
+                        <div class="fw-semibold">
+
+                            {{ request.user.get_full_name|default:request.user.username }}
+
+                        </div>
+
+                        <small class="text-secondary">
+
+                            Amministratore
+
+                        </small>
+
+                    </div>
+
+                </a>
+
+                <div class="dropdown-menu dropdown-menu-end">
+
+                    <a class="dropdown-item" href="#">
+                        Profilo
+                    </a>
+
+                    <a class="dropdown-item" href="#">
+                        Impostazioni
+                    </a>
+
+                    <div class="dropdown-divider"></div>
+
+                    <a class="dropdown-item text-danger" href="#">
+                        Logout
+                    </a>
+
+                </div>
 
             </div>
 

@@ -1,3 +1,6 @@
 body {
     background-color: #f5f7fb;
 }
+.page-wrapper {
+    margin-left: 260px;
+}

@@ -6,33 +6,13 @@
 
 <div class="row g-3">
 
-    {% include "components/stats_card.html" with
-        title="Pratiche aperte"
-        value=kpi.pratiche
-        color="primary"
-        icon="folder"
-    %}
+    {% include "components/stats_card.html" with title="Pratiche aperte" value=kpi.pratiche color="primary" icon="folder" %}
 
-    {% include "components/stats_card.html" with
-        title="Clienti"
-        value=kpi.clienti
-        color="success"
-        icon="users"
-    %}
+    {% include "components/stats_card.html" with title="Clienti" value=kpi.clienti color="success" icon="users" %}
 
-    {% include "components/stats_card.html" with
-        title="Scadenze"
-        value=kpi.scadenze
-        color="warning"
-        icon="calendar"
-    %}
+    {% include "components/stats_card.html" with title="Scadenze" value=kpi.scadenze color="warning" icon="calendar" %}
 
-    {% include "components/stats_card.html" with
-        title="Documenti"
-        value=kpi.documenti
-        color="info"
-        icon="file"
-    %}
+    {% include "components/stats_card.html" with title="Documenti" value=kpi.documenti color="info" icon="file" %}
 
 </div>
 
