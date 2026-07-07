@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     "apps.accounts.apps.AccountsConfig",    
     "apps.dashboard.apps.DashboardConfig",
+    "apps.anagrafiche.apps.AnagraficheConfig",
 ]
 
 MIDDLEWARE = [

@@ -1,0 +1,1 @@
+from .anagrafica import Anagrafica

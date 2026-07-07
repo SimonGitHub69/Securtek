@@ -1,0 +1,120 @@
+{% extends "base/layout.html" %}
+
+{% block page_title %}
+Anagrafiche
+{% endblock %}
+
+{% block content %}
+
+<div class="container-xl">
+
+    <div class="page-header d-print-none mb-3">
+        <div class="row align-items-center">
+            <div class="col">
+                <h2 class="page-title">Anagrafiche</h2>
+            </div>
+
+            <div class="col-auto">
+                <a href="{% url 'anagrafiche:anagrafica_create' %}" class="btn btn-primary">
+                    Nuova Anagrafica
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <form method="get">
+                <div class="row">
+                    <div class="col-md-6">
+                        <input
+                            type="text"
+                            name="q"
+                            value="{{ request.GET.q }}"
+                            class="form-control"
+                            placeholder="Cerca ragione sociale, P.IVA, email..."
+                        >
+                    </div>
+
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-secondary">
+                            Cerca
+                        </button>
+                    </div>
+
+                    <div class="col-auto">
+                        <a href="{% url 'anagrafiche:anagrafica_list' %}" class="btn btn-outline-secondary">
+                            Pulisci
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="table-responsive">
+
+            <table class="table table-vcenter">
+                <thead>
+                    <tr>
+                        <th>Ragione Sociale</th>
+                        <th>Partita IVA</th>
+                        <th>Email</th>
+                        <th>Telefono</th>
+                        <th class="text-end">Azioni</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for anagrafica in anagrafiche %}
+                    <tr>
+                        <td>{{ anagrafica.ragione_sociale }}</td>
+                        <td>{{ anagrafica.partita_iva }}</td>
+                        <td>{{ anagrafica.email }}</td>
+                        <td>{{ anagrafica.telefono }}</td>
+
+                        <td class="text-end">
+
+                            <a href="{% url 'anagrafiche:anagrafica_update' azienda.pk %}"
+                            class="btn btn-icon btn-outline-primary"
+                            title="Modifica">
+
+                                <i class="ti ti-edit"></i>
+
+                            </a>
+
+                            <a href="#"
+                            class="btn btn-icon btn-outline-info"
+                            title="Dettaglio">
+
+                                <i class="ti ti-eye"></i>
+
+                            </a>
+
+                            <a href="#"
+                            class="btn btn-icon btn-outline-danger"
+                            title="Elimina">
+
+                                <i class="ti ti-trash"></i>
+
+                            </a>
+
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted">
+                            Nessuna azienda presente
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}
