@@ -1,4 +1,5 @@
 from django.views.generic import TemplateView
+from .services import DashboardService
 
 
 class DashboardView(TemplateView):
@@ -7,11 +8,6 @@ class DashboardView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        context["kpi"] = {
-            "pratiche": 125,
-            "clienti": 58,
-            "scadenze": 7,
-            "documenti": 189,
-        }
+        context["kpi"] = DashboardService.get_kpi()
 
         return context

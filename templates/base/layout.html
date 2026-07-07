@@ -1,0 +1,88 @@
+{% load static %}
+<!doctype html>
+<html lang="it">
+
+<head>
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>{% block title %}SECURTEK{% endblock %}</title>
+
+    <!-- Tabler -->
+    
+    <link rel="stylesheet"
+      href="{% static '@tabler/core/dist/css/tabler.min.css' %}">
+
+    <link rel="stylesheet"
+      href="{% static '@tabler/icons-webfont/dist/tabler-icons.min.css' %}">
+   
+          <!-- Bootstrap Icons -->
+    <link rel="stylesheet"
+          href="{% static 'bootstrap-icons/font/bootstrap-icons.css' %}">
+
+    <!-- CSS progetto -->
+    <!-- CSS SECURTEK -->
+    <link rel="stylesheet"
+        href="{% static 'securtek/css/variables.css' %}">
+
+    <link rel="stylesheet"
+        href="{% static 'securtek/css/style.css' %}">
+
+    <link rel="stylesheet"
+        href="{% static 'securtek/css/sidebar.css' %}">
+
+    <link rel="stylesheet"
+        href="{% static 'securtek/css/navbar.css' %}">
+
+    <link rel="stylesheet"
+        href="{% static 'securtek/css/components.css' %}">
+
+    <link rel="stylesheet"
+        href="{% static 'securtek/css/dashboard.css' %}">
+
+    {% block extra_css %}{% endblock %}
+
+</head>
+
+<body>
+
+<div class="page">
+
+    {% include "base/sidebar.html" %}
+
+    <div class="page-wrapper">
+
+        {% include "base/navbar.html" %}
+
+        <div class="page-body">
+
+            <div class="container-xl">
+
+                {% include "base/messages.html" %}
+
+                {% block content %}
+                {% endblock %}
+
+            </div>
+
+        </div>
+
+        {% include "base/footer.html" %}
+
+    </div>
+
+</div>
+
+<script src="{% static '@tabler/core/dist/js/tabler.min.js' %}"></script>
+
+<script defer src="{% static 'alpinejs/dist/cdn.min.js' %}"></script>
+
+<script src="{% static 'htmx.org/dist/htmx.min.js' %}"></script>
+
+<script src="{% static 'securtek/js/app.js' %}"></script>
+
+{% block extra_js %}{% endblock %}
+
+</body>
+</html>

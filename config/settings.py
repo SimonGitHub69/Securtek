@@ -49,10 +49,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    "apps.core.apps.CoreConfig",
     "apps.accounts.apps.AccountsConfig",    
-    "apps.anagrafiche.apps.AnagraficheConfig",
-    "apps.pratiche.apps.PraticheConfig",
     "apps.dashboard.apps.DashboardConfig",
 ]
 
@@ -132,6 +129,7 @@ STATIC_URL = "static/"
 
 STATICFILES_DIRS = [
     BASE_DIR / "static",
+    BASE_DIR / "node_modules",
 ]
 
 STATIC_ROOT = BASE_DIR / "staticfiles"
