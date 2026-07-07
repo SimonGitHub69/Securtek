@@ -76,20 +76,18 @@ Anagrafiche
 
                         <td class="text-end">
 
-                            <a href="{% url 'anagrafiche:anagrafica_update' azienda.pk %}"
+                            <a href="{% url 'anagrafiche:anagrafica_update' anagrafica.pk %}"
                             class="btn btn-icon btn-outline-primary"
                             title="Modifica">
 
                                 <i class="ti ti-edit"></i>
-
                             </a>
 
-                            <a href="#"
-                            class="btn btn-icon btn-outline-info"
-                            title="Dettaglio">
+                            <a href="{% url 'anagrafiche:anagrafica_detail' anagrafica.pk %}"
+                                class="btn btn-icon btn-outline-info"
+                                title="Dettaglio">
 
                                 <i class="ti ti-eye"></i>
-
                             </a>
 
                             <a href="#"

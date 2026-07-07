@@ -1,6 +1,131 @@
-{% include "components/stats_card.html" with
-    title="Clienti"
-    value=kpi.clienti
-    color="success"
-    icon="users"
-%}
+{% extends "base/layout.html" %}
+
+{% block page_title %}
+Dashboard
+{% endblock %}
+
+{% block content %}
+
+<div class="container-xl">
+
+    <div class="page-header d-print-none mb-4">
+        <div class="row align-items-center">
+
+            <div class="col">
+                <h2 class="page-title">
+                    Dashboard
+                </h2>
+
+                <div class="text-secondary">
+                    Benvenuto in SECURTEK
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="row row-deck row-cards">
+
+        <div class="col-sm-6 col-lg-3">
+            {% include "components/stats_card.html" with
+                title="Anagrafiche"
+                value=kpi.anagrafiche
+                color="primary"
+                icon="building"
+            %}
+        </div>
+
+        <div class="col-sm-6 col-lg-3">
+            {% include "components/stats_card.html" with
+                title="Pratiche"
+                value=kpi.pratiche
+                color="green"
+                icon="folder"
+            %}
+        </div>
+
+        <div class="col-sm-6 col-lg-3">
+            {% include "components/stats_card.html" with
+                title="Documenti"
+                value=kpi.documenti
+                color="orange"
+                icon="file-text"
+            %}
+        </div>
+
+        <div class="col-sm-6 col-lg-3">
+            {% include "components/stats_card.html" with
+                title="Scadenze"
+                value=kpi.scadenze
+                color="red"
+                icon="calendar"
+            %}
+        </div>
+
+    </div>
+
+    <div class="row mt-4">
+
+        <div class="col-lg-6">
+
+            <div class="card">
+
+                <div class="card-header">
+                    <h3 class="card-title">
+                        Accesso rapido
+                    </h3>
+                </div>
+
+                <div class="card-body">
+
+                    <a href="/anagrafiche/nuova/" class="btn btn-primary mb-2 w-100">
+                        Nuova Anagrafica
+                    </a>
+
+                    <a href="#" class="btn btn-success mb-2 w-100">
+                        Nuova Pratica
+                    </a>
+
+                    <a href="#" class="btn btn-outline-secondary w-100">
+                        Agenda
+                    </a>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="col-lg-6">
+
+            <div class="card">
+
+                <div class="card-header">
+                    <h3 class="card-title">
+                        Ultime attività
+                    </h3>
+                </div>
+
+                <div class="card-body">
+
+                    <ul class="list-unstyled">
+
+                        <li>✔ Sistema avviato</li>
+
+                        <li>✔ Login effettuato</li>
+
+                        <li>✔ Dashboard pronta</li>
+
+                    </ul>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

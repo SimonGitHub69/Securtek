@@ -1,7 +1,8 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy
-from django.views.generic import ListView, CreateView, UpdateView
+from django.views.generic import ListView, CreateView, UpdateView, DetailView
 from django.db.models import Q
+from django.contrib.messages.views import SuccessMessageMixin
 
 from apps.anagrafiche.models import Anagrafica
 from apps.anagrafiche.forms import AnagraficaForm
@@ -16,7 +17,7 @@ class AnagraficaListView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         queryset = Anagrafica.objects.filter(is_active=True)
 
-        q = self.request.GET.get("q")
+        q = (self.request.GET.get("q") or "").strip()
 
         if q:
             queryset = queryset.filter(
@@ -42,3 +43,23 @@ class AnagraficaUpdateView(LoginRequiredMixin, UpdateView):
     form_class = AnagraficaForm
     template_name = "anagrafiche/anagrafica_form.html"
     success_url = reverse_lazy("anagrafiche:anagrafica_list")
+
+class AnagraficaDetailView(LoginRequiredMixin, DetailView):
+    model = Anagrafica
+    template_name = "anagrafiche/anagrafica_detail.html"
+    context_object_name = "anagrafica"
+
+class AnagraficaCreateView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
+    model = Anagrafica
+    form_class = AnagraficaForm
+    template_name = "anagrafiche/anagrafica_form.html"
+    success_url = reverse_lazy("anagrafiche:anagrafica_list")
+    success_message = "Anagrafica creata correttamente."
+
+
+class AnagraficaUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
+    model = Anagrafica
+    form_class = AnagraficaForm
+    template_name = "anagrafiche/anagrafica_form.html"
+    success_url = reverse_lazy("anagrafiche:anagrafica_list")
+    success_message = "Anagrafica aggiornata correttamente."

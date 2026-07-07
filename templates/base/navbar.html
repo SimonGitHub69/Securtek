@@ -17,15 +17,17 @@
         <div class="d-flex align-items-center ms-auto gap-3">
 
             <!-- Ricerca -->
-            <div class="d-none d-lg-block">
+            <form class="d-none d-lg-block" method="get" action="{% url 'anagrafiche:anagrafica_list' %}">
 
                 <input
                     type="text"
+                    name="q"
+                    value="{{ request.GET.q }}"
                     class="form-control"
                     style="width:300px"
                     placeholder="Cerca...">
 
-            </div>
+            </form>
 
             <!-- Notifiche -->
             <button class="btn btn-icon btn-outline-secondary">
@@ -97,3 +99,4 @@
     </div>
 
 </header>
+

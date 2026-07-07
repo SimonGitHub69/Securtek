@@ -1,0 +1,147 @@
+{% extends "base/layout.html" %}
+
+{% block page_title %}
+{{ anagrafica.ragione_sociale }}
+{% endblock %}
+
+{% block content %}
+
+<div class="container-xl">
+
+    <div class="page-header d-print-none mb-3">
+        <div class="row align-items-center">
+
+            <div class="col">
+                <h2 class="page-title">
+                    {{ anagrafica.ragione_sociale }}
+                </h2>
+
+                <div class="text-secondary">
+                    Scheda Anagrafica
+                </div>
+            </div>
+
+            <div class="col-auto">
+
+                <a href="{% url 'anagrafiche:anagrafica_update' anagrafica.pk %}"
+                   class="btn btn-primary">
+
+                    <i class="ti ti-edit"></i>
+                    Modifica
+
+                </a>
+
+                <a href="{% url 'anagrafiche:anagrafica_list' %}"
+                   class="btn btn-outline-secondary">
+
+                    <i class="ti ti-arrow-left"></i>
+                    Elenco
+
+                </a>
+
+            </div>
+
+        </div>
+    </div>
+
+
+    <div class="row">
+
+        <div class="col-lg-6">
+
+            <div class="card">
+
+                <div class="card-header">
+                    <h3 class="card-title">
+                        Dati Generali
+                    </h3>
+                </div>
+
+                <div class="card-body">
+
+                    <table class="table table-borderless">
+
+                        <tr>
+                            <th width="180">Ragione Sociale</th>
+                            <td>{{ anagrafica.ragione_sociale }}</td>
+                        </tr>
+
+                        <tr>
+                            <th>Partita IVA</th>
+                            <td>{{ anagrafica.partita_iva }}</td>
+                        </tr>
+
+                        <tr>
+                            <th>Codice Fiscale</th>
+                            <td>{{ anagrafica.codice_fiscale }}</td>
+                        </tr>
+
+                        <tr>
+                            <th>Email</th>
+                            <td>{{ anagrafica.email }}</td>
+                        </tr>
+
+                        <tr>
+                            <th>Telefono</th>
+                            <td>{{ anagrafica.telefono }}</td>
+                        </tr>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="col-lg-6">
+
+            <div class="card">
+
+                <div class="card-header">
+                    <h3 class="card-title">
+                        Informazioni
+                    </h3>
+                </div>
+
+                <div class="card-body">
+
+                    <p>
+                        <strong>Stato:</strong>
+
+                        <span class="badge bg-success">
+                            Attiva
+                        </span>
+                    </p>
+
+                    <p>
+                        Questa schermata sarà estesa con:
+
+                    </p>
+
+                    <ul>
+
+                        <li>Contatti</li>
+
+                        <li>Indirizzi</li>
+
+                        <li>Documenti</li>
+
+                        <li>Storico</li>
+
+                        <li>Note</li>
+
+                    </ul>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

@@ -1,5 +1,7 @@
 from django.views.generic import TemplateView
 
+from apps.anagrafiche.models import Anagrafica
+
 
 class DashboardView(TemplateView):
     template_name = "dashboard/index.html"
@@ -8,10 +10,10 @@ class DashboardView(TemplateView):
         context = super().get_context_data(**kwargs)
 
         context["kpi"] = {
-            "pratiche": 125,
-            "clienti": 58,
-            "scadenze": 7,
-            "documenti": 189,
+            "anagrafiche": Anagrafica.objects.filter(is_active=True).count(),
+            "pratiche": 0,
+            "documenti": 0,
+            "scadenze": 0,
         }
 
         return context
