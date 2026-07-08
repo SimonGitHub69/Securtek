@@ -1,0 +1,155 @@
+{% extends "base/layout.html" %}
+
+{% block page_title %}
+Parametri mail
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">Parametri mail notifiche</h2>
+            <div class="text-secondary">Configurazione SMTP per notificare le scadenze del calendario lavori</div>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'dashboard:index' %}" class="btn btn-outline-secondary">
+                <i class="ti ti-arrow-left"></i>
+                Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="card-body">
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            <div class="row">
+                <div class="col-md-3">
+                    <label class="form-check mb-3">
+                        {{ form.attiva }}
+                        <span class="form-check-label">{{ form.attiva.label }}</span>
+                    </label>
+                    {% if form.attiva.errors %}
+                        <div class="invalid-feedback d-block">{{ form.attiva.errors|join:", " }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.giorni_preavviso.id_for_label }}">{{ form.giorni_preavviso.label }}</label>
+                        {{ form.giorni_preavviso }}
+                        {% if form.giorni_preavviso.errors %}
+                            <div class="invalid-feedback d-block">{{ form.giorni_preavviso.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.mittente.id_for_label }}">{{ form.mittente.label }}</label>
+                        {{ form.mittente }}
+                        {% if form.mittente.errors %}
+                            <div class="invalid-feedback d-block">{{ form.mittente.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.host.id_for_label }}">{{ form.host.label }}</label>
+                        {{ form.host }}
+                        {% if form.host.errors %}
+                            <div class="invalid-feedback d-block">{{ form.host.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="col-md-2">
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.porta.id_for_label }}">{{ form.porta.label }}</label>
+                        {{ form.porta }}
+                        {% if form.porta.errors %}
+                            <div class="invalid-feedback d-block">{{ form.porta.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-check mt-4">
+                        {{ form.usa_tls }}
+                        <span class="form-check-label">{{ form.usa_tls.label }}</span>
+                    </label>
+                    {% if form.usa_tls.errors %}
+                        <div class="invalid-feedback d-block">{{ form.usa_tls.errors|join:", " }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-check mt-4">
+                        {{ form.usa_ssl }}
+                        <span class="form-check-label">{{ form.usa_ssl.label }}</span>
+                    </label>
+                    {% if form.usa_ssl.errors %}
+                        <div class="invalid-feedback d-block">{{ form.usa_ssl.errors|join:", " }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+                        {{ form.username }}
+                        {% if form.username.errors %}
+                            <div class="invalid-feedback d-block">{{ form.username.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+                        {{ form.password }}
+                        {% if form.password.errors %}
+                            <div class="invalid-feedback d-block">{{ form.password.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="col-12">
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.destinatari_default.id_for_label }}">{{ form.destinatari_default.label }}</label>
+                        {{ form.destinatari_default }}
+                        {% if form.destinatari_default.errors %}
+                            <div class="invalid-feedback d-block">{{ form.destinatari_default.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="col-12">
+                    <div class="mb-0">
+                        <label class="form-label" for="{{ form.note.id_for_label }}">{{ form.note.label }}</label>
+                        {{ form.note }}
+                        {% if form.note.errors %}
+                            <div class="invalid-feedback d-block">{{ form.note.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-footer text-end">
+            <button type="submit" class="btn btn-primary">
+                <i class="ti ti-device-floppy"></i>
+                Salva parametri
+            </button>
+        </div>
+    </form>
+</div>
+
+{% endblock %}

@@ -1,55 +1,42 @@
+{% load static %}
+
 <aside class="st-sidebar">
 
     <div class="st-sidebar-brand">
-        <div class="st-logo">S</div>
-
-        <div>
-            <div class="st-brand-title">SECURTEK</div>
-            <div class="st-brand-subtitle">Gestione Pratiche</div>
-        </div>
+        <img class="st-logo" src="{% static 'securtek/img/securtek-logo.png' %}" alt="Securtek">
+        <div class="st-brand-subtitle">Gestione Pratiche</div>
     </div>
 
     <nav class="st-sidebar-nav">
 
-        <a class="st-nav-link active" href="/">
+        <a class="st-nav-link {% if request.path == '/' %}active{% endif %}" href="/">
             <i class="ti ti-home"></i>
             <span>Dashboard</span>
         </a>
 
         <div class="st-nav-section">Gestione</div>
 
-        <a class="st-nav-link" href="#">
+        <a class="st-nav-link {% if request.path|slice:':10' == '/pratiche/' and '/pratiche/categorie/' not in request.path and '/pratiche/macro-categorie/' not in request.path and '/pratiche/template-pratiche/' not in request.path and '/pratiche/studi-tecnici/' not in request.path and '/pratiche/incarichi/' not in request.path %}active{% endif %}" href="/pratiche/">
             <i class="ti ti-folder"></i>
             <span>Pratiche</span>
         </a>
 
-        <a class="st-nav-link" href="/anagrafiche/">
+        <a class="st-nav-link {% if request.path|slice:':13' == '/anagrafiche/' %}active{% endif %}" href="/anagrafiche/">
             <i class="ti ti-building"></i>
             <span>Anagrafiche</span>
         </a>
 
-        <a class="st-nav-sub-link" href="/anagrafiche/">
-            <span>Aziende</span>
+        <a class="st-nav-link {% if request.path|slice:':24' == '/pratiche/studi-tecnici/' %}active{% endif %}" href="/pratiche/studi-tecnici/">
+            <i class="ti ti-briefcase"></i>
+            <span>Studi Tecnici</span>
         </a>
 
-        <a class="st-nav-sub-link" href="#">
-            <span>Persone</span>
-        </a>
-
-        <a class="st-nav-sub-link" href="#">
-            <span>Contatti</span>
-        </a>
-
-        <a class="st-nav-sub-link" href="#">
-            <span>Indirizzi</span>
-        </a>
-
-        <a class="st-nav-link" href="#">
+        <a class="st-nav-link {% if request.path|slice:':8' == '/agenda/' and request.path != '/agenda/parametri-mail/' %}active{% endif %}" href="/agenda/">
             <i class="ti ti-calendar"></i>
             <span>Agenda</span>
         </a>
 
-        <a class="st-nav-link" href="#">
+        <a class="st-nav-link {% if request.path == '/documenti/' %}active{% endif %}" href="/documenti/">
             <i class="ti ti-file-text"></i>
             <span>Documenti</span>
         </a>
@@ -61,7 +48,36 @@
             <span>Report</span>
         </a>
 
-        <a class="st-nav-link" href="#">
+        <div class="st-nav-section">Parametri</div>
+
+        <a class="st-nav-link {% if request.path|slice:':20' == '/pratiche/categorie/' %}active{% endif %}" href="/pratiche/categorie/">
+            <i class="ti ti-tags"></i>
+            <span>Categorie</span>
+        </a>
+
+        <a class="st-nav-link {% if request.path|slice:':26' == '/pratiche/macro-categorie/' %}active{% endif %}" href="/pratiche/macro-categorie/">
+            <i class="ti ti-category"></i>
+            <span>Macro-categorie</span>
+        </a>
+
+        <a class="st-nav-link {% if request.path|slice:':28' == '/pratiche/template-pratiche/' %}active{% endif %}" href="/pratiche/template-pratiche/">
+            <i class="ti ti-template"></i>
+            <span>Template pratiche</span>
+        </a>
+
+        <a class="st-nav-link {% if request.path|slice:':20' == '/pratiche/incarichi/' %}active{% endif %}" href="/pratiche/incarichi/">
+            <i class="ti ti-id-badge-2"></i>
+            <span>Incarichi</span>
+        </a>
+
+        <a class="st-nav-link {% if request.path == '/agenda/parametri-mail/' %}active{% endif %}" href="/agenda/parametri-mail/">
+            <i class="ti ti-mail-cog"></i>
+            <span>Parametri Mail</span>
+        </a>
+
+        <div class="st-nav-section">Sistema</div>
+
+        <a class="st-nav-link {% if request.path == '/sistema/' %}active{% endif %}" href="/sistema/">
             <i class="ti ti-settings"></i>
             <span>Sistema</span>
         </a>

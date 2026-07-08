@@ -1,0 +1,131 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Documenti{% endblock %}
+
+{% block content %}
+<div class="page-header d-print-none">
+    <div class="container-xl">
+        <div class="row g-2 align-items-center">
+            <div class="col">
+                <h2 class="page-title">Documenti</h2>
+                <div class="text-secondary">File collegati alle pratiche tramite cartelle categoria e comunicazioni.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="page-body">
+    <div class="container-xl">
+        <div class="row row-cards mb-3">
+            <div class="col-sm-4">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="text-secondary small">Totale documenti</div>
+                        <div class="h2 mb-0">{{ document_counts.totale }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="text-secondary small">Da cartelle</div>
+                        <div class="h2 mb-0">{{ document_counts.cartelle }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="text-secondary small">Comunicazioni</div>
+                        <div class="h2 mb-0">{{ document_counts.comunicazioni }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Archivio documenti</h3>
+                <div class="card-actions">
+                    <form method="get" class="d-flex gap-2">
+                        <input type="search"
+                               name="q"
+                               value="{{ q }}"
+                               class="form-control"
+                               placeholder="Cerca file, pratica o descrizione">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ti ti-search"></i>
+                            Cerca
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-vcenter">
+                    <thead>
+                        <tr>
+                            <th>Documento</th>
+                            <th>Pratica</th>
+                            <th>Origine</th>
+                            <th>Tipo</th>
+                            <th>Categoria</th>
+                            <th>Descrizione</th>
+                            <th>Aggiornato</th>
+                            <th class="text-end">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for document in documents %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="ti {{ document.icon }} text-primary"></i>
+                                        <span class="fw-semibold">{{ document.name }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <a href="{{ document.detail_url }}">
+                                        {{ document.pratica.codice }} - {{ document.pratica.titolo }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <span class="badge bg-blue-lt">{{ document.source }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary-lt">{{ document.type }}</span>
+                                </td>
+                                <td>
+                                    {% if document.category %}
+                                        {% if document.macro %}
+                                            <span class="badge bg-purple-lt">{{ document.macro }}</span>
+                                        {% endif %}
+                                        <span class="badge bg-green-lt">{{ document.category }}</span>
+                                    {% else %}
+                                        <span class="text-secondary">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ document.description|default:"-"|truncatechars:80 }}</td>
+                                <td>{{ document.updated_at|date:"d/m/Y H:i" }}</td>
+                                <td class="text-end">
+                                    <a href="{{ document.open_url }}"
+                                       class="btn btn-icon btn-outline-primary"
+                                       title="Apri documento">
+                                        <i class="ti ti-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center text-secondary py-4">
+                                    Nessun documento collegato.
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

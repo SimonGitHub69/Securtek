@@ -1,0 +1,56 @@
+{% extends "base/layout.html" %}
+
+{% block page_title %}
+{% if object %}Modifica template pratica{% else %}Nuovo template pratica{% endif %}
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">
+                {% if object %}Modifica template pratica{% else %}Nuovo template pratica{% endif %}
+            </h2>
+            <div class="text-secondary">Preset categorie da applicare automaticamente per tipologia pratica</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="card-body">
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            <div class="row">
+                {% for field in form %}
+                    <div class="{% if field.name in 'macro_categorie categorie note' %}col-12{% else %}col-md-6{% endif %}">
+                        <div class="mb-3">
+                            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.errors %}
+                                <div class="invalid-feedback d-block">{{ field.errors|join:", " }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card-footer text-end">
+            <a href="{% url 'pratiche:template_pratica_list' %}" class="btn btn-secondary">
+                Annulla
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="ti ti-device-floppy"></i>
+                Salva
+            </button>
+        </div>
+    </form>
+</div>
+
+{% endblock %}

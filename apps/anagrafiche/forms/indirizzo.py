@@ -28,3 +28,27 @@ class IndirizzoForm(forms.ModelForm):
             "principale": forms.CheckboxInput(attrs={"class": "form-check-input"}),
             "note": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["indirizzo"].required = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+        has_details = any(
+            cleaned_data.get(field_name)
+            for field_name in [
+                "indirizzo",
+                "civico",
+                "cap",
+                "comune",
+                "provincia",
+                "principale",
+                "note",
+            ]
+        )
+
+        if has_details and not cleaned_data.get("indirizzo"):
+            self.add_error("indirizzo", "Inserisci l'indirizzo.")
+
+        return cleaned_data

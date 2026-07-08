@@ -1,0 +1,147 @@
+{% extends "base/layout.html" %}
+
+{% block page_title %}
+Agenda giornaliera
+{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+.st-day-event {
+    border-left: 4px solid var(--tblr-primary, #206bc4);
+}
+
+.st-day-event.scadenza {
+    border-left-color: var(--tblr-danger, #d63939);
+}
+
+.st-day-event.lavoro {
+    border-left-color: var(--tblr-success, #2fb344);
+}
+
+.st-day-time {
+    min-width: 86px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">Agenda giornaliera</h2>
+            <div class="text-secondary">{{ selected_date|date:"l d F Y" }}</div>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'agenda:evento_create' %}?data={{ selected_date|date:'Y-m-d' }}{% if selected_pratica %}&pratica={{ selected_pratica }}{% endif %}" class="btn btn-primary">
+                <i class="ti ti-plus"></i>
+                Nuovo evento
+            </a>
+            <a href="{% url 'agenda:calendar' %}?year={{ selected_date.year }}&month={{ selected_date.month }}{% if selected_pratica %}&pratica={{ selected_pratica }}{% endif %}" class="btn btn-outline-secondary">
+                <i class="ti ti-calendar"></i>
+                Mese
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end">
+            <input type="hidden" name="data" value="{{ selected_date|date:'Y-m-d' }}">
+            <div class="col-md-5">
+                <label class="form-label">Pratica</label>
+                <select name="pratica" class="form-select">
+                    <option value="">Tutte le pratiche</option>
+                    {% for pratica in pratiche %}
+                        <option value="{{ pratica.pk }}" {% if selected_pratica|stringformat:"s" == pratica.pk|stringformat:"s" %}selected{% endif %}>
+                            {{ pratica.codice }} - {{ pratica.titolo }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-secondary">Filtra</button>
+            </div>
+            <div class="col-auto">
+                <a href="{% url 'agenda:day' %}?data={{ selected_date|date:'Y-m-d' }}" class="btn btn-outline-secondary">Pulisci</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <div class="card-title">Attività del giorno</div>
+        <div class="card-actions">
+            <a href="{% url 'agenda:day' %}?data={{ previous_day|date:'Y-m-d' }}{% if selected_pratica %}&pratica={{ selected_pratica }}{% endif %}" class="btn btn-outline-secondary btn-sm">
+                <i class="ti ti-chevron-left"></i>
+                Giorno precedente
+            </a>
+            <a href="{% url 'agenda:day' %}{% if selected_pratica %}?pratica={{ selected_pratica }}{% endif %}" class="btn btn-outline-secondary btn-sm">
+                Oggi
+            </a>
+            <a href="{% url 'agenda:day' %}?data={{ next_day|date:'Y-m-d' }}{% if selected_pratica %}&pratica={{ selected_pratica }}{% endif %}" class="btn btn-outline-secondary btn-sm">
+                Giorno successivo
+                <i class="ti ti-chevron-right"></i>
+            </a>
+        </div>
+    </div>
+
+    <div class="card-body">
+        {% if events %}
+            <div class="list-group list-group-flush">
+                {% for event in events %}
+                    <div class="list-group-item st-day-event {{ event.tipo }} px-0">
+                        <div class="d-flex gap-3">
+                            <div class="st-day-time text-secondary">
+                                {% if event.ora_inizio %}
+                                    {{ event.ora_inizio|time:"H:i" }}
+                                {% else %}
+                                    Tutto il giorno
+                                {% endif %}
+                                {% if event.ora_fine %}
+                                    <div class="small">{{ event.ora_fine|time:"H:i" }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="flex-fill">
+                                <div class="d-flex align-items-start justify-content-between gap-3">
+                                    <div>
+                                        <div class="fw-bold">{{ event.titolo }}</div>
+                                        <div class="text-secondary small">
+                                            {{ event.get_tipo_display }} · {{ event.get_stato_display }} · {{ event.pratica.codice }}
+                                        </div>
+                                        <div class="text-secondary small">{{ event.pratica.titolo }}</div>
+                                        {% if event.descrizione %}
+                                            <div class="mt-2">{{ event.descrizione|linebreaksbr }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="btn-list flex-nowrap">
+                                        <a href="{% url 'pratiche:pratica_detail' event.pratica.pk %}" class="btn btn-icon btn-outline-secondary" title="Apri pratica">
+                                            <i class="ti ti-folder"></i>
+                                        </a>
+                                        {% if not event.is_pratica_scadenza %}
+                                            <a href="{% url 'agenda:evento_update' event.pk %}" class="btn btn-icon btn-outline-primary" title="Modifica">
+                                                <i class="ti ti-edit"></i>
+                                            </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty">
+                <div class="empty-icon">
+                    <i class="ti ti-calendar"></i>
+                </div>
+                <p class="empty-title">Nessuna attività per questo giorno</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

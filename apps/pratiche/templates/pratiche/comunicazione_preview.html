@@ -1,0 +1,145 @@
+{% extends "base/layout.html" %}
+
+{% block page_title %}
+Anteprima comunicazione
+{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+.st-mail-body {
+    background: var(--tblr-bg-surface-secondary, #f8fafc);
+    border: 1px solid var(--tblr-border-color, #e6e8eb);
+    border-radius: 8px;
+    padding: 1rem;
+    white-space: pre-wrap;
+}
+
+.st-mail-frame {
+    border: 1px solid var(--tblr-border-color, #e6e8eb);
+    border-radius: 8px;
+    min-height: 420px;
+    width: 100%;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">Anteprima comunicazione</h2>
+            <div class="text-secondary">
+                {{ comunicazione.pratica.codice }} · {{ comunicazione.pratica.titolo }}
+            </div>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'pratiche:comunicazione_file' comunicazione.pratica.pk comunicazione.pk %}"
+               class="btn btn-outline-primary">
+                <i class="ti ti-download"></i>
+                Apri file originale
+            </a>
+            <a href="{% url 'pratiche:pratica_detail' comunicazione.pratica.pk %}" class="btn btn-outline-secondary">
+                <i class="ti ti-arrow-left"></i>
+                Pratica
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row row-cards">
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Dati comunicazione</h3>
+            </div>
+            <div class="card-body">
+                <dl class="row">
+                    <dt class="col-sm-4">Registrata</dt>
+                    <dd class="col-sm-8">{{ comunicazione.data_ora|date:"d/m/Y H:i" }}</dd>
+
+                    <dt class="col-sm-4">Descrizione</dt>
+                    <dd class="col-sm-8">{{ comunicazione.descrizione|linebreaksbr }}</dd>
+
+                    <dt class="col-sm-4">File</dt>
+                    <dd class="col-sm-8">{{ comunicazione.allegato_nome }}</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header">
+                <h3 class="card-title">Intestazioni mail</h3>
+            </div>
+            <div class="card-body">
+                <dl class="row">
+                    <dt class="col-sm-4">Oggetto</dt>
+                    <dd class="col-sm-8">{{ email_preview.subject|default:"-" }}</dd>
+
+                    <dt class="col-sm-4">Da</dt>
+                    <dd class="col-sm-8">{{ email_preview.from|default:"-" }}</dd>
+
+                    <dt class="col-sm-4">A</dt>
+                    <dd class="col-sm-8">{{ email_preview.to|default:"-" }}</dd>
+
+                    <dt class="col-sm-4">CC</dt>
+                    <dd class="col-sm-8">{{ email_preview.cc|default:"-" }}</dd>
+
+                    <dt class="col-sm-4">Data</dt>
+                    <dd class="col-sm-8">{{ email_preview.date|default:"-" }}</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Contenuto</h3>
+            </div>
+            <div class="card-body">
+                {% if email_preview.plain_body %}
+                    <div class="st-mail-body">{{ email_preview.plain_body }}</div>
+                {% elif email_preview.html_body %}
+                    <iframe class="st-mail-frame" sandbox srcdoc="{{ email_preview.html_body|escape }}"></iframe>
+                {% else %}
+                    <div class="empty">
+                        <div class="empty-icon">
+                            <i class="ti ti-mail"></i>
+                        </div>
+                        <p class="empty-title">Nessun contenuto leggibile</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if email_preview.attachments %}
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h3 class="card-title">Allegati nella mail</h3>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-vcenter">
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>Tipo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for attachment in email_preview.attachments %}
+                                <tr>
+                                    <td>{{ attachment.name }}</td>
+                                    <td><span class="badge bg-secondary-lt">{{ attachment.content_type }}</span></td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

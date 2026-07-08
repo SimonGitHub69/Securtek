@@ -1,6 +1,11 @@
 from django.db import models
+from django.core.validators import FileExtensionValidator
 
 from apps.core.models import BaseModel
+
+
+def anagrafica_logo_upload_to(instance, filename):
+    return f"anagrafiche/{instance.uuid}/logo/{filename}"
 
 
 class Anagrafica(BaseModel):
@@ -26,6 +31,17 @@ class Anagrafica(BaseModel):
     telefono = models.CharField(
         max_length=30,
         blank=True,
+    )
+
+    logo = models.FileField(
+        "Logo",
+        upload_to=anagrafica_logo_upload_to,
+        blank=True,
+        validators=[
+            FileExtensionValidator(
+                allowed_extensions=["png", "jpg", "jpeg", "webp", "svg"],
+            )
+        ],
     )
 
     class Meta:

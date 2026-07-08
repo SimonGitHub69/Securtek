@@ -1,0 +1,220 @@
+{% extends "base/layout.html" %}
+
+{% block page_title %}
+{{ page_title }}
+{% endblock %}
+
+{% block content %}
+
+<style>
+.st-folder-button {
+    align-items: center;
+    display: inline-flex;
+    gap: 0.35rem;
+    justify-content: center;
+    white-space: nowrap;
+}
+</style>
+
+<div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">{{ page_title }}</h2>
+            <div class="text-secondary">{{ pratica.codice }} · {{ pratica.titolo }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="card-body">
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            <div class="row">
+                {% for field in form %}
+                    <div class="{% if field.name == 'note' %}col-12{% elif field.name == 'cartella' %}col-md-6{% elif field.name in 'macro_categoria categoria' %}col-md-4{% else %}col-md-2{% endif %}">
+                        <div class="mb-3">
+                            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {% if field.name == "cartella" %}
+                                <div class="input-group">
+                                    {{ field }}
+                                    <button type="button"
+                                            class="btn btn-outline-primary st-folder-button"
+                                            id="chooseFolderButton"
+                                            data-picker-url="{% url 'pratiche:folder_picker' %}"
+                                            data-preview-url="{% url 'pratiche:folder_preview' %}">
+                                        <i class="ti ti-folder-open"></i>
+                                        Scegli cartella
+                                    </button>
+                                </div>
+                            {% else %}
+                                {{ field }}
+                            {% endif %}
+                            {% if field.help_text %}
+                                <div class="form-hint">{{ field.help_text }}</div>
+                            {% endif %}
+                            {% if field.errors %}
+                                <div class="invalid-feedback d-block">{{ field.errors|join:", " }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <div class="mt-3" id="folderPreview" hidden>
+                <h3 class="card-title mb-2">File nella cartella</h3>
+                <div class="table-responsive">
+                    <table class="table table-vcenter table-sm">
+                        <thead>
+                            <tr>
+                                <th>Nome file</th>
+                                <th>Creato il</th>
+                                <th>Modificato il</th>
+                                <th>Tipo</th>
+                                <th>Dimensione</th>
+                            </tr>
+                        </thead>
+                        <tbody id="folderPreviewRows"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="alert alert-warning mt-3" id="folderPreviewMessage" hidden></div>
+        </div>
+
+        <div class="card-footer text-end">
+            <a href="{% url 'pratiche:pratica_detail' pratica.pk %}" class="btn btn-secondary">
+                Annulla
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="ti ti-device-floppy"></i>
+                Salva
+            </button>
+        </div>
+    </form>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const cartellaInput = document.getElementById("id_cartella");
+    const chooseButton = document.getElementById("chooseFolderButton");
+    const preview = document.getElementById("folderPreview");
+    const previewRows = document.getElementById("folderPreviewRows");
+    const message = document.getElementById("folderPreviewMessage");
+
+    if (!cartellaInput || !chooseButton || !preview || !previewRows || !message) {
+        return;
+    }
+
+    function setMessage(text, isWarning = true) {
+        message.textContent = text;
+        message.hidden = !text;
+        message.classList.toggle("alert-warning", isWarning);
+        message.classList.toggle("alert-info", !isWarning);
+    }
+
+    function renderFiles(files) {
+        previewRows.innerHTML = "";
+
+        files.forEach(function (file) {
+            const row = document.createElement("tr");
+            const nameCell = document.createElement("td");
+            const createdCell = document.createElement("td");
+            const modifiedCell = document.createElement("td");
+            const typeCell = document.createElement("td");
+            const sizeCell = document.createElement("td");
+            const badge = document.createElement("span");
+
+            nameCell.textContent = file.name;
+            createdCell.textContent = file.created_at;
+            modifiedCell.textContent = file.modified_at;
+            badge.className = "badge bg-secondary-lt";
+            badge.textContent = file.extension;
+            typeCell.appendChild(badge);
+            sizeCell.textContent = `${file.size_kb} KB`;
+
+            row.appendChild(nameCell);
+            row.appendChild(createdCell);
+            row.appendChild(modifiedCell);
+            row.appendChild(typeCell);
+            row.appendChild(sizeCell);
+            previewRows.appendChild(row);
+        });
+
+        preview.hidden = files.length === 0;
+    }
+
+    async function refreshPreview() {
+        const value = cartellaInput.value.trim();
+        preview.hidden = true;
+        previewRows.innerHTML = "";
+        setMessage("");
+
+        if (!value) {
+            return;
+        }
+
+        try {
+            const url = `${chooseButton.dataset.previewUrl}?path=${encodeURIComponent(value)}`;
+            const response = await fetch(url, {headers: {"X-Requested-With": "XMLHttpRequest"}});
+            const data = await response.json();
+
+            if (!response.ok || data.error) {
+                setMessage(data.error || "Impossibile leggere la cartella.");
+                return;
+            }
+
+            if (data.is_link) {
+                setMessage("Il valore inserito è un link: sarà apribile dalla scheda pratica.", false);
+                return;
+            }
+
+            renderFiles(data.files || []);
+
+            if (!data.files || data.files.length === 0) {
+                setMessage("Nessun file supportato trovato nella cartella.", false);
+            }
+        } catch (error) {
+            setMessage("Impossibile leggere l'anteprima della cartella.");
+        }
+    }
+
+    chooseButton.addEventListener("click", async function () {
+        setMessage("Apro il selettore cartella...", false);
+
+        try {
+            const response = await fetch(chooseButton.dataset.pickerUrl, {
+                headers: {"X-Requested-With": "XMLHttpRequest"},
+            });
+            const data = await response.json();
+
+            if (!response.ok || data.error) {
+                setMessage(data.error || "Impossibile scegliere la cartella.");
+                return;
+            }
+
+            if (data.path) {
+                cartellaInput.value = data.path;
+                await refreshPreview();
+            } else {
+                setMessage("");
+            }
+        } catch (error) {
+            setMessage("Impossibile aprire il selettore cartella.");
+        }
+    });
+
+    cartellaInput.addEventListener("change", refreshPreview);
+    cartellaInput.addEventListener("blur", refreshPreview);
+    refreshPreview();
+});
+</script>
+{% endblock %}

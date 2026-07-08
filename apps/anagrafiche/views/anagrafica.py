@@ -1,13 +1,15 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect
-from django.urls import reverse_lazy
+from django.urls import reverse
 from django.views.generic import ListView, CreateView, UpdateView, DetailView, View
-from django.db.models import Count, Q
+from django.db.models import Count, Prefetch, Q
 from django.contrib.messages.views import SuccessMessageMixin
 
-from apps.anagrafiche.models import Anagrafica
-from apps.anagrafiche.forms import AnagraficaForm
+from apps.anagrafiche.models import Anagrafica, Contatto, Indirizzo
+from apps.anagrafiche.forms import AnagraficaForm, ContattoFormSet, IndirizzoFormSet
+from apps.pratiche.models import Pratica, PraticaCategoria
 
 
 class AnagraficaListView(LoginRequiredMixin, ListView):
@@ -18,8 +20,16 @@ class AnagraficaListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         queryset = Anagrafica.objects.filter(is_active=True).annotate(
-            contatti_attivi=Count("contatti", filter=Q(contatti__is_active=True)),
-            indirizzi_attivi=Count("indirizzi", filter=Q(indirizzi__is_active=True)),
+            contatti_attivi=Count(
+                "contatti",
+                filter=Q(contatti__is_active=True),
+                distinct=True,
+            ),
+            indirizzi_attivi=Count(
+                "indirizzi",
+                filter=Q(indirizzi__is_active=True),
+                distinct=True,
+            ),
         )
 
         q = (self.request.GET.get("q") or "").strip()
@@ -45,23 +55,134 @@ class AnagraficaDetailView(LoginRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
         context["contatti"] = self.object.contatti.filter(is_active=True)
         context["indirizzi"] = self.object.indirizzi.filter(is_active=True)
+        context["pratiche_in_essere"] = (
+            self.object.pratiche.filter(is_active=True)
+            .exclude(
+                stato__in=[
+                    Pratica.Stato.COMPLETATA,
+                    Pratica.Stato.ANNULLATA,
+                    Pratica.Stato.ARCHIVIATA,
+                ]
+            )
+            .select_related("responsabile")
+            .prefetch_related(
+                Prefetch(
+                    "categoria_collegamenti",
+                    queryset=PraticaCategoria.objects.filter(is_active=True).select_related("categoria"),
+                    to_attr="categorie_attive",
+                )
+            )
+        )
         return context
 
 
-class AnagraficaCreateView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
+class AnagraficaFormsetMixin:
+    contatto_prefix = "contatti"
+    indirizzo_prefix = "indirizzi"
+
+    def get_contatto_queryset(self):
+        if self.object:
+            return self.object.contatti.filter(is_active=True)
+
+        return Contatto.objects.none()
+
+    def get_indirizzo_queryset(self):
+        if self.object:
+            return self.object.indirizzi.filter(is_active=True)
+
+        return Indirizzo.objects.none()
+
+    def get_contatto_formset(self):
+        return ContattoFormSet(
+            self.request.POST or None,
+            instance=self.object,
+            prefix=self.contatto_prefix,
+            queryset=self.get_contatto_queryset(),
+        )
+
+    def get_indirizzo_formset(self):
+        return IndirizzoFormSet(
+            self.request.POST or None,
+            instance=self.object,
+            prefix=self.indirizzo_prefix,
+            queryset=self.get_indirizzo_queryset(),
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        if "contatto_formset" not in context:
+            context["contatto_formset"] = self.get_contatto_formset()
+
+        if "indirizzo_formset" not in context:
+            context["indirizzo_formset"] = self.get_indirizzo_formset()
+
+        return context
+
+    def form_valid(self, form):
+        contatto_formset = self.get_contatto_formset()
+        indirizzo_formset = self.get_indirizzo_formset()
+
+        if not contatto_formset.is_valid() or not indirizzo_formset.is_valid():
+            return self.form_invalid_with_formsets(form, contatto_formset, indirizzo_formset)
+
+        with transaction.atomic():
+            self.object = form.save(commit=False)
+            self.object.updated_by = self.request.user
+            if not self.object.pk:
+                self.object.created_by = self.request.user
+            self.object.save()
+
+            self.save_formset(contatto_formset)
+            self.save_formset(indirizzo_formset)
+
+        messages.success(self.request, self.success_message)
+        return redirect(self.get_success_url())
+
+    def form_invalid_with_formsets(self, form, contatto_formset, indirizzo_formset):
+        return self.render_to_response(
+            self.get_context_data(
+                form=form,
+                contatto_formset=contatto_formset,
+                indirizzo_formset=indirizzo_formset,
+            )
+        )
+
+    def save_formset(self, formset):
+        formset.instance = self.object
+        instances = formset.save(commit=False)
+
+        for instance in instances:
+            if hasattr(instance, "valore") and not instance.valore:
+                continue
+
+            if hasattr(instance, "indirizzo") and not instance.indirizzo:
+                continue
+
+            instance.updated_by = self.request.user
+            if not instance.pk:
+                instance.created_by = self.request.user
+            instance.save()
+
+
+class AnagraficaCreateView(LoginRequiredMixin, AnagraficaFormsetMixin, SuccessMessageMixin, CreateView):
     model = Anagrafica
     form_class = AnagraficaForm
     template_name = "anagrafiche/anagrafica_form.html"
-    success_url = reverse_lazy("anagrafiche:anagrafica_list")
     success_message = "Anagrafica creata correttamente."
 
+    def get_success_url(self):
+        return reverse("anagrafiche:anagrafica_detail", kwargs={"pk": self.object.pk})
 
-class AnagraficaUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
+
+class AnagraficaUpdateView(LoginRequiredMixin, AnagraficaFormsetMixin, SuccessMessageMixin, UpdateView):
     model = Anagrafica
     form_class = AnagraficaForm
     template_name = "anagrafiche/anagrafica_form.html"
-    success_url = reverse_lazy("anagrafiche:anagrafica_list")
     success_message = "Anagrafica aggiornata correttamente."
+
+    def get_success_url(self):
+        return reverse("anagrafiche:anagrafica_detail", kwargs={"pk": self.object.pk})
 
 
 class AnagraficaDeleteView(LoginRequiredMixin, View):

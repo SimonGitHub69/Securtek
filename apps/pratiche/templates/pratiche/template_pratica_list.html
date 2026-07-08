@@ -1,0 +1,77 @@
+{% extends "base/layout.html" %}
+
+{% block page_title %}
+Template pratiche
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">Template pratiche</h2>
+            <div class="text-secondary">Categorie applicate automaticamente in base alla tipologia</div>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'pratiche:template_pratica_create' %}" class="btn btn-primary">
+                <i class="ti ti-plus"></i>
+                Nuovo template
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-vcenter">
+            <thead>
+                <tr>
+                    <th>Tipologia</th>
+                    <th>Macro-categorie</th>
+                    <th>Categorie singole</th>
+                    <th class="text-end">Azioni</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for template in template_pratiche %}
+                    <tr>
+                        <td class="fw-bold">{{ template.get_tipologia_display }}</td>
+                        <td>
+                            {% for macro in template.macro_categorie.all %}
+                                {% if macro.is_active %}
+                                    <span class="badge bg-purple-lt me-1 mb-1">{{ macro.denominazione }}</span>
+                                {% endif %}
+                            {% empty %}
+                                <span class="text-secondary">-</span>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            {% for categoria in template.categorie.all %}
+                                {% if categoria.is_active %}
+                                    <span class="badge bg-blue-lt me-1 mb-1">{{ categoria.denominazione }}</span>
+                                {% endif %}
+                            {% empty %}
+                                <span class="text-secondary">-</span>
+                            {% endfor %}
+                        </td>
+                        <td class="text-end">
+                            <a href="{% url 'pratiche:template_pratica_update' template.pk %}"
+                               class="btn btn-icon btn-outline-primary"
+                               title="Modifica">
+                                <i class="ti ti-edit"></i>
+                            </a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center text-secondary py-4">
+                            Nessun template presente
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

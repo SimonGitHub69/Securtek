@@ -1,0 +1,254 @@
+{% extends "base/layout.html" %}
+
+{% block page_title %}
+Studi tecnici
+{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+.st-confirm {
+    background: rgba(15, 23, 42, 0.45);
+    bottom: 0;
+    display: flex;
+    left: 0;
+    padding: 1rem;
+    position: fixed;
+    right: 0;
+    top: 0;
+    z-index: 1080;
+}
+
+.st-confirm[hidden] {
+    display: none;
+}
+
+.st-confirm-dialog {
+    background: var(--tblr-bg-surface, #fff);
+    border-radius: 8px;
+    box-shadow: 0 1rem 3rem rgba(15, 23, 42, 0.2);
+    margin: auto;
+    max-width: 420px;
+    overflow: hidden;
+    width: 100%;
+}
+
+.st-confirm-body {
+    display: flex;
+    gap: 1rem;
+    padding: 1.25rem 1.25rem 1rem;
+}
+
+.st-confirm-icon {
+    align-items: center;
+    background: rgba(214, 57, 57, 0.12);
+    border-radius: 8px;
+    color: var(--tblr-danger, #d63939);
+    display: flex;
+    flex: 0 0 44px;
+    height: 44px;
+    justify-content: center;
+    width: 44px;
+}
+
+.st-confirm-icon .ti {
+    font-size: 1.35rem;
+}
+
+.st-confirm-title {
+    color: var(--tblr-body-color, #1f2937);
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.35;
+    margin-bottom: 0.35rem;
+}
+
+.st-confirm-text {
+    color: var(--tblr-secondary, #667085);
+    font-size: 0.875rem;
+    line-height: 1.45;
+}
+
+.st-confirm-name {
+    color: var(--tblr-body-color, #1f2937);
+    font-weight: 600;
+}
+
+.st-confirm-footer {
+    align-items: center;
+    background: var(--tblr-bg-surface-secondary, #f8fafc);
+    border-top: 1px solid var(--tblr-border-color, #e6e8eb);
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    padding: 0.75rem 1.25rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">Studi tecnici</h2>
+            <div class="text-secondary">Elenco studi disponibili per i tecnici delle pratiche</div>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'pratiche:studio_tecnico_create' %}" class="btn btn-primary">
+                <i class="ti ti-plus"></i>
+                Nuovo studio
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-5">
+                    <label class="form-label">Ricerca</label>
+                    <input type="text"
+                           name="q"
+                           value="{{ request.GET.q }}"
+                           class="form-control"
+                           placeholder="Denominazione, email o telefono">
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-secondary">Cerca</button>
+                </div>
+                <div class="col-auto">
+                    <a href="{% url 'pratiche:studio_tecnico_list' %}" class="btn btn-outline-secondary">Pulisci</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-vcenter">
+            <thead>
+                <tr>
+                    <th>Studio</th>
+                    <th>Email</th>
+                    <th>Telefono</th>
+                    <th>Tecnici</th>
+                    <th class="text-end">Azioni</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for studio in studi_tecnici %}
+                    <tr>
+                        <td class="fw-bold">{{ studio.denominazione }}</td>
+                        <td>{{ studio.email|default:"-" }}</td>
+                        <td>{{ studio.telefono|default:"-" }}</td>
+                        <td>
+                            <span class="badge bg-blue-lt">{{ studio.tecnici_attivi }}</span>
+                        </td>
+                        <td class="text-end">
+                            <a href="{% url 'pratiche:studio_tecnico_update' studio.pk %}"
+                               class="btn btn-icon btn-outline-primary"
+                               title="Modifica">
+                                <i class="ti ti-edit"></i>
+                            </a>
+                            <button type="button"
+                                    class="btn btn-icon btn-outline-danger js-delete-studio"
+                                    title="Elimina"
+                                    data-delete-action="{% url 'pratiche:studio_tecnico_delete' studio.pk %}"
+                                    data-delete-name="{{ studio.denominazione }}">
+                                <i class="ti ti-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center text-secondary py-4">
+                            Nessuno studio tecnico presente
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="st-confirm" id="deleteStudioModal" hidden>
+    <div class="st-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="deleteStudioTitle">
+        <form method="post" id="deleteStudioForm">
+            {% csrf_token %}
+
+            <div class="st-confirm-body">
+                <div class="st-confirm-icon">
+                    <i class="ti ti-trash"></i>
+                </div>
+
+                <div>
+                    <div class="st-confirm-title" id="deleteStudioTitle">
+                        Eliminare questo studio tecnico?
+                    </div>
+                    <div class="st-confirm-text">
+                        <span class="st-confirm-name" id="deleteStudioName">Studio selezionato</span>
+                        non sarà più disponibile nella lista.
+                    </div>
+                </div>
+            </div>
+
+            <div class="st-confirm-footer">
+                <button type="button" class="btn btn-outline-secondary js-delete-cancel">
+                    Annulla
+                </button>
+                <button type="submit" class="btn btn-danger">
+                    <i class="ti ti-trash"></i>
+                    Elimina
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const modalElement = document.getElementById("deleteStudioModal");
+    const form = document.getElementById("deleteStudioForm");
+    const nameElement = document.getElementById("deleteStudioName");
+    const cancelButton = modalElement ? modalElement.querySelector(".js-delete-cancel") : null;
+
+    if (!modalElement || !form || !nameElement || !cancelButton) {
+        return;
+    }
+
+    function closeModal() {
+        modalElement.hidden = true;
+        form.removeAttribute("action");
+    }
+
+    document.querySelectorAll(".js-delete-studio").forEach(function (button) {
+        button.addEventListener("click", function () {
+            form.action = button.dataset.deleteAction;
+            nameElement.textContent = button.dataset.deleteName || "Studio selezionato";
+            modalElement.hidden = false;
+        });
+    });
+
+    cancelButton.addEventListener("click", closeModal);
+
+    modalElement.addEventListener("click", function (event) {
+        if (event.target === modalElement) {
+            closeModal();
+        }
+    });
+
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && !modalElement.hidden) {
+            closeModal();
+        }
+    });
+});
+</script>
+{% endblock %}

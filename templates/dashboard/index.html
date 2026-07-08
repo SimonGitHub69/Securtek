@@ -2,18 +2,241 @@
 
 {% block title %}Dashboard{% endblock %}
 
+{% block extra_css %}
+{{ block.super }}
+<style>
+.st-kpi-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.st-kpi-card {
+    align-items: stretch;
+    background: var(--tblr-bg-surface, #fff);
+    border: 1px solid var(--tblr-border-color, #e6e8eb);
+    border-radius: 8px;
+    box-shadow: 0 0.125rem 0.25rem rgba(15, 23, 42, 0.04);
+    color: inherit;
+    display: flex;
+    min-height: 116px;
+    overflow: hidden;
+    text-decoration: none;
+}
+
+.st-kpi-card:hover {
+    border-color: var(--tblr-primary, #206bc4);
+    color: inherit;
+    text-decoration: none;
+}
+
+.st-kpi-accent {
+    flex: 0 0 4px;
+}
+
+.st-kpi-content {
+    display: flex;
+    flex: 1;
+    justify-content: space-between;
+    padding: 1rem;
+}
+
+.st-kpi-label {
+    color: var(--tblr-secondary, #667085);
+    font-size: 0.875rem;
+    margin-bottom: 0.35rem;
+}
+
+.st-kpi-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.st-kpi-hint {
+    color: var(--tblr-secondary, #667085);
+    font-size: 0.75rem;
+    margin-top: 0.45rem;
+}
+
+.st-kpi-icon {
+    align-items: center;
+    border-radius: 8px;
+    display: flex;
+    height: 42px;
+    justify-content: center;
+    width: 42px;
+}
+
+.st-kpi-icon .ti {
+    font-size: 1.35rem;
+}
+
+@media (max-width: 992px) {
+    .st-kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 576px) {
+    .st-kpi-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 
-<div class="row g-3">
+<div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">Dashboard</h2>
+            <div class="text-secondary">Panoramica operativa SECURTEK</div>
+        </div>
+    </div>
+</div>
 
-    {% include "components/stats_card.html" with title="Pratiche aperte" value=kpi.pratiche color="primary" icon="folder" %}
+<div class="st-kpi-grid mb-4">
 
-    {% include "components/stats_card.html" with title="Clienti" value=kpi.clienti color="success" icon="users" %}
+    <a href="{% url 'pratiche:pratica_list' %}" class="st-kpi-card">
+        <div class="st-kpi-accent bg-primary"></div>
+        <div class="st-kpi-content">
+            <div>
+                <div class="st-kpi-label">Pratiche aperte</div>
+                <div class="st-kpi-value">{{ kpi.pratiche }}</div>
+                <div class="st-kpi-hint">Vai alle pratiche</div>
+            </div>
+            <div class="st-kpi-icon bg-primary-lt text-primary">
+                <i class="ti ti-folder"></i>
+            </div>
+        </div>
+    </a>
 
-    {% include "components/stats_card.html" with title="Scadenze" value=kpi.scadenze color="warning" icon="calendar" %}
+    <a href="{% url 'anagrafiche:anagrafica_list' %}" class="st-kpi-card">
+        <div class="st-kpi-accent bg-success"></div>
+        <div class="st-kpi-content">
+            <div>
+                <div class="st-kpi-label">Clienti</div>
+                <div class="st-kpi-value">{{ kpi.clienti }}</div>
+                <div class="st-kpi-hint">Vai alle anagrafiche</div>
+            </div>
+            <div class="st-kpi-icon bg-success-lt text-success">
+                <i class="ti ti-users"></i>
+            </div>
+        </div>
+    </a>
 
-    {% include "components/stats_card.html" with title="Documenti" value=kpi.documenti color="info" icon="file" %}
+    <a href="{% url 'agenda:calendar' %}" class="st-kpi-card">
+        <div class="st-kpi-accent bg-warning"></div>
+        <div class="st-kpi-content">
+            <div>
+                <div class="st-kpi-label">Scadenze</div>
+                <div class="st-kpi-value">{{ kpi.scadenze }}</div>
+                <div class="st-kpi-hint">Vai all'agenda</div>
+            </div>
+            <div class="st-kpi-icon bg-warning-lt text-warning">
+                <i class="ti ti-calendar-event"></i>
+            </div>
+        </div>
+    </a>
 
+    <a href="#" class="st-kpi-card">
+        <div class="st-kpi-accent bg-info"></div>
+        <div class="st-kpi-content">
+            <div>
+                <div class="st-kpi-label">Documenti</div>
+                <div class="st-kpi-value">{{ kpi.documenti }}</div>
+                <div class="st-kpi-hint">Archivio da collegare</div>
+            </div>
+            <div class="st-kpi-icon bg-info-lt text-info">
+                <i class="ti ti-file-text"></i>
+            </div>
+        </div>
+    </a>
+
+</div>
+
+<div class="row row-cards">
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Azioni rapide</h3>
+            </div>
+            <div class="list-group list-group-flush">
+                <a href="{% url 'anagrafiche:anagrafica_create' %}" class="list-group-item list-group-item-action">
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="avatar bg-primary-lt text-primary">
+                            <i class="ti ti-building-plus"></i>
+                        </span>
+                        <div>
+                            <div class="fw-bold">Nuova anagrafica</div>
+                            <div class="text-secondary small">Crea cliente, contatti e indirizzi</div>
+                        </div>
+                    </div>
+                </a>
+                <a href="{% url 'pratiche:pratica_create' %}" class="list-group-item list-group-item-action">
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="avatar bg-blue-lt text-blue">
+                            <i class="ti ti-folder-plus"></i>
+                        </span>
+                        <div>
+                            <div class="fw-bold">Nuova pratica</div>
+                            <div class="text-secondary small">Apri una pratica collegata a un cliente</div>
+                        </div>
+                    </div>
+                </a>
+                <a href="{% url 'anagrafiche:anagrafica_list' %}" class="list-group-item list-group-item-action">
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="avatar bg-success-lt text-success">
+                            <i class="ti ti-list-search"></i>
+                        </span>
+                        <div>
+                            <div class="fw-bold">Gestisci anagrafiche</div>
+                            <div class="text-secondary small">Apri schede, modifica dati, elimina record</div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Ultime anagrafiche</h3>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-vcenter card-table">
+                    <tbody>
+                        {% for anagrafica in ultime_anagrafiche %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'anagrafiche:anagrafica_detail' anagrafica.pk %}" class="text-reset fw-bold">
+                                        {{ anagrafica.ragione_sociale }}
+                                    </a>
+                                    <div class="text-secondary small">
+                                        {{ anagrafica.email|default:"Email non indicata" }}
+                                    </div>
+                                </td>
+                                <td class="text-end">
+                                    <a href="{% url 'anagrafiche:anagrafica_detail' anagrafica.pk %}" class="btn btn-icon btn-outline-primary">
+                                        <i class="ti ti-edit"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td class="text-center text-secondary py-4">
+                                    Nessuna anagrafica presente
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
 
 {% endblock %}

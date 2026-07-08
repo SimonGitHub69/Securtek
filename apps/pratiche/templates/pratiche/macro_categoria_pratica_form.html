@@ -1,0 +1,59 @@
+{% extends "base/layout.html" %}
+
+{% block page_title %}
+{% if object %}Modifica macro-categoria{% else %}Nuova macro-categoria{% endif %}
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">
+                {% if object %}Modifica macro-categoria{% else %}Nuova macro-categoria{% endif %}
+            </h2>
+            <div class="text-secondary">Raggruppa categorie da collegare rapidamente alle pratiche</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="card-body">
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            <div class="row">
+                {% for field in form %}
+                    <div class="{% if field.name in 'descrizione categorie note' %}col-12{% else %}col-md-6{% endif %}">
+                        <div class="mb-3">
+                            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.help_text %}
+                                <div class="form-hint">{{ field.help_text }}</div>
+                            {% endif %}
+                            {% if field.errors %}
+                                <div class="invalid-feedback d-block">{{ field.errors|join:", " }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card-footer text-end">
+            <a href="{% url 'pratiche:macro_categoria_pratica_list' %}" class="btn btn-secondary">
+                Annulla
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="ti ti-device-floppy"></i>
+                Salva
+            </button>
+        </div>
+    </form>
+</div>
+
+{% endblock %}

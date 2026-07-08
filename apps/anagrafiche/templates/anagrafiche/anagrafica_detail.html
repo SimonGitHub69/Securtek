@@ -4,6 +4,30 @@
 {{ anagrafica.ragione_sociale }}
 {% endblock %}
 
+{% block extra_css %}
+{{ block.super }}
+<style>
+.st-anagrafica-logo {
+    align-items: center;
+    background: var(--tblr-bg-surface-secondary, #f8fafc);
+    border: 1px solid var(--tblr-border-color, #e6e8eb);
+    border-radius: 8px;
+    display: flex;
+    height: 120px;
+    justify-content: center;
+    margin-bottom: 1rem;
+    overflow: hidden;
+    width: 200px;
+}
+
+.st-anagrafica-logo img {
+    max-height: 104px;
+    max-width: 180px;
+    object-fit: contain;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 
 <div class="container-xl">
@@ -59,6 +83,12 @@
 
                 <div class="card-body">
 
+                    {% if anagrafica.logo %}
+                        <div class="st-anagrafica-logo">
+                            <img src="{{ anagrafica.logo.url }}" alt="Logo {{ anagrafica.ragione_sociale }}">
+                        </div>
+                    {% endif %}
+
                     <table class="table table-borderless">
 
                         <tr>
@@ -87,6 +117,108 @@
                         </tr>
 
                     </table>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="row mt-3">
+
+        <div class="col-12">
+
+            <div class="card">
+
+                <div class="card-header">
+                    <h3 class="card-title">
+                        Pratiche in essere
+                    </h3>
+                    <div class="card-actions">
+                        {% url 'anagrafiche:anagrafica_detail' anagrafica.pk as anagrafica_return_url %}
+                        <a href="{% url 'pratiche:pratica_create' %}?cliente={{ anagrafica.pk }}&next={{ anagrafica_return_url|urlencode }}" class="btn btn-primary btn-sm">
+                            <i class="ti ti-plus"></i>
+                            Nuova pratica
+                        </a>
+                    </div>
+                </div>
+
+                <div class="card-body">
+
+                    {% if pratiche_in_essere %}
+
+                        <div class="table-responsive">
+                            <table class="table table-vcenter">
+                                <thead>
+                                    <tr>
+                                        <th>Codice</th>
+                                        <th>Titolo</th>
+                                        <th>Categorie</th>
+                                        <th>Tipologia</th>
+                                        <th>Stato</th>
+                                        <th>Scadenza</th>
+                                        <th class="text-end">Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for pratica in pratiche_in_essere %}
+                                        <tr>
+                                            <td class="text-secondary">{{ pratica.codice }}</td>
+                                            <td>
+                                                <a href="{% url 'pratiche:pratica_detail' pratica.pk %}?next={{ anagrafica_return_url|urlencode }}" class="text-reset fw-bold">
+                                                    {{ pratica.titolo }}
+                                                </a>
+                                                {% if pratica.responsabile %}
+                                                    <div class="text-secondary small">
+                                                        Responsabile: {{ pratica.responsabile }}
+                                                    </div>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% for collegamento in pratica.categorie_attive %}
+                                                    {{ collegamento.categoria.denominazione }}{% if collegamento.versione %} {{ collegamento.versione }}{% endif %}{% if not forloop.last %}, {% endif %}
+                                                {% empty %}
+                                                    -
+                                                {% endfor %}
+                                            </td>
+                                            <td>{{ pratica.get_tipologia_display }}</td>
+                                            <td>
+                                                <span class="badge bg-blue-lt">{{ pratica.get_stato_display }}</span>
+                                            </td>
+                                            <td>
+                                                {% if pratica.data_scadenza %}
+                                                    <span class="{% if pratica.is_scaduta %}text-danger fw-bold{% endif %}">
+                                                        {{ pratica.data_scadenza|date:"d/m/Y" }}
+                                                    </span>
+                                                {% else %}
+                                                    <span class="text-secondary">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-end">
+                                                <a href="{% url 'pratiche:pratica_detail' pratica.pk %}?next={{ anagrafica_return_url|urlencode }}"
+                                                   class="btn btn-icon btn-outline-primary"
+                                                   title="Apri pratica">
+                                                    <i class="ti ti-edit"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                    {% else %}
+
+                        <div class="empty">
+                            <div class="empty-icon">
+                                <i class="ti ti-folder"></i>
+                            </div>
+                            <p class="empty-title">Nessuna pratica in essere</p>
+                        </div>
+
+                    {% endif %}
 
                 </div>
 

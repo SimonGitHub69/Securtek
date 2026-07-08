@@ -1,0 +1,716 @@
+{% extends "base/layout.html" %}
+
+{% block page_title %}
+Pratica
+{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+.st-inline-table th,
+.st-inline-table td {
+    min-width: 140px;
+    vertical-align: top;
+}
+
+.st-inline-table .st-wide {
+    min-width: 240px;
+}
+
+.st-inline-table textarea {
+    min-height: 38px;
+}
+
+.st-confirm {
+    background: rgba(15, 23, 42, 0.45);
+    bottom: 0;
+    display: flex;
+    left: 0;
+    padding: 1rem;
+    position: fixed;
+    right: 0;
+    top: 0;
+    z-index: 1080;
+}
+
+.st-confirm[hidden] {
+    display: none;
+}
+
+.st-confirm-dialog {
+    background: var(--tblr-bg-surface, #fff);
+    border-radius: 8px;
+    box-shadow: 0 1rem 3rem rgba(15, 23, 42, 0.2);
+    margin: auto;
+    max-width: 420px;
+    overflow: hidden;
+    width: 100%;
+}
+
+.st-confirm-body {
+    display: flex;
+    gap: 1rem;
+    padding: 1.25rem 1.25rem 1rem;
+}
+
+.st-confirm-icon {
+    align-items: center;
+    background: rgba(214, 57, 57, 0.12);
+    border-radius: 8px;
+    color: var(--tblr-danger, #d63939);
+    display: flex;
+    flex: 0 0 44px;
+    height: 44px;
+    justify-content: center;
+    width: 44px;
+}
+
+.st-confirm-title {
+    color: var(--tblr-body-color, #1f2937);
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.35;
+    margin-bottom: 0.35rem;
+}
+
+.st-confirm-text {
+    color: var(--tblr-secondary, #667085);
+    font-size: 0.875rem;
+    line-height: 1.45;
+}
+
+.st-confirm-name {
+    color: var(--tblr-body-color, #1f2937);
+    font-weight: 600;
+}
+
+.st-confirm-footer {
+    align-items: center;
+    background: var(--tblr-bg-surface-secondary, #f8fafc);
+    border-top: 1px solid var(--tblr-border-color, #e6e8eb);
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    padding: 0.75rem 1.25rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">
+                {% if object %}Modifica pratica{% else %}Nuova pratica{% endif %}
+            </h2>
+            <div class="text-secondary">Dati principali della pratica</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <form method="post">
+        {% csrf_token %}
+        {% if next_url %}
+            <input type="hidden" name="next" value="{{ next_url }}">
+        {% endif %}
+
+        <div class="card-body">
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            <div class="row">
+                {% for field in form %}
+                    <div class="{% if field.name in 'descrizione note' %}col-12{% elif field.name in 'data_apertura data_scadenza priorita stato' %}col-md-3{% else %}col-md-6{% endif %}">
+                        <div class="mb-3">
+                            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.errors %}
+                                <div class="invalid-feedback d-block">{{ field.errors|join:", " }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <hr class="my-4">
+
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <div>
+                    <h3 class="card-title mb-1">Categorie</h3>
+                    <div class="text-secondary small">Categorie, versioni, cartelle e note della pratica.</div>
+                </div>
+                <button type="button"
+                        class="btn btn-outline-primary btn-sm js-add-formset-row"
+                        data-prefix="categorie"
+                        data-template="categorie-empty-form"
+                        data-target="categorie-formset-body">
+                    <i class="ti ti-plus"></i>
+                    Aggiungi riga
+                </button>
+            </div>
+
+            {{ categorie_formset.management_form }}
+            {% if categorie_formset.non_form_errors %}
+                <div class="alert alert-danger">{{ categorie_formset.non_form_errors }}</div>
+            {% endif %}
+            <div class="table-responsive mb-4">
+                <table class="table table-vcenter st-inline-table">
+                    <thead>
+                        <tr>
+                            <th>Macro-categoria</th>
+                            <th>Categoria</th>
+                            <th>Versione</th>
+                            <th class="st-wide">Cartella</th>
+                            <th class="st-wide">Note</th>
+                            <th class="text-end">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="categorie-formset-body"
+                           data-template-rows-url="{% url 'pratiche:template_pratica_rows' %}"
+                           data-is-new="{% if object %}0{% else %}1{% endif %}">
+                        {% for category_form in categorie_formset %}
+                            <tr>
+                                <td>
+                                    <span hidden>
+                                        {% for hidden in category_form.hidden_fields %}{{ hidden }}{% endfor %}
+                                        {{ category_form.origine_template }}
+                                        {{ category_form.DELETE }}
+                                    </span>
+                                    {% if category_form.instance.origine_template %}
+                                        {{ category_form.macro_categoria }}
+                                        {% if category_form.instance.macro_categoria %}
+                                            <span class="badge bg-purple-lt">{{ category_form.instance.macro_categoria.denominazione }}</span>
+                                        {% else %}
+                                            <span class="text-secondary">-</span>
+                                        {% endif %}
+                                    {% else %}
+                                        {{ category_form.macro_categoria }}
+                                    {% endif %}
+                                    {% if category_form.macro_categoria.errors %}
+                                        <div class="invalid-feedback d-block">{{ category_form.macro_categoria.errors|join:", " }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if category_form.instance.origine_template %}
+                                        {{ category_form.categoria }}
+                                        <span class="badge bg-blue-lt">{{ category_form.instance.categoria.denominazione }}</span>
+                                    {% else %}
+                                        {{ category_form.categoria }}
+                                    {% endif %}
+                                    {% if category_form.categoria.errors %}
+                                        <div class="invalid-feedback d-block">{{ category_form.categoria.errors|join:", " }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ category_form.versione }}
+                                    {% if category_form.versione.errors %}
+                                        <div class="invalid-feedback d-block">{{ category_form.versione.errors|join:", " }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ category_form.cartella }}
+                                    {% if category_form.cartella.errors %}
+                                        <div class="invalid-feedback d-block">{{ category_form.cartella.errors|join:", " }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ category_form.note }}
+                                    {% if category_form.note.errors %}
+                                        <div class="invalid-feedback d-block">{{ category_form.note.errors|join:", " }}</div>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    {% if object and category_form.instance.pk %}
+                                        <a href="{% url 'pratiche:pratica_categoria_update' object.pk category_form.instance.pk %}"
+                                           class="btn btn-icon btn-outline-primary btn-sm"
+                                           title="Modifica cartella e allegati">
+                                            <i class="ti ti-edit"></i>
+                                        </a>
+                                    {% endif %}
+                                    <button type="button"
+                                            class="btn btn-icon btn-outline-danger btn-sm js-remove-formset-row"
+                                            data-prefix="categorie"
+                                            data-target="categorie-formset-body"
+                                            title="Rimuovi riga">
+                                        <i class="ti ti-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <template id="categorie-empty-form">
+                <tr>
+                    <td>
+                        <span hidden>
+                            {% for hidden in categorie_formset.empty_form.hidden_fields %}{{ hidden }}{% endfor %}
+                            {{ categorie_formset.empty_form.origine_template }}
+                            {{ categorie_formset.empty_form.DELETE }}
+                        </span>
+                        {{ categorie_formset.empty_form.macro_categoria }}
+                    </td>
+                    <td>{{ categorie_formset.empty_form.categoria }}</td>
+                    <td>{{ categorie_formset.empty_form.versione }}</td>
+                    <td>{{ categorie_formset.empty_form.cartella }}</td>
+                    <td>{{ categorie_formset.empty_form.note }}</td>
+                    <td class="text-end">
+                        <button type="button"
+                                class="btn btn-icon btn-outline-danger btn-sm js-remove-formset-row"
+                                data-prefix="categorie"
+                                data-target="categorie-formset-body"
+                                title="Rimuovi riga">
+                            <i class="ti ti-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            </template>
+
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <div>
+                    <h3 class="card-title mb-1">Tecnici</h3>
+                    <div class="text-secondary small">Tecnici collegati alla pratica con studio e incarico.</div>
+                </div>
+                <button type="button"
+                        class="btn btn-outline-primary btn-sm js-add-formset-row"
+                        data-prefix="tecnici"
+                        data-template="tecnici-empty-form"
+                        data-target="tecnici-formset-body">
+                    <i class="ti ti-plus"></i>
+                    Aggiungi riga
+                </button>
+            </div>
+
+            {{ tecnici_formset.management_form }}
+            {% if tecnici_formset.non_form_errors %}
+                <div class="alert alert-danger">{{ tecnici_formset.non_form_errors }}</div>
+            {% endif %}
+            <div class="table-responsive">
+                <table class="table table-vcenter st-inline-table">
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>Cognome</th>
+                            <th>Studio</th>
+                            <th>Incarico</th>
+                            <th>Email</th>
+                            <th>Telefono</th>
+                            <th class="st-wide">Note</th>
+                            <th class="text-end">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tecnici-formset-body">
+                        {% for tecnico_form in tecnici_formset %}
+                            <tr>
+                                <td>
+                                    <span hidden>
+                                        {% for hidden in tecnico_form.hidden_fields %}{{ hidden }}{% endfor %}
+                                        {{ tecnico_form.DELETE }}
+                                    </span>
+                                    {{ tecnico_form.nome }}
+                                    {% if tecnico_form.nome.errors %}
+                                        <div class="invalid-feedback d-block">{{ tecnico_form.nome.errors|join:", " }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ tecnico_form.cognome }}
+                                    {% if tecnico_form.cognome.errors %}
+                                        <div class="invalid-feedback d-block">{{ tecnico_form.cognome.errors|join:", " }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ tecnico_form.studio_appartenenza }}
+                                    {% if tecnico_form.studio_appartenenza.errors %}
+                                        <div class="invalid-feedback d-block">{{ tecnico_form.studio_appartenenza.errors|join:", " }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ tecnico_form.incarico }}
+                                    {% if tecnico_form.incarico.errors %}
+                                        <div class="invalid-feedback d-block">{{ tecnico_form.incarico.errors|join:", " }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ tecnico_form.email }}
+                                    {% if tecnico_form.email.errors %}
+                                        <div class="invalid-feedback d-block">{{ tecnico_form.email.errors|join:", " }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ tecnico_form.telefono }}
+                                    {% if tecnico_form.telefono.errors %}
+                                        <div class="invalid-feedback d-block">{{ tecnico_form.telefono.errors|join:", " }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ tecnico_form.note }}
+                                    {% if tecnico_form.note.errors %}
+                                        <div class="invalid-feedback d-block">{{ tecnico_form.note.errors|join:", " }}</div>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <button type="button"
+                                            class="btn btn-icon btn-outline-danger btn-sm js-remove-formset-row"
+                                            data-prefix="tecnici"
+                                            data-target="tecnici-formset-body"
+                                            title="Rimuovi tecnico">
+                                        <i class="ti ti-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <template id="tecnici-empty-form">
+                <tr>
+                    <td>
+                        <span hidden>
+                            {% for hidden in tecnici_formset.empty_form.hidden_fields %}{{ hidden }}{% endfor %}
+                            {{ tecnici_formset.empty_form.DELETE }}
+                        </span>
+                        {{ tecnici_formset.empty_form.nome }}
+                    </td>
+                    <td>{{ tecnici_formset.empty_form.cognome }}</td>
+                    <td>{{ tecnici_formset.empty_form.studio_appartenenza }}</td>
+                    <td>{{ tecnici_formset.empty_form.incarico }}</td>
+                    <td>{{ tecnici_formset.empty_form.email }}</td>
+                    <td>{{ tecnici_formset.empty_form.telefono }}</td>
+                    <td>{{ tecnici_formset.empty_form.note }}</td>
+                    <td class="text-end">
+                        <button type="button"
+                                class="btn btn-icon btn-outline-danger btn-sm js-remove-formset-row"
+                                data-prefix="tecnici"
+                                data-target="tecnici-formset-body"
+                                title="Rimuovi tecnico">
+                            <i class="ti ti-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            </template>
+        </div>
+
+        <div class="card-footer text-end">
+            <a href="{{ cancel_url }}" class="btn btn-secondary">
+                Annulla
+            </a>
+            <button type="submit" class="btn btn-primary">
+                Salva
+            </button>
+        </div>
+    </form>
+</div>
+
+<div class="st-confirm" id="removeCategoryRowModal" hidden>
+    <div class="st-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="removeCategoryRowTitle">
+        <div class="st-confirm-body">
+            <div class="st-confirm-icon">
+                <i class="ti ti-trash"></i>
+            </div>
+
+            <div>
+                <div class="st-confirm-title" id="removeCategoryRowTitle">
+                    Rimuovere questa riga?
+                </div>
+                <div class="st-confirm-text">
+                    <span class="st-confirm-name" id="removeCategoryRowName">Riga selezionata</span>
+                    sarà tolta dalla pratica prima del salvataggio.
+                </div>
+            </div>
+        </div>
+
+        <div class="st-confirm-footer">
+            <button type="button" class="btn btn-outline-secondary js-remove-category-cancel">
+                Annulla
+            </button>
+            <button type="button" class="btn btn-danger js-remove-category-confirm">
+                <i class="ti ti-trash"></i>
+                Rimuovi
+            </button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    function addFormsetRow(prefix, target, template) {
+        const totalInput = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
+
+        if (!totalInput || !target || !template) {
+            return null;
+        }
+
+        const formIndex = Number(totalInput.value);
+        const wrapper = document.createElement("tbody");
+        wrapper.innerHTML = template.innerHTML.replaceAll("__prefix__", formIndex);
+        const row = wrapper.firstElementChild;
+        target.appendChild(row);
+        totalInput.value = formIndex + 1;
+        return row;
+    }
+
+    function reindexFormsetRows(prefix, target) {
+        const totalInput = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
+        const rows = Array.from(target.querySelectorAll("tr")).filter(function (row) {
+            return row.dataset.deleted !== "1";
+        });
+
+        rows.forEach(function (row, index) {
+            row.querySelectorAll("[name]").forEach(function (field) {
+                field.name = field.name.replace(new RegExp(`${prefix}-\\d+-`), `${prefix}-${index}-`);
+            });
+
+            row.querySelectorAll("[id]").forEach(function (field) {
+                field.id = field.id.replace(new RegExp(`id_${prefix}-\\d+-`), `id_${prefix}-${index}-`);
+            });
+
+            row.querySelectorAll("label[for]").forEach(function (label) {
+                label.htmlFor = label.htmlFor.replace(new RegExp(`id_${prefix}-\\d+-`), `id_${prefix}-${index}-`);
+            });
+        });
+
+        if (totalInput) {
+            totalInput.value = rows.length;
+        }
+    }
+
+    document.querySelectorAll(".js-add-formset-row").forEach(function (button) {
+        button.addEventListener("click", function () {
+            const prefix = button.dataset.prefix;
+            const target = document.getElementById(button.dataset.target);
+            const template = document.getElementById(button.dataset.template);
+
+            addFormsetRow(prefix, target, template);
+        });
+    });
+
+    const removeCategoryModal = document.getElementById("removeCategoryRowModal");
+    const removeCategoryName = document.getElementById("removeCategoryRowName");
+    const removeCategoryConfirm = removeCategoryModal ? removeCategoryModal.querySelector(".js-remove-category-confirm") : null;
+    const removeCategoryCancel = removeCategoryModal ? removeCategoryModal.querySelector(".js-remove-category-cancel") : null;
+    let pendingRemoveButton = null;
+
+    function selectLabel(field) {
+        if (!field || field.tagName !== "SELECT" || !field.value) {
+            return "";
+        }
+
+        return field.options[field.selectedIndex] ? field.options[field.selectedIndex].text : "";
+    }
+
+    function inputValue(row, suffix) {
+        const field = row.querySelector(`[name$="-${suffix}"]`);
+        return field ? field.value.trim() : "";
+    }
+
+    function getRowLabel(row, prefix) {
+        if (prefix === "tecnici") {
+            const fullName = [inputValue(row, "nome"), inputValue(row, "cognome")]
+                .filter(Boolean)
+                .join(" ");
+
+            return fullName || "Tecnico selezionato";
+        }
+
+        const macroLabel = selectLabel(row.querySelector('select[name$="-macro_categoria"]'))
+            || (row.querySelector(".bg-purple-lt") ? row.querySelector(".bg-purple-lt").textContent.trim() : "");
+        const categoryLabel = selectLabel(row.querySelector('select[name$="-categoria"]'))
+            || (row.querySelector(".bg-blue-lt") ? row.querySelector(".bg-blue-lt").textContent.trim() : "");
+
+        if (macroLabel && categoryLabel) {
+            return `${macroLabel} / ${categoryLabel}`;
+        }
+
+        return categoryLabel || "Categoria selezionata";
+    }
+
+    function closeRemoveCategoryModal() {
+        pendingRemoveButton = null;
+        if (removeCategoryModal) {
+            removeCategoryModal.hidden = true;
+        }
+    }
+
+    function removePendingCategoryRow() {
+        if (!pendingRemoveButton) {
+            return;
+        }
+
+        const target = document.getElementById(pendingRemoveButton.dataset.target);
+        const row = pendingRemoveButton.closest("tr");
+        const prefix = pendingRemoveButton.dataset.prefix;
+
+        if (target && row && prefix) {
+            const idField = row.querySelector(`[name$="-id"]`);
+            const deleteField = row.querySelector(`[name$="-DELETE"]`);
+            const hasSavedObject = idField && idField.value;
+
+            if (hasSavedObject && deleteField) {
+                deleteField.checked = true;
+                row.dataset.deleted = "1";
+                row.hidden = true;
+            } else {
+                row.remove();
+                reindexFormsetRows(prefix, target);
+            }
+        }
+
+        closeRemoveCategoryModal();
+    }
+
+    document.addEventListener("click", function (event) {
+        const button = event.target.closest(".js-remove-formset-row");
+
+        if (!button) {
+            return;
+        }
+
+        const target = document.getElementById(button.dataset.target);
+        const row = button.closest("tr");
+
+        if (!target || !row) {
+            return;
+        }
+
+        if (!removeCategoryModal || !removeCategoryName || !removeCategoryConfirm || !removeCategoryCancel) {
+            return;
+        }
+
+        pendingRemoveButton = button;
+        removeCategoryName.textContent = getRowLabel(row, button.dataset.prefix);
+        removeCategoryModal.hidden = false;
+    });
+
+    if (removeCategoryConfirm) {
+        removeCategoryConfirm.addEventListener("click", removePendingCategoryRow);
+    }
+
+    if (removeCategoryCancel) {
+        removeCategoryCancel.addEventListener("click", closeRemoveCategoryModal);
+    }
+
+    if (removeCategoryModal) {
+        removeCategoryModal.addEventListener("click", function (event) {
+            if (event.target === removeCategoryModal) {
+                closeRemoveCategoryModal();
+            }
+        });
+    }
+
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && removeCategoryModal && !removeCategoryModal.hidden) {
+            closeRemoveCategoryModal();
+        }
+    });
+
+    const tipologiaSelect = document.getElementById("id_tipologia");
+    const categoryTarget = document.getElementById("categorie-formset-body");
+    const categoryTemplate = document.getElementById("categorie-empty-form");
+    const categoryTotalInput = document.getElementById("id_categorie-TOTAL_FORMS");
+
+    function setRowValue(row, fieldName, value) {
+        const field = row.querySelector(`[name$="-${fieldName}"]`);
+
+        if (field) {
+            field.value = value || "";
+        }
+    }
+
+    function lockTemplateSelect(row, fieldName, label, badgeClass) {
+        const field = row.querySelector(`[name$="-${fieldName}"]`);
+
+        if (!field) {
+            return;
+        }
+
+        const hidden = document.createElement("input");
+        hidden.type = "hidden";
+        hidden.name = field.name;
+        hidden.id = field.id;
+        hidden.value = field.value || "";
+
+        const badge = document.createElement("span");
+        badge.className = `badge ${badgeClass}`;
+        badge.textContent = label || "-";
+
+        field.replaceWith(hidden);
+        hidden.insertAdjacentElement("afterend", badge);
+    }
+
+    function clearCategoryRows() {
+        categoryTarget.innerHTML = "";
+        categoryTotalInput.value = 0;
+    }
+
+    function addEmptyCategoryRow() {
+        addFormsetRow("categorie", categoryTarget, categoryTemplate);
+    }
+
+    async function loadTemplateRows() {
+        if (!tipologiaSelect || !categoryTarget || !categoryTemplate || !categoryTotalInput) {
+            return;
+        }
+
+        if (categoryTarget.dataset.isNew !== "1") {
+            return;
+        }
+
+        const tipologia = tipologiaSelect.value;
+        clearCategoryRows();
+
+        if (!tipologia) {
+            addEmptyCategoryRow();
+            return;
+        }
+
+        try {
+            const url = `${categoryTarget.dataset.templateRowsUrl}?tipologia=${encodeURIComponent(tipologia)}`;
+            const response = await fetch(url, {headers: {"X-Requested-With": "XMLHttpRequest"}});
+            const data = await response.json();
+            const rows = data.rows || [];
+
+            if (!response.ok || rows.length === 0) {
+                addEmptyCategoryRow();
+                return;
+            }
+
+            rows.forEach(function (item) {
+                const row = addFormsetRow("categorie", categoryTarget, categoryTemplate);
+
+                if (!row) {
+                    return;
+                }
+
+                row.dataset.templateRow = "1";
+                setRowValue(row, "macro_categoria", item.macro_categoria);
+                setRowValue(row, "categoria", item.categoria);
+                setRowValue(row, "origine_template", "on");
+                setRowValue(row, "versione", "");
+                setRowValue(row, "cartella", "");
+                setRowValue(row, "note", "");
+                lockTemplateSelect(row, "macro_categoria", item.macro_categoria_label || "-", "bg-purple-lt");
+                lockTemplateSelect(row, "categoria", item.categoria_label, "bg-blue-lt");
+            });
+        } catch (error) {
+            addEmptyCategoryRow();
+        }
+    }
+
+    if (tipologiaSelect && categoryTarget && categoryTarget.dataset.isNew === "1") {
+        tipologiaSelect.addEventListener("change", loadTemplateRows);
+        if (tipologiaSelect.value) {
+            loadTemplateRows();
+        }
+    }
+});
+</script>
+{% endblock %}

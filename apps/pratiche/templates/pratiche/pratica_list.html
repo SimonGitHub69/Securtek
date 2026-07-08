@@ -1,0 +1,160 @@
+{% extends "base/layout.html" %}
+
+{% block page_title %}
+Pratiche
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">Pratiche</h2>
+            <div class="text-secondary">Elenco pratiche operative</div>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'pratiche:pratica_create' %}" class="btn btn-primary">
+                <i class="ti ti-plus"></i>
+                Nuova pratica
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label">Ricerca</label>
+                    <input type="text"
+                           name="q"
+                           value="{{ request.GET.q }}"
+                           class="form-control"
+                           placeholder="Codice, titolo o cliente">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Categoria</label>
+                    <select name="categoria" class="form-select">
+                        <option value="">Tutte</option>
+                        {% for categoria in categorie %}
+                            <option value="{{ categoria.pk }}" {% if request.GET.categoria == categoria.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ categoria.denominazione }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Stato</label>
+                    <select name="stato" class="form-select">
+                        <option value="">Tutti</option>
+                        {% for value, label in stati %}
+                            <option value="{{ value }}" {% if request.GET.stato == value %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Priorita</label>
+                    <select name="priorita" class="form-select">
+                        <option value="">Tutte</option>
+                        {% for value, label in priorita %}
+                            <option value="{{ value }}" {% if request.GET.priorita == value %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-secondary">Filtra</button>
+                </div>
+                <div class="col-auto">
+                    <a href="{% url 'pratiche:pratica_list' %}" class="btn btn-outline-secondary">Pulisci</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-vcenter">
+            <thead>
+                <tr>
+                    <th>Codice</th>
+                    <th>Titolo</th>
+                    <th>Cliente</th>
+                    <th>Tipologia</th>
+                    <th>Macro-categoria</th>
+                    <th>Categoria</th>
+                    <th>Stato</th>
+                    <th>Priorita</th>
+                    <th>Scadenza</th>
+                    <th class="text-end">Azioni</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pratica in pratiche %}
+                    <tr>
+                        <td class="text-secondary">{{ pratica.codice }}</td>
+                        <td>
+                            <a href="{% url 'pratiche:pratica_detail' pratica.pk %}" class="text-reset fw-bold">
+                                {{ pratica.titolo }}
+                            </a>
+                        </td>
+                        <td>{{ pratica.cliente }}</td>
+                        <td>{{ pratica.get_tipologia_display }}</td>
+                        <td>
+                            {% for collegamento in pratica.macro_categorie_attive %}
+                                <span class="badge bg-purple-lt me-1 mb-1">
+                                    {{ collegamento.macro_categoria.denominazione }}
+                                </span>
+                            {% empty %}
+                                -
+                            {% endfor %}
+                        </td>
+                        <td>
+                            {% for collegamento in pratica.categorie_attive %}
+                                {% if collegamento.macro_categoria %}
+                                    {{ collegamento.macro_categoria.denominazione }} /
+                                {% endif %}
+                                {{ collegamento.categoria.denominazione }}{% if not forloop.last %}, {% endif %}
+                            {% empty %}
+                                -
+                            {% endfor %}
+                        </td>
+                        <td>
+                            <span class="badge bg-blue-lt">{{ pratica.get_stato_display }}</span>
+                        </td>
+                        <td>{{ pratica.get_priorita_display }}</td>
+                        <td>
+                            {% if pratica.data_scadenza %}
+                                <span class="{% if pratica.is_scaduta %}text-danger fw-bold{% endif %}">
+                                    {{ pratica.data_scadenza|date:"d/m/Y" }}
+                                </span>
+                            {% else %}
+                                <span class="text-secondary">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a href="{% url 'pratiche:pratica_detail' pratica.pk %}"
+                               class="btn btn-icon btn-outline-primary"
+                               title="Scheda e modifica">
+                                <i class="ti ti-edit"></i>
+                            </a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="10" class="text-center text-secondary py-4">
+                            Nessuna pratica presente
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

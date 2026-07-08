@@ -1,0 +1,85 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Sistema{% endblock %}
+
+{% block content %}
+<div class="page-header d-print-none">
+    <div class="container-xl">
+        <div class="row g-2 align-items-center">
+            <div class="col">
+                <h2 class="page-title">Sistema</h2>
+                <div class="text-secondary">Stato applicazione, configurazioni e strumenti amministrativi.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="page-body">
+    <div class="container-xl">
+        <div class="row row-cards">
+            {% for item in system_status %}
+                <div class="col-sm-6 col-lg-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="avatar bg-primary-lt">
+                                    <i class="ti {{ item.icon }}"></i>
+                                </span>
+                                <div class="text-truncate">
+                                    <div class="text-secondary small">{{ item.label }}</div>
+                                    <div class="fw-semibold text-truncate" title="{{ item.value }}">{{ item.value }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        <div class="row row-cards mt-1">
+            <div class="col-lg-5">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Tabelle configurate</h3>
+                    </div>
+                    <div class="list-group list-group-flush">
+                        {% for item in registry_counts %}
+                            <div class="list-group-item">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <span>{{ item.label }}</span>
+                                    <span class="badge bg-blue-lt">{{ item.value }}</span>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-7">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Amministrazione</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            {% for link in system_links %}
+                                <div class="col-md-4">
+                                    <a class="card card-link h-100" href="{{ link.url }}">
+                                        <div class="card-body">
+                                            <div class="d-flex align-items-center gap-2 mb-2">
+                                                <i class="ti {{ link.icon }} text-primary"></i>
+                                                <span class="fw-semibold">{{ link.label }}</span>
+                                            </div>
+                                            <div class="text-secondary small">{{ link.description }}</div>
+                                        </div>
+                                    </a>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

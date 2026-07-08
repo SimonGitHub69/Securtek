@@ -1,6 +1,27 @@
 body {
     background-color: #f5f7fb;
 }
+
+[data-bs-theme="dark"] body {
+    background-color: #111827;
+}
+
 .page-wrapper {
     margin-left: 260px;
+}
+
+.table.table-vcenter:not(.st-no-zebra) > tbody > tr:nth-of-type(even) > * {
+    background-color: rgba(32, 107, 196, 0.06);
+}
+
+.table.table-vcenter:not(.st-no-zebra) > tbody > tr:hover > * {
+    background-color: rgba(32, 107, 196, 0.11);
+}
+
+[data-bs-theme="dark"] .table.table-vcenter:not(.st-no-zebra) > tbody > tr:nth-of-type(even) > * {
+    background-color: rgba(255, 255, 255, 0.055);
+}
+
+[data-bs-theme="dark"] .table.table-vcenter:not(.st-no-zebra) > tbody > tr:hover > * {
+    background-color: rgba(255, 255, 255, 0.095);
 }

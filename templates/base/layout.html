@@ -9,6 +9,19 @@
 
     <title>{% block title %}SECURTEK{% endblock %}</title>
 
+    <script>
+        (function () {
+            try {
+                const savedTheme = localStorage.getItem("securtek-theme");
+                const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+                const theme = savedTheme || (prefersDark ? "dark" : "light");
+                document.documentElement.setAttribute("data-bs-theme", theme);
+            } catch (error) {
+                document.documentElement.setAttribute("data-bs-theme", "light");
+            }
+        })();
+    </script>
+
     <!-- Tabler -->
     
     <link rel="stylesheet"
