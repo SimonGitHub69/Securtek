@@ -9,6 +9,7 @@ from apps.pratiche.models import (
     IncaricoTecnico,
     MacroCategoriaPratica,
     Pratica,
+    PraticaCategoriaAllegato,
     PraticaCategoria,
     PraticaCategoriaFile,
     StudioTecnico,
@@ -280,6 +281,18 @@ class PraticaCategoriaFileUploadForm(forms.Form):
         required=False,
         widget=forms.TextInput(attrs={"class": "form-control form-control-sm"}),
     )
+
+
+class PraticaCategoriaAllegatoUploadForm(forms.ModelForm):
+    class Meta:
+        model = PraticaCategoriaAllegato
+        fields = ["file", "descrizione"]
+        widgets = {
+            "file": forms.ClearableFileInput(attrs={"class": "form-control form-control-sm"}),
+            "descrizione": forms.TextInput(
+                attrs={"class": "form-control form-control-sm", "placeholder": "Descrizione del file"}
+            ),
+        }
 
 
 class PraticaCategoriaFileDescriptionForm(forms.ModelForm):

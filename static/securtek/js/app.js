@@ -35,3 +35,58 @@ document.addEventListener("DOMContentLoaded", function () {
         applyTheme(getCurrentTheme() === "dark" ? "light" : "dark");
     });
 });
+
+document.addEventListener("DOMContentLoaded", function () {
+    const guardedForms = Array.from(document.querySelectorAll('form[method="post"]')).filter(function (form) {
+        const hasEditableFields = form.querySelector(
+            'input:not([type="hidden"]):not([type="submit"]):not([type="button"]), textarea, select'
+        );
+
+        return form.dataset.unsavedGuard !== "false" && Boolean(hasEditableFields);
+    });
+
+    if (!guardedForms.length) {
+        return;
+    }
+
+    let hasUnsavedChanges = false;
+    let isSubmitting = false;
+
+    function markUnsaved() {
+        if (!isSubmitting) {
+            hasUnsavedChanges = true;
+        }
+    }
+
+    guardedForms.forEach(function (form) {
+        form.addEventListener("input", markUnsaved);
+        form.addEventListener("change", markUnsaved);
+        form.addEventListener("submit", function () {
+            isSubmitting = true;
+            hasUnsavedChanges = false;
+        });
+    });
+
+    document.addEventListener("click", function (event) {
+        const button = event.target.closest("button");
+
+        if (!button || button.type === "submit" || button.dataset.unsavedIgnore === "true") {
+            return;
+        }
+
+        const form = button.closest('form[method="post"]');
+
+        if (form && guardedForms.includes(form)) {
+            markUnsaved();
+        }
+    });
+
+    window.addEventListener("beforeunload", function (event) {
+        if (!hasUnsavedChanges || isSubmitting) {
+            return;
+        }
+
+        event.preventDefault();
+        event.returnValue = "";
+    });
+});

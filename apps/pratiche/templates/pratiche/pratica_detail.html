@@ -104,6 +104,18 @@
     transform: rotate(90deg);
 }
 
+.st-collapse-toggle .ti {
+    transition: transform 0.15s ease;
+}
+
+.st-collapse-toggle.is-collapsed .ti {
+    transform: rotate(-90deg);
+}
+
+.st-collapsible-section[hidden] {
+    display: none;
+}
+
 .st-category-note {
     max-width: 380px;
 }
@@ -217,8 +229,19 @@
         <div class="card">
             <div class="card-header">
                 <h3 class="card-title">Comunicazioni</h3>
+                <div class="card-actions">
+                    <button type="button"
+                            class="btn btn-icon btn-sm btn-outline-secondary st-collapse-toggle"
+                            data-collapse-target="practice-communications-section"
+                            data-collapse-key="communications"
+                            aria-controls="practice-communications-section"
+                            aria-expanded="true"
+                            title="Comprimi sezione">
+                        <i class="ti ti-chevron-down"></i>
+                    </button>
+                </div>
             </div>
-            <div class="card-body">
+            <div class="card-body st-collapsible-section" id="practice-communications-section">
                 <form method="post"
                       action="{% url 'pratiche:comunicazione_create' pratica.pk %}"
                       enctype="multipart/form-data"
@@ -318,9 +341,18 @@
                         <i class="ti ti-plus"></i>
                         Aggiungi
                     </a>
+                    <button type="button"
+                            class="btn btn-icon btn-sm btn-outline-secondary st-collapse-toggle"
+                            data-collapse-target="practice-agenda-section"
+                            data-collapse-key="agenda"
+                            aria-controls="practice-agenda-section"
+                            aria-expanded="true"
+                            title="Comprimi sezione">
+                        <i class="ti ti-chevron-down"></i>
+                    </button>
                 </div>
             </div>
-            <div class="card-body">
+            <div class="card-body st-collapsible-section" id="practice-agenda-section">
                 {% if eventi_agenda %}
                     <div class="table-responsive">
                         <table class="table table-vcenter">
@@ -389,9 +421,18 @@
                         <i class="ti ti-plus"></i>
                         Aggiungi
                     </a>
+                    <button type="button"
+                            class="btn btn-icon btn-sm btn-outline-secondary st-collapse-toggle"
+                            data-collapse-target="practice-categories-section"
+                            data-collapse-key="categories"
+                            aria-controls="practice-categories-section"
+                            aria-expanded="true"
+                            title="Comprimi sezione">
+                        <i class="ti ti-chevron-down"></i>
+                    </button>
                 </div>
             </div>
-            <div class="card-body">
+            <div class="card-body st-collapsible-section" id="practice-categories-section">
                 <div class="row g-3 align-items-end mb-3">
                     <div class="col-lg-6">
                         <div class="text-secondary small mb-1">Macro-categorie collegate</div>
@@ -498,6 +539,97 @@
                                     </tr>
                                     <tr class="st-category-detail" id="category-detail-{{ collegamento.pk }}" hidden>
                                         <td colspan="7">
+                                            <form method="post"
+                                                  action="{% url 'pratiche:pratica_categoria_allegato_upload' pratica.pk collegamento.pk %}"
+                                                  enctype="multipart/form-data"
+                                                  class="row g-2 align-items-end mb-3">
+                                                {% csrf_token %}
+                                                <div class="col-lg-4">
+                                                    <label class="form-label small mb-1">Collega file singolo</label>
+                                                    <input type="file"
+                                                           name="file"
+                                                           class="form-control form-control-sm"
+                                                           multiple
+                                                           accept=".doc,.docx,.htm,.html,.jpeg,.jpg,.pdf,.png,.txt,.xls,.xlsm,.xlsx"
+                                                           required>
+                                                </div>
+                                                <div class="col-lg-6">
+                                                    <label class="form-label small mb-1">Descrizione</label>
+                                                    <input type="text"
+                                                           name="descrizione"
+                                                           class="form-control form-control-sm"
+                                                           placeholder="Descrizione del file">
+                                                </div>
+                                                <div class="col-lg-2">
+                                                    <button type="submit" class="btn btn-sm btn-primary w-100">
+                                                        <i class="ti ti-paperclip"></i>
+                                                        Collega
+                                                    </button>
+                                                </div>
+                                            </form>
+
+                                            <form method="post"
+                                                  action="{% url 'pratiche:pratica_categoria_allegato_pick' pratica.pk collegamento.pk %}"
+                                                  class="mb-3">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-sm btn-outline-primary">
+                                                    <i class="ti ti-file-plus"></i>
+                                                    Scegli file
+                                                </button>
+                                            </form>
+
+                                            {% if collegamento.allegato_entries %}
+                                                <div class="table-responsive mt-2 mb-3">
+                                                    <table class="table table-vcenter table-sm mb-0">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>File singolo</th>
+                                                                <th>Descrizione</th>
+                                                                <th>Modificato il</th>
+                                                                <th>Tipo</th>
+                                                                <th>Dimensione</th>
+                                                                <th class="text-end">Azioni</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {% for allegato in collegamento.allegato_entries %}
+                                                                <tr>
+                                                                    <td>{{ allegato.name }}</td>
+                                                                    <td>{{ allegato.description|default:"-" }}</td>
+                                                                    <td>{{ allegato.modified_at }}</td>
+                                                                    <td><span class="badge bg-secondary-lt">{{ allegato.extension }}</span></td>
+                                                                    <td>{{ allegato.size_kb }} KB</td>
+                                                                    <td class="text-end st-file-actions">
+                                                                        <a href="{% if allegato.open_app_url %}{{ allegato.open_app_url }}?next={{ request.get_full_path|urlencode }}%23category-detail-{{ collegamento.pk }}{% else %}{{ allegato.open_url }}{% endif %}"
+                                                                           {% if not allegato.open_app_url %}target="_blank"{% endif %}
+                                                                           class="btn btn-icon btn-outline-primary"
+                                                                           title="{% if allegato.open_app_url %}Apri con applicazione originale{% else %}Apri anteprima{% endif %}">
+                                                                            <i class="ti ti-eye"></i>
+                                                                        </a>
+                                                                        <button type="button"
+                                                                                class="btn btn-icon btn-outline-secondary js-delete-file"
+                                                                                title="Scollega file"
+                                                                                data-delete-action="{{ allegato.delete_url }}"
+                                                                                data-delete-file="{{ allegato.name }}"
+                                                                                data-delete-mode="unlink">
+                                                                            <i class="ti ti-unlink"></i>
+                                                                        </button>
+                                                                        <button type="button"
+                                                                                class="btn btn-icon btn-outline-danger js-delete-file"
+                                                                                title="Elimina file"
+                                                                                data-delete-action="{{ allegato.destroy_url }}"
+                                                                                data-delete-file="{{ allegato.name }}"
+                                                                                data-delete-mode="delete">
+                                                                            <i class="ti ti-trash"></i>
+                                                                        </button>
+                                                                    </td>
+                                                                </tr>
+                                                            {% endfor %}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            {% endif %}
+
                                             {% if collegamento.cartella_is_folder %}
                                                 <form method="post"
                                                       action="{% url 'pratiche:pratica_categoria_file_upload' pratica.pk collegamento.pk %}"
@@ -509,6 +641,8 @@
                                                         <input type="file"
                                                                name="file"
                                                                class="form-control form-control-sm"
+                                                               multiple
+                                                               accept=".doc,.docx,.htm,.html,.jpeg,.jpg,.pdf,.png,.txt,.xls,.xlsm,.xlsx"
                                                                required>
                                                     </div>
                                                     <div class="col-lg-6">
@@ -569,17 +703,26 @@
                                                                     </td>
                                                                     <td>{{ file.size_kb }} KB</td>
                                                                     <td class="text-end st-file-actions">
-                                                                        <a href="{{ file.url }}"
-                                                                           target="_blank"
+                                                                        <a href="{% if file.open_app_url %}{{ file.open_app_url }}&next={{ request.get_full_path|urlencode }}%23category-detail-{{ collegamento.pk }}{% else %}{{ file.url }}{% endif %}"
+                                                                           {% if not file.open_app_url %}target="_blank"{% endif %}
                                                                            class="btn btn-icon btn-outline-primary"
-                                                                           title="Apri anteprima">
+                                                                           title="{% if file.open_app_url %}Apri con applicazione originale{% else %}Apri anteprima{% endif %}">
                                                                             <i class="ti ti-eye"></i>
                                                                         </a>
+                                                                        <button type="button"
+                                                                                class="btn btn-icon btn-outline-secondary js-delete-file"
+                                                                                title="Scollega file dalla pratica"
+                                                                                data-delete-action="{{ file.unlink_url }}"
+                                                                                data-delete-file="{{ file.name }}"
+                                                                                data-delete-mode="unlink">
+                                                                            <i class="ti ti-unlink"></i>
+                                                                        </button>
                                                                         <button type="button"
                                                                                 class="btn btn-icon btn-outline-danger js-delete-file"
                                                                                 title="Elimina file"
                                                                                 data-delete-action="{{ file.delete_url }}"
-                                                                                data-delete-file="{{ file.name }}">
+                                                                                data-delete-file="{{ file.name }}"
+                                                                                data-delete-mode="delete">
                                                                             <i class="ti ti-trash"></i>
                                                                         </button>
                                                                     </td>
@@ -633,9 +776,18 @@
                         <i class="ti ti-plus"></i>
                         Aggiungi
                     </a>
+                    <button type="button"
+                            class="btn btn-icon btn-sm btn-outline-secondary st-collapse-toggle"
+                            data-collapse-target="practice-technicians-section"
+                            data-collapse-key="technicians"
+                            aria-controls="practice-technicians-section"
+                            aria-expanded="true"
+                            title="Comprimi sezione">
+                        <i class="ti ti-chevron-down"></i>
+                    </button>
                 </div>
             </div>
-            <div class="card-body">
+            <div class="card-body st-collapsible-section" id="practice-technicians-section">
                 {% if tecnici %}
                     <div class="table-responsive">
                         <table class="table table-vcenter">
@@ -740,7 +892,7 @@
                     <div class="st-confirm-title" id="deleteFileTitle">
                         Eliminare questo file?
                     </div>
-                    <div class="st-confirm-text">
+                    <div class="st-confirm-text" id="deleteFileText">
                         <span class="st-confirm-name" id="deleteFileName">File selezionato</span>
                         sarà rimosso dalla cartella collegata.
                     </div>
@@ -751,9 +903,9 @@
                 <button type="button" class="btn btn-outline-secondary js-delete-cancel">
                     Annulla
                 </button>
-                <button type="submit" class="btn btn-danger">
+                <button type="submit" class="btn btn-danger" id="deleteFileSubmit">
                     <i class="ti ti-trash"></i>
-                    Elimina
+                    <span id="deleteFileSubmitText">Elimina</span>
                 </button>
             </div>
         </form>
@@ -806,8 +958,12 @@ document.addEventListener("DOMContentLoaded", function () {
     const cancelButton = modalElement ? modalElement.querySelector(".js-delete-cancel") : null;
     const fileModalElement = document.getElementById("deleteFileModal");
     const fileForm = document.getElementById("deleteFileForm");
+    const fileTitleElement = document.getElementById("deleteFileTitle");
+    const fileTextElement = document.getElementById("deleteFileText");
     const fileNameElement = document.getElementById("deleteFileName");
     const fileInput = document.getElementById("deleteFileInput");
+    const fileSubmitElement = document.getElementById("deleteFileSubmit");
+    const fileSubmitTextElement = document.getElementById("deleteFileSubmitText");
     const fileCancelButton = fileModalElement ? fileModalElement.querySelector(".js-delete-cancel") : null;
     const categoryModalElement = document.getElementById("deleteCategoryModal");
     const categoryForm = document.getElementById("deleteCategoryForm");
@@ -816,6 +972,38 @@ document.addEventListener("DOMContentLoaded", function () {
     const communicationDropZone = document.getElementById("communicationDropZone");
     const communicationFileInput = communicationDropZone ? communicationDropZone.querySelector("input[type='file']") : null;
     const communicationFileName = document.getElementById("communicationFileName");
+
+    function setSectionCollapsed(button, section, collapsed, persist) {
+        section.hidden = collapsed;
+        button.classList.toggle("is-collapsed", collapsed);
+        button.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        button.title = collapsed ? "Espandi sezione" : "Comprimi sezione";
+
+        if (persist) {
+            localStorage.setItem(button.dataset.storageKey, collapsed ? "1" : "0");
+        }
+    }
+
+    document.querySelectorAll(".st-collapse-toggle").forEach(function (button) {
+        const section = document.getElementById(button.dataset.collapseTarget);
+
+        if (!section) {
+            return;
+        }
+
+        button.dataset.storageKey = [
+            "securtek",
+            "pratica-detail",
+            window.location.pathname,
+            button.dataset.collapseKey
+        ].join(":");
+
+        setSectionCollapsed(button, section, localStorage.getItem(button.dataset.storageKey) === "1", false);
+
+        button.addEventListener("click", function () {
+            setSectionCollapsed(button, section, !section.hidden, true);
+        });
+    });
 
     function setCommunicationFileName() {
         if (!communicationFileInput || !communicationFileName) {
@@ -852,6 +1040,12 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
+    function openCategoryDetail(button, detailRow) {
+        detailRow.hidden = false;
+        button.classList.add("is-open");
+        button.title = "Nascondi cartella e file";
+    }
+
     document.querySelectorAll(".st-category-toggle").forEach(function (button) {
         const detailRow = document.getElementById(button.dataset.target);
 
@@ -866,6 +1060,23 @@ document.addEventListener("DOMContentLoaded", function () {
             button.title = isHidden ? "Nascondi cartella e file" : "Mostra cartella e file";
         });
     });
+
+    if (window.location.hash && window.location.hash.startsWith("#category-detail-")) {
+        const detailRow = document.querySelector(window.location.hash);
+        const toggleButton = detailRow
+            ? document.querySelector(`.st-category-toggle[data-target="${detailRow.id}"]`)
+            : null;
+        const categoriesSection = document.getElementById("practice-categories-section");
+        const categoriesToggle = document.querySelector('[data-collapse-target="practice-categories-section"]');
+
+        if (detailRow && toggleButton) {
+            if (categoriesSection && categoriesToggle) {
+                setSectionCollapsed(categoriesToggle, categoriesSection, false, true);
+            }
+            openCategoryDetail(toggleButton, detailRow);
+            detailRow.scrollIntoView({block: "center"});
+        }
+    }
 
     function closeTecnicoModal() {
         if (!modalElement || !form) {
@@ -913,9 +1124,26 @@ document.addEventListener("DOMContentLoaded", function () {
     if (fileModalElement && fileForm && fileNameElement && fileInput && fileCancelButton) {
         document.querySelectorAll(".js-delete-file").forEach(function (button) {
             button.addEventListener("click", function () {
+                const mode = button.dataset.deleteMode || "delete";
+                const fileName = button.dataset.deleteFile || "File selezionato";
                 fileForm.action = button.dataset.deleteAction;
-                fileInput.value = button.dataset.deleteFile || "";
-                fileNameElement.textContent = button.dataset.deleteFile || "File selezionato";
+                fileInput.value = fileName;
+                fileNameElement.textContent = fileName;
+
+                if (mode === "unlink") {
+                    fileTitleElement.textContent = "Scollegare questo file?";
+                    fileTextElement.textContent = `${fileName} non sarà più visibile nella pratica, ma resterà nella cartella.`;
+                    fileSubmitElement.classList.remove("btn-danger");
+                    fileSubmitElement.classList.add("btn-secondary");
+                    fileSubmitTextElement.textContent = "Scollega";
+                } else {
+                    fileTitleElement.textContent = "Eliminare questo file?";
+                    fileTextElement.textContent = `${fileName} sarà rimosso fisicamente dalla cartella collegata.`;
+                    fileSubmitElement.classList.remove("btn-secondary");
+                    fileSubmitElement.classList.add("btn-danger");
+                    fileSubmitTextElement.textContent = "Elimina";
+                }
+
                 fileModalElement.hidden = false;
             });
         });

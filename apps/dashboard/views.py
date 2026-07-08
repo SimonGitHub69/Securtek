@@ -15,6 +15,7 @@ from apps.pratiche.models import (
     IncaricoTecnico,
     MacroCategoriaPratica,
     Pratica,
+    PraticaCategoriaAllegato,
     PraticaCategoria,
     StudioTecnico,
     TemplatePratica,
@@ -35,6 +36,8 @@ SUPPORTED_DOCUMENT_EXTENSIONS = {
     ".xlsx",
 }
 
+NATIVE_OPEN_EXTENSIONS = {".doc", ".docx", ".xls", ".xlsx", ".xlsm"}
+
 
 def file_datetime(timestamp):
     return datetime.fromtimestamp(timestamp, tz=timezone.get_current_timezone())
@@ -43,6 +46,10 @@ def file_datetime(timestamp):
 def file_type_label(file_name):
     extension = Path(file_name or "").suffix.upper().lstrip(".")
     return extension or "-"
+
+
+def office_file_priority(file_name):
+    return 0 if Path(file_name or "").suffix.lower() in NATIVE_OPEN_EXTENSIONS else 1
 
 
 def scan_folder_documents(q=""):
@@ -120,6 +127,14 @@ def scan_folder_documents(q=""):
                         "pratiche:pratica_categoria_file",
                         kwargs={"pratica_pk": pratica.pk, "pk": collegamento.pk},
                     ) + f"?file={quote(relative_name)}",
+                    "open_app_url": (
+                        reverse(
+                            "pratiche:pratica_categoria_file_open",
+                            kwargs={"pratica_pk": pratica.pk, "pk": collegamento.pk},
+                        ) + f"?file={quote(relative_name)}&next={quote('/documenti/')}"
+                        if file_path.suffix.lower() in NATIVE_OPEN_EXTENSIONS
+                        else ""
+                    ),
                     "detail_url": reverse("pratiche:pratica_detail", kwargs={"pk": pratica.pk}),
                     "icon": "ti-folder",
                 }
@@ -128,15 +143,93 @@ def scan_folder_documents(q=""):
     return documents
 
 
+def scan_uploaded_category_documents(q=""):
+    documents = []
+    query = q.lower()
+    allegati = (
+        PraticaCategoriaAllegato.objects.filter(
+            is_active=True,
+            pratica_categoria__is_active=True,
+            pratica_categoria__pratica__is_active=True,
+        )
+        .select_related(
+            "pratica_categoria__pratica",
+            "pratica_categoria__categoria",
+            "pratica_categoria__macro_categoria",
+        )
+        .order_by("file")
+    )
+
+    for allegato in allegati:
+        pratica_categoria = allegato.pratica_categoria
+        pratica = pratica_categoria.pratica
+        file_name = allegato.file_nome
+        searchable = " ".join(
+            [
+                file_name,
+                allegato.descrizione,
+                pratica.codice,
+                pratica.titolo,
+                pratica_categoria.categoria.denominazione,
+                pratica_categoria.macro_categoria.denominazione if pratica_categoria.macro_categoria else "",
+            ]
+        ).lower()
+
+        if query and query not in searchable:
+            continue
+
+        documents.append(
+            {
+                "name": file_name,
+                "description": allegato.descrizione,
+                "type": file_type_label(file_name),
+                "source": "File singolo",
+                "category": pratica_categoria.categoria.denominazione,
+                "macro": pratica_categoria.macro_categoria.denominazione if pratica_categoria.macro_categoria else "",
+                "pratica": pratica,
+                "updated_at": allegato.updated_at,
+                "open_url": reverse(
+                    "pratiche:pratica_categoria_allegato_file",
+                    kwargs={
+                        "pratica_pk": pratica.pk,
+                        "categoria_pk": pratica_categoria.pk,
+                        "pk": allegato.pk,
+                    },
+                ),
+                "open_app_url": (
+                    reverse(
+                        "pratiche:pratica_categoria_allegato_open",
+                        kwargs={
+                            "pratica_pk": pratica.pk,
+                            "categoria_pk": pratica_categoria.pk,
+                            "pk": allegato.pk,
+                        },
+                    ) + f"?next={quote('/documenti/')}"
+                    if Path(file_name).suffix.lower() in NATIVE_OPEN_EXTENSIONS
+                    else ""
+                ),
+                "detail_url": reverse("pratiche:pratica_detail", kwargs={"pk": pratica.pk}),
+                "icon": "ti-paperclip",
+            }
+        )
+
+    return documents
+
+
 def count_linked_documents():
     categoria_files = len(scan_folder_documents())
+    allegati_singoli = PraticaCategoriaAllegato.objects.filter(
+        is_active=True,
+        pratica_categoria__is_active=True,
+        pratica_categoria__pratica__is_active=True,
+    ).count()
     comunicazioni = ComunicazionePratica.objects.filter(
         is_active=True,
         allegato__gt="",
         pratica__is_active=True,
     ).count()
 
-    return categoria_files + comunicazioni
+    return categoria_files + allegati_singoli + comunicazioni
 
 
 def count_agenda_items():
@@ -193,6 +286,7 @@ class DocumentiView(TemplateView):
         q = (self.request.GET.get("q") or "").strip()
 
         categoria_documents = scan_folder_documents(q)
+        allegati_documents = scan_uploaded_category_documents(q)
         comunicazioni = (
             ComunicazionePratica.objects.filter(
                 is_active=True,
@@ -216,6 +310,7 @@ class DocumentiView(TemplateView):
 
         documents = []
         documents.extend(categoria_documents)
+        documents.extend(allegati_documents)
 
         for item in comunicazioni[:100]:
             document_name = item.allegato_nome
@@ -233,18 +328,20 @@ class DocumentiView(TemplateView):
                         "pratiche:comunicazione_preview" if document_name.lower().endswith(".eml") else "pratiche:comunicazione_file",
                         kwargs={"pratica_pk": item.pratica_id, "pk": item.pk},
                     ),
+                    "open_app_url": "",
                     "detail_url": reverse("pratiche:pratica_detail", kwargs={"pk": item.pratica_id}),
                     "icon": "ti-mail",
                 }
             )
 
-        documents.sort(key=lambda item: item["updated_at"], reverse=True)
+        documents.sort(key=lambda item: (office_file_priority(item["name"]), -item["updated_at"].timestamp(), item["name"].lower()))
         context["documents"] = documents
         context["q"] = q
         context["document_counts"] = {
             "cartelle": len(categoria_documents),
+            "singoli": len(allegati_documents),
             "comunicazioni": comunicazioni.count(),
-            "totale": len(categoria_documents) + comunicazioni.count(),
+            "totale": len(categoria_documents) + len(allegati_documents) + comunicazioni.count(),
         }
 
         return context

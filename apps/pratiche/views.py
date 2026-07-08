@@ -1,9 +1,10 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.files import File
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Prefetch, Q
 from django.http import FileResponse, Http404, JsonResponse
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -11,7 +12,9 @@ from django.views.generic import CreateView, DetailView, ListView, UpdateView, V
 from datetime import datetime
 from email import policy
 from email.parser import BytesParser
+import os
 from pathlib import Path
+import subprocess
 from urllib.parse import quote, unquote, urlparse
 from urllib.parse import urlencode
 
@@ -72,6 +75,7 @@ from apps.pratiche.forms import (
     IncaricoTecnicoForm,
     MacroCategoriaPraticaForm,
     PraticaForm,
+    PraticaCategoriaAllegatoUploadForm,
     PraticaCategoriaForm,
     PraticaCategoriaFileUploadForm,
     PraticaCategoriaFormSet,
@@ -88,6 +92,7 @@ from apps.pratiche.models import (
     IncaricoTecnico,
     MacroCategoriaPratica,
     Pratica,
+    PraticaCategoriaAllegato,
     PraticaCategoria,
     PraticaCategoriaFile,
     PraticaMacroCategoria,
@@ -111,6 +116,23 @@ SUPPORTED_FOLDER_EXTENSIONS = {
     ".xlsm",
     ".xlsx",
 }
+
+NATIVE_OPEN_EXTENSIONS = {".doc", ".docx", ".xls", ".xlsx", ".xlsm"}
+
+
+def office_file_priority(file_path):
+    return 0 if file_path.suffix.lower() in NATIVE_OPEN_EXTENSIONS else 1
+
+
+def open_with_default_application(file_path):
+    if os.name == "nt":
+        try:
+            subprocess.Popen(["cmd", "/c", "start", "", str(file_path)], shell=False)
+            return
+        except OSError:
+            pass
+
+    os.startfile(str(file_path))
 
 
 def is_external_link(value):
@@ -164,6 +186,117 @@ def resolve_categoria_file_path(pratica_categoria, relative_file):
     return folder_path, file_path
 
 
+def resolve_preview_folder_file_path(folder_value, relative_file):
+    folder_text = (folder_value or "").strip()
+    file_name = unquote(relative_file or "").strip()
+
+    if not folder_text or not file_name or is_external_link(folder_text):
+        raise Http404("File non disponibile")
+
+    folder_path = Path(folder_text).expanduser().resolve()
+
+    if not folder_path.exists() or not folder_path.is_dir():
+        raise Http404("Cartella non disponibile")
+
+    file_path = (folder_path / file_name).resolve()
+
+    if folder_path not in file_path.parents:
+        raise Http404("Percorso non valido")
+
+    if not file_path.is_file() or file_path.suffix.lower() not in SUPPORTED_FOLDER_EXTENSIONS:
+        raise Http404("File non disponibile")
+
+    return folder_path, file_path
+
+
+def get_pratica_categoria_allegato_or_404(pratica_pk, categoria_pk, pk):
+    return get_object_or_404(
+        PraticaCategoriaAllegato,
+        pk=pk,
+        pratica_categoria_id=categoria_pk,
+        pratica_categoria__pratica_id=pratica_pk,
+        is_active=True,
+    )
+
+
+def build_uploaded_file_entry(allegato):
+    file_path = Path(allegato.file.path)
+
+    try:
+        stat = file_path.stat()
+        size_kb = max(1, round(stat.st_size / 1024))
+        modified_at = format_file_datetime(stat.st_mtime)
+    except OSError:
+        size_kb = "-"
+        modified_at = "-"
+
+    return {
+        "id": allegato.pk,
+        "name": allegato.file_nome,
+        "description": allegato.descrizione,
+        "extension": file_path.suffix.upper().lstrip(".") or "-",
+        "size_kb": size_kb,
+        "modified_at": modified_at,
+        "open_url": reverse(
+            "pratiche:pratica_categoria_allegato_file",
+            kwargs={
+                "pratica_pk": allegato.pratica_categoria.pratica_id,
+                "categoria_pk": allegato.pratica_categoria_id,
+                "pk": allegato.pk,
+            },
+        ),
+        "open_app_url": reverse(
+            "pratiche:pratica_categoria_allegato_open",
+            kwargs={
+                "pratica_pk": allegato.pratica_categoria.pratica_id,
+                "categoria_pk": allegato.pratica_categoria_id,
+                "pk": allegato.pk,
+            },
+        )
+        if file_path.suffix.lower() in NATIVE_OPEN_EXTENSIONS
+        else "",
+        "delete_url": reverse(
+            "pratiche:pratica_categoria_allegato_delete",
+            kwargs={
+                "pratica_pk": allegato.pratica_categoria.pratica_id,
+                "categoria_pk": allegato.pratica_categoria_id,
+                "pk": allegato.pk,
+            },
+        ),
+        "destroy_url": reverse(
+            "pratiche:pratica_categoria_allegato_destroy",
+            kwargs={
+                "pratica_pk": allegato.pratica_categoria.pratica_id,
+                "categoria_pk": allegato.pratica_categoria_id,
+                "pk": allegato.pk,
+            },
+        ),
+    }
+
+
+def create_category_attachment_from_path(pratica_categoria, selected_path, user=None):
+    file_path = Path(selected_path).expanduser().resolve()
+
+    if not file_path.exists() or not file_path.is_file():
+        raise ValueError("File non trovato")
+
+    if file_path.suffix.lower() not in SUPPORTED_FOLDER_EXTENSIONS:
+        raise ValueError("Tipo file non supportato")
+
+    allegato = PraticaCategoriaAllegato(
+        pratica_categoria=pratica_categoria,
+        descrizione=file_path.name,
+        created_by=user,
+        updated_by=user,
+    )
+
+    with file_path.open("rb") as source:
+        allegato.file.save(file_path.name, File(source), save=False)
+
+    allegato.save()
+    return allegato
+
+
 def get_supported_file_entries(folder_path, pratica_categoria=None):
     entries = []
     metadata_by_path = {}
@@ -174,7 +307,10 @@ def get_supported_file_entries(folder_path, pratica_categoria=None):
             for metadata in pratica_categoria.file_metadati.filter(is_active=True)
         }
 
-    for file_path in sorted(folder_path.rglob("*"), key=lambda item: str(item.relative_to(folder_path)).lower()):
+    for file_path in sorted(
+        folder_path.rglob("*"),
+        key=lambda item: (office_file_priority(item), str(item.relative_to(folder_path)).lower()),
+    ):
         if not file_path.is_file():
             continue
 
@@ -185,9 +321,16 @@ def get_supported_file_entries(folder_path, pratica_categoria=None):
         relative_path = file_path.relative_to(folder_path)
         relative_path_text = relative_path.as_posix()
         metadata = metadata_by_path.get(relative_path_text)
+
+        if metadata and metadata.scollegato:
+            continue
+
         url = ""
+        open_app_url = ""
+        preview_open_url = ""
         description_url = ""
         delete_url = ""
+        unlink_url = ""
 
         if pratica_categoria:
             url = reverse(
@@ -197,6 +340,14 @@ def get_supported_file_entries(folder_path, pratica_categoria=None):
                     "pk": pratica_categoria.pk,
                 },
             ) + f"?file={quote(relative_path_text)}"
+            if file_path.suffix.lower() in NATIVE_OPEN_EXTENSIONS:
+                open_app_url = reverse(
+                    "pratiche:pratica_categoria_file_open",
+                    kwargs={
+                        "pratica_pk": pratica_categoria.pratica_id,
+                        "pk": pratica_categoria.pk,
+                    },
+                ) + f"?file={quote(relative_path_text)}"
             description_url = reverse(
                 "pratiche:pratica_categoria_file_description",
                 kwargs={
@@ -211,6 +362,18 @@ def get_supported_file_entries(folder_path, pratica_categoria=None):
                     "pk": pratica_categoria.pk,
                 },
             )
+            unlink_url = reverse(
+                "pratiche:pratica_categoria_file_unlink",
+                kwargs={
+                    "pratica_pk": pratica_categoria.pratica_id,
+                    "pk": pratica_categoria.pk,
+                },
+            )
+        else:
+            preview_open_url = reverse("pratiche:folder_preview_file_open") + (
+                f"?path={quote(str(folder_path))}&file={quote(relative_path_text)}"
+            )
+            delete_url = reverse("pratiche:folder_preview_file_delete")
 
         entries.append(
             {
@@ -221,8 +384,11 @@ def get_supported_file_entries(folder_path, pratica_categoria=None):
                 "created_at": format_file_datetime(stat.st_ctime),
                 "modified_at": format_file_datetime(stat.st_mtime),
                 "url": url,
+                "open_app_url": open_app_url,
+                "preview_open_url": preview_open_url,
                 "description_url": description_url,
                 "delete_url": delete_url,
+                "unlink_url": unlink_url,
             }
         )
 
@@ -256,6 +422,51 @@ def build_folder_file_entries(pratica_categoria):
 
     pratica_categoria.cartella_is_folder = True
     pratica_categoria.file_entries = get_supported_file_entries(folder_path, pratica_categoria)
+
+
+def save_category_formset_attachments(request, formset):
+    for form in formset.forms:
+        if not hasattr(form, "cleaned_data") or not form.cleaned_data:
+            continue
+
+        if form.cleaned_data.get("DELETE"):
+            continue
+
+        pratica_categoria = form.instance
+
+        if not pratica_categoria.pk:
+            continue
+
+        uploaded_files = request.FILES.getlist(f"{form.prefix}-allegato_file")
+
+        for uploaded_file in uploaded_files:
+            PraticaCategoriaAllegato.objects.create(
+                pratica_categoria=pratica_categoria,
+                file=uploaded_file,
+                descrizione=(request.POST.get(f"{form.prefix}-allegato_descrizione") or "").strip(),
+                created_by=request.user,
+                updated_by=request.user,
+            )
+
+        for relative_file in request.POST.getlist(f"{form.prefix}-scollega_files"):
+            relative_file = (relative_file or "").strip()
+
+            if not relative_file:
+                continue
+
+            metadata, created = PraticaCategoriaFile.objects.update_or_create(
+                pratica_categoria=pratica_categoria,
+                percorso_relativo=relative_file,
+                is_active=True,
+                defaults={
+                    "scollegato": True,
+                    "updated_by": request.user,
+                },
+            )
+
+            if created:
+                metadata.created_by = request.user
+                metadata.save(update_fields=["created_by", "updated_at"])
 
 
 def get_safe_next_url(request):
@@ -421,6 +632,10 @@ class PraticaDetailView(LoginRequiredMixin, DetailView):
         )
         for pratica_categoria in categorie_pratica:
             build_folder_file_entries(pratica_categoria)
+            pratica_categoria.allegato_entries = [
+                build_uploaded_file_entry(allegato)
+                for allegato in pratica_categoria.allegati_singoli.filter(is_active=True)
+            ]
 
         context["categorie_pratica"] = categorie_pratica
         context["return_url"] = get_safe_next_url(self.request) or reverse("pratiche:pratica_list")
@@ -509,6 +724,8 @@ class PraticaCreateView(LoginRequiredMixin, CreateView):
                 instance.save()
 
             formset.save_m2m()
+            if getattr(formset, "prefix", "") == "categorie":
+                save_category_formset_attachments(self.request, formset)
 
     def form_valid(self, form):
         form.instance.created_by = self.request.user
@@ -528,8 +745,8 @@ class PraticaCreateView(LoginRequiredMixin, CreateView):
         return context
 
     def get_success_url(self):
-        detail_url = reverse("pratiche:pratica_detail", kwargs={"pk": self.object.pk})
-        return with_next(detail_url, get_safe_next_url(self.request))
+        update_url = reverse("pratiche:pratica_update", kwargs={"pk": self.object.pk})
+        return with_next(update_url, get_safe_next_url(self.request))
 
 
 class PraticaUpdateView(LoginRequiredMixin, UpdateView):
@@ -594,6 +811,8 @@ class PraticaUpdateView(LoginRequiredMixin, UpdateView):
                 instance.save()
 
             formset.save_m2m()
+            if getattr(formset, "prefix", "") == "categorie":
+                save_category_formset_attachments(self.request, formset)
 
     def form_valid(self, form):
         form.instance.updated_by = self.request.user
@@ -1063,6 +1282,27 @@ class PraticaCategoriaFileView(LoginRequiredMixin, View):
         return FileResponse(file_path.open("rb"), as_attachment=False, filename=file_path.name)
 
 
+class PraticaCategoriaFileOpenView(LoginRequiredMixin, View):
+    def get(self, request, *args, **kwargs):
+        pratica_categoria = get_pratica_categoria_or_404(kwargs["pratica_pk"], kwargs["pk"])
+        _, file_path = resolve_categoria_file_path(pratica_categoria, request.GET.get("file") or "")
+        return_url = get_safe_next_url(request) or (
+            reverse("pratiche:pratica_detail", kwargs={"pk": pratica_categoria.pratica_id})
+            + f"#category-detail-{pratica_categoria.pk}"
+        )
+
+        if file_path.suffix.lower() not in NATIVE_OPEN_EXTENSIONS:
+            return redirect(return_url)
+
+        try:
+            open_with_default_application(file_path)
+            messages.success(request, f"File aperto: {file_path.name}")
+        except OSError as exc:
+            messages.error(request, f"Impossibile aprire il file con l'applicazione originale: {exc}")
+
+        return redirect(return_url)
+
+
 class PraticaCategoriaFileUploadView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         pratica_categoria = get_pratica_categoria_or_404(kwargs["pratica_pk"], kwargs["pk"])
@@ -1072,49 +1312,55 @@ class PraticaCategoriaFileUploadView(LoginRequiredMixin, View):
             messages.error(request, "Collega prima una cartella valida alla categoria.")
             return redirect("pratiche:pratica_detail", pk=kwargs["pratica_pk"])
 
-        form = PraticaCategoriaFileUploadForm(request.POST, request.FILES)
+        uploaded_files = request.FILES.getlist("file")
+        description = (request.POST.get("descrizione") or "").strip()
 
-        if not form.is_valid():
+        if not uploaded_files:
             messages.error(request, "Seleziona un file valido da aggiungere.")
             return redirect("pratiche:pratica_detail", pk=kwargs["pratica_pk"])
 
-        uploaded_file = form.cleaned_data["file"]
-        file_name = Path(uploaded_file.name).name
+        added_count = 0
 
-        if not file_name:
-            messages.error(request, "Nome file non valido.")
-            return redirect("pratiche:pratica_detail", pk=kwargs["pratica_pk"])
+        for uploaded_file in uploaded_files:
+            file_name = Path(uploaded_file.name).name
 
-        target_path = (folder_path / file_name).resolve()
+            if not file_name:
+                messages.error(request, "Nome file non valido.")
+                continue
 
-        if folder_path not in target_path.parents:
-            messages.error(request, "Percorso file non valido.")
-            return redirect("pratiche:pratica_detail", pk=kwargs["pratica_pk"])
+            target_path = (folder_path / file_name).resolve()
 
-        if target_path.suffix.lower() not in SUPPORTED_FOLDER_EXTENSIONS:
-            messages.error(request, "Tipo file non supportato.")
-            return redirect("pratiche:pratica_detail", pk=kwargs["pratica_pk"])
+            if folder_path not in target_path.parents:
+                messages.error(request, f"Percorso file non valido: {file_name}")
+                continue
 
-        if target_path.exists():
-            messages.error(request, "Esiste gia' un file con questo nome nella cartella.")
-            return redirect("pratiche:pratica_detail", pk=kwargs["pratica_pk"])
+            if target_path.suffix.lower() not in SUPPORTED_FOLDER_EXTENSIONS:
+                messages.error(request, f"Tipo file non supportato: {file_name}")
+                continue
 
-        with target_path.open("wb+") as destination:
-            for chunk in uploaded_file.chunks():
-                destination.write(chunk)
+            if target_path.exists():
+                messages.error(request, f"Esiste gia' un file con questo nome nella cartella: {file_name}")
+                continue
 
-        PraticaCategoriaFile.objects.update_or_create(
-            pratica_categoria=pratica_categoria,
-            percorso_relativo=file_name,
-            is_active=True,
-            defaults={
-                "descrizione": form.cleaned_data["descrizione"],
-                "created_by": request.user,
-                "updated_by": request.user,
-            },
-        )
+            with target_path.open("wb+") as destination:
+                for chunk in uploaded_file.chunks():
+                    destination.write(chunk)
 
-        messages.success(request, "File aggiunto correttamente.")
+            PraticaCategoriaFile.objects.update_or_create(
+                pratica_categoria=pratica_categoria,
+                percorso_relativo=file_name,
+                is_active=True,
+                defaults={
+                    "descrizione": description,
+                    "scollegato": False,
+                    "created_by": request.user,
+                    "updated_by": request.user,
+                },
+            )
+            added_count += 1
+
+        if added_count:
+            messages.success(request, f"{added_count} file aggiunti correttamente.")
         return redirect("pratiche:pratica_detail", pk=kwargs["pratica_pk"])
 
 
@@ -1131,6 +1377,7 @@ class PraticaCategoriaFileDescriptionView(LoginRequiredMixin, View):
             is_active=True,
             defaults={
                 "descrizione": (request.POST.get("descrizione") or "").strip(),
+                "scollegato": False,
                 "updated_by": request.user,
             },
         )
@@ -1161,6 +1408,171 @@ class PraticaCategoriaFileDeleteView(LoginRequiredMixin, View):
 
         messages.success(request, "File eliminato correttamente.")
         return redirect("pratiche:pratica_detail", pk=kwargs["pratica_pk"])
+
+
+class PraticaCategoriaFileUnlinkView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        pratica_categoria = get_pratica_categoria_or_404(kwargs["pratica_pk"], kwargs["pk"])
+        relative_file = (request.POST.get("file") or "").strip()
+        resolve_categoria_file_path(pratica_categoria, relative_file)
+
+        metadata, created = PraticaCategoriaFile.objects.update_or_create(
+            pratica_categoria=pratica_categoria,
+            percorso_relativo=relative_file,
+            is_active=True,
+            defaults={
+                "scollegato": True,
+                "updated_by": request.user,
+            },
+        )
+
+        if created:
+            metadata.created_by = request.user
+            metadata.save(update_fields=["created_by", "updated_at"])
+
+        messages.success(request, "File scollegato dalla pratica.")
+        return redirect("pratiche:pratica_detail", pk=kwargs["pratica_pk"])
+
+
+class PraticaCategoriaAllegatoUploadView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        pratica_categoria = get_pratica_categoria_or_404(kwargs["pratica_pk"], kwargs["categoria_pk"])
+        uploaded_files = request.FILES.getlist("file")
+        description = (request.POST.get("descrizione") or "").strip()
+
+        if not uploaded_files:
+            messages.error(request, "Seleziona un file valido da collegare.")
+            return redirect("pratiche:pratica_detail", pk=kwargs["pratica_pk"])
+
+        for uploaded_file in uploaded_files:
+            PraticaCategoriaAllegato.objects.create(
+                pratica_categoria=pratica_categoria,
+                file=uploaded_file,
+                descrizione=description,
+                created_by=request.user,
+                updated_by=request.user,
+            )
+
+        messages.success(request, f"{len(uploaded_files)} file singoli collegati correttamente.")
+        return redirect(
+            reverse("pratiche:pratica_detail", kwargs={"pk": kwargs["pratica_pk"]})
+            + f"#category-detail-{pratica_categoria.pk}"
+        )
+
+
+class PraticaCategoriaAllegatoPickView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        pratica_categoria = get_pratica_categoria_or_404(kwargs["pratica_pk"], kwargs["categoria_pk"])
+
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+        except Exception as exc:
+            messages.error(request, f"Selettore file non disponibile: {exc}")
+            return redirect(
+                reverse("pratiche:pratica_detail", kwargs={"pk": kwargs["pratica_pk"]})
+                + f"#category-detail-{pratica_categoria.pk}"
+            )
+
+        try:
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes("-topmost", True)
+            selected_path = filedialog.askopenfilename(
+                title="Seleziona file da collegare",
+                filetypes=[
+                    ("File supportati", "*.doc *.docx *.xls *.xlsx *.xlsm *.pdf *.png *.jpg *.jpeg *.txt *.html *.htm"),
+                    ("Tutti i file", "*.*"),
+                ],
+            )
+            root.destroy()
+        except Exception as exc:
+            messages.error(request, f"Impossibile aprire il selettore file: {exc}")
+            return redirect(
+                reverse("pratiche:pratica_detail", kwargs={"pk": kwargs["pratica_pk"]})
+                + f"#category-detail-{pratica_categoria.pk}"
+            )
+
+        if selected_path:
+            try:
+                create_category_attachment_from_path(pratica_categoria, selected_path, request.user)
+                messages.success(request, "File singolo collegato correttamente.")
+            except ValueError as exc:
+                messages.error(request, str(exc))
+
+        return redirect(
+            reverse("pratiche:pratica_detail", kwargs={"pk": kwargs["pratica_pk"]})
+            + f"#category-detail-{pratica_categoria.pk}"
+        )
+
+
+class PraticaCategoriaAllegatoFileView(LoginRequiredMixin, View):
+    def get(self, request, *args, **kwargs):
+        allegato = get_pratica_categoria_allegato_or_404(
+            kwargs["pratica_pk"], kwargs["categoria_pk"], kwargs["pk"]
+        )
+
+        if not allegato.file:
+            raise Http404("File non disponibile")
+
+        return FileResponse(allegato.file.open("rb"), as_attachment=False, filename=allegato.file_nome)
+
+
+class PraticaCategoriaAllegatoOpenView(LoginRequiredMixin, View):
+    def get(self, request, *args, **kwargs):
+        allegato = get_pratica_categoria_allegato_or_404(
+            kwargs["pratica_pk"], kwargs["categoria_pk"], kwargs["pk"]
+        )
+        return_url = get_safe_next_url(request) or (
+            reverse("pratiche:pratica_detail", kwargs={"pk": kwargs["pratica_pk"]})
+            + f"#category-detail-{kwargs['categoria_pk']}"
+        )
+
+        if not allegato.file:
+            return redirect(return_url)
+
+        file_path = Path(allegato.file.path)
+
+        if file_path.suffix.lower() not in NATIVE_OPEN_EXTENSIONS:
+            return redirect(return_url)
+
+        try:
+            open_with_default_application(file_path)
+            messages.success(request, f"File aperto: {allegato.file_nome}")
+        except OSError as exc:
+            messages.error(request, f"Impossibile aprire il file con l'applicazione originale: {exc}")
+
+        return redirect(return_url)
+
+
+class PraticaCategoriaAllegatoDeleteView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        allegato = get_pratica_categoria_allegato_or_404(
+            kwargs["pratica_pk"], kwargs["categoria_pk"], kwargs["pk"]
+        )
+        allegato.soft_delete(user=request.user)
+        messages.success(request, "File singolo scollegato correttamente.")
+        return redirect(
+            reverse("pratiche:pratica_detail", kwargs={"pk": kwargs["pratica_pk"]})
+            + f"#category-detail-{kwargs['categoria_pk']}"
+        )
+
+
+class PraticaCategoriaAllegatoDestroyView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        allegato = get_pratica_categoria_allegato_or_404(
+            kwargs["pratica_pk"], kwargs["categoria_pk"], kwargs["pk"]
+        )
+
+        if allegato.file:
+            allegato.file.delete(save=False)
+
+        allegato.soft_delete(user=request.user)
+        messages.success(request, "File singolo eliminato correttamente.")
+        return redirect(
+            reverse("pratiche:pratica_detail", kwargs={"pk": kwargs["pratica_pk"]})
+            + f"#category-detail-{kwargs['categoria_pk']}"
+        )
 
 
 class FolderPickerView(LoginRequiredMixin, View):
@@ -1205,6 +1617,36 @@ class FolderPreviewView(LoginRequiredMixin, View):
             return JsonResponse({"files": [], "error": "Il percorso non è una cartella"})
 
         return JsonResponse({"files": get_supported_file_entries(folder_path), "error": ""})
+
+
+class FolderPreviewFileOpenView(LoginRequiredMixin, View):
+    def get(self, request, *args, **kwargs):
+        _, file_path = resolve_preview_folder_file_path(
+            request.GET.get("path") or "",
+            request.GET.get("file") or "",
+        )
+
+        if file_path.suffix.lower() in NATIVE_OPEN_EXTENSIONS:
+            try:
+                open_with_default_application(file_path)
+                return JsonResponse({"opened": True, "message": f"File aperto: {file_path.name}"})
+            except OSError as exc:
+                return JsonResponse(
+                    {"opened": False, "error": f"Impossibile aprire il file con l'applicazione originale: {exc}"},
+                    status=500,
+                )
+
+        return FileResponse(file_path.open("rb"), as_attachment=False, filename=file_path.name)
+
+
+class FolderPreviewFileDeleteView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        _, file_path = resolve_preview_folder_file_path(
+            request.POST.get("path") or "",
+            request.POST.get("file") or "",
+        )
+        file_path.unlink()
+        return JsonResponse({"deleted": True, "message": f"File eliminato: {file_path.name}"})
 
 
 class StudioTecnicoListView(LoginRequiredMixin, ListView):

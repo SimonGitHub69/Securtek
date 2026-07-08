@@ -17,7 +17,7 @@
 <div class="page-body">
     <div class="container-xl">
         <div class="row row-cards mb-3">
-            <div class="col-sm-4">
+            <div class="col-sm-6 col-lg-3">
                 <div class="card">
                     <div class="card-body">
                         <div class="text-secondary small">Totale documenti</div>
@@ -25,7 +25,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-sm-4">
+            <div class="col-sm-6 col-lg-3">
                 <div class="card">
                     <div class="card-body">
                         <div class="text-secondary small">Da cartelle</div>
@@ -33,7 +33,15 @@
                     </div>
                 </div>
             </div>
-            <div class="col-sm-4">
+            <div class="col-sm-6 col-lg-3">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="text-secondary small">File singoli</div>
+                        <div class="h2 mb-0">{{ document_counts.singoli }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
                 <div class="card">
                     <div class="card-body">
                         <div class="text-secondary small">Comunicazioni</div>
@@ -108,9 +116,10 @@
                                 <td>{{ document.description|default:"-"|truncatechars:80 }}</td>
                                 <td>{{ document.updated_at|date:"d/m/Y H:i" }}</td>
                                 <td class="text-end">
-                                    <a href="{{ document.open_url }}"
+                                    <a href="{% if document.open_app_url %}{{ document.open_app_url }}{% else %}{{ document.open_url }}{% endif %}"
                                        class="btn btn-icon btn-outline-primary"
-                                       title="Apri documento">
+                                       {% if not document.open_app_url %}target="_blank"{% endif %}
+                                       title="{% if document.open_app_url %}Apri con applicazione originale{% else %}Apri documento{% endif %}">
                                         <i class="ti ti-eye"></i>
                                     </a>
                                 </td>

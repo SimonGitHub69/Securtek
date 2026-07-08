@@ -6,6 +6,7 @@ from apps.pratiche.models import (
     IncaricoTecnico,
     MacroCategoriaPratica,
     Pratica,
+    PraticaCategoriaAllegato,
     PraticaCategoria,
     PraticaCategoriaFile,
     PraticaMacroCategoria,
@@ -114,6 +115,13 @@ class PraticaCategoriaAdmin(admin.ModelAdmin):
 class PraticaCategoriaFileAdmin(admin.ModelAdmin):
     list_display = ("pratica_categoria", "percorso_relativo", "descrizione", "is_active")
     search_fields = ("pratica_categoria__pratica__codice", "percorso_relativo", "descrizione")
+    list_filter = ("is_active",)
+
+
+@admin.register(PraticaCategoriaAllegato)
+class PraticaCategoriaAllegatoAdmin(admin.ModelAdmin):
+    list_display = ("pratica_categoria", "file", "descrizione", "is_active")
+    search_fields = ("pratica_categoria__pratica__codice", "file", "descrizione")
     list_filter = ("is_active",)
 
 

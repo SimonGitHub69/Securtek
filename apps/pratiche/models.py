@@ -258,6 +258,7 @@ class PraticaCategoriaFile(BaseModel):
     )
     percorso_relativo = models.CharField("Percorso relativo", max_length=500)
     descrizione = models.TextField("Descrizione", blank=True)
+    scollegato = models.BooleanField("Scollegato dalla pratica", default=False)
 
     class Meta:
         verbose_name = "File categoria pratica"
@@ -275,8 +276,42 @@ class PraticaCategoriaFile(BaseModel):
         return self.percorso_relativo
 
 
+def pratica_categoria_allegato_upload_to(instance, filename):
+    pratica_uuid = instance.pratica_categoria.pratica.uuid
+    categoria_uuid = instance.pratica_categoria.uuid
+    file_name = str(filename).replace("\\", "/").rsplit("/", 1)[-1]
+    return f"pratiche/{pratica_uuid}/categorie/{categoria_uuid}/allegati/{file_name}"
+
+
+class PraticaCategoriaAllegato(BaseModel):
+    pratica_categoria = models.ForeignKey(
+        PraticaCategoria,
+        on_delete=models.CASCADE,
+        related_name="allegati_singoli",
+        verbose_name="Categoria pratica",
+    )
+    file = models.FileField("File", upload_to=pratica_categoria_allegato_upload_to, max_length=500)
+    descrizione = models.TextField("Descrizione", blank=True)
+
+    class Meta:
+        verbose_name = "Allegato singolo categoria pratica"
+        verbose_name_plural = "Allegati singoli categorie pratica"
+        ordering = ["file"]
+
+    def __str__(self):
+        return self.file_nome
+
+    @property
+    def file_nome(self):
+        if not self.file:
+            return ""
+
+        return self.file.name.rsplit("/", 1)[-1]
+
+
 def comunicazione_upload_to(instance, filename):
-    return f"pratiche/{instance.pratica.uuid}/comunicazioni/{filename}"
+    file_name = str(filename).replace("\\", "/").rsplit("/", 1)[-1]
+    return f"pratiche/{instance.pratica.uuid}/comunicazioni/{file_name}"
 
 
 class ComunicazionePratica(BaseModel):
@@ -288,7 +323,7 @@ class ComunicazionePratica(BaseModel):
     )
     data_ora = models.DateTimeField("Data e ora comunicazione", default=timezone.now)
     descrizione = models.TextField("Descrizione")
-    allegato = models.FileField("File comunicazione", upload_to=comunicazione_upload_to, blank=True)
+    allegato = models.FileField("File comunicazione", upload_to=comunicazione_upload_to, blank=True, max_length=500)
 
     class Meta:
         verbose_name = "Comunicazione pratica"

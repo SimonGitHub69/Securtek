@@ -76,6 +76,7 @@
                                 <th>Modificato il</th>
                                 <th>Tipo</th>
                                 <th>Dimensione</th>
+                                <th class="text-end">Azioni</th>
                             </tr>
                         </thead>
                         <tbody id="folderPreviewRows"></tbody>
@@ -131,6 +132,8 @@ document.addEventListener("DOMContentLoaded", function () {
             const modifiedCell = document.createElement("td");
             const typeCell = document.createElement("td");
             const sizeCell = document.createElement("td");
+            const actionsCell = document.createElement("td");
+            const openButton = document.createElement("button");
             const badge = document.createElement("span");
 
             nameCell.textContent = file.name;
@@ -140,17 +143,60 @@ document.addEventListener("DOMContentLoaded", function () {
             badge.textContent = file.extension;
             typeCell.appendChild(badge);
             sizeCell.textContent = `${file.size_kb} KB`;
+            actionsCell.className = "text-end";
+
+            if (file.preview_open_url) {
+                openButton.type = "button";
+                openButton.className = "btn btn-icon btn-outline-primary btn-sm";
+                openButton.title = "Apri file";
+                openButton.dataset.openUrl = file.preview_open_url;
+                openButton.dataset.nativeOpen = ["DOC", "DOCX", "XLS", "XLSX", "XLSM"].includes(file.extension) ? "1" : "0";
+                openButton.innerHTML = '<i class="ti ti-eye"></i>';
+                actionsCell.appendChild(openButton);
+            } else {
+                actionsCell.textContent = "-";
+            }
 
             row.appendChild(nameCell);
             row.appendChild(createdCell);
             row.appendChild(modifiedCell);
             row.appendChild(typeCell);
             row.appendChild(sizeCell);
+            row.appendChild(actionsCell);
             previewRows.appendChild(row);
         });
 
         preview.hidden = files.length === 0;
     }
+
+    previewRows.addEventListener("click", async function (event) {
+        const button = event.target.closest("[data-open-url]");
+
+        if (!button) {
+            return;
+        }
+
+        if (button.dataset.nativeOpen === "1") {
+            try {
+                const response = await fetch(button.dataset.openUrl, {
+                    headers: {"X-Requested-With": "XMLHttpRequest"},
+                });
+                const data = await response.json();
+
+                if (!response.ok || data.error) {
+                    setMessage(data.error || "Impossibile aprire il file.");
+                    return;
+                }
+
+                setMessage(data.message || "File aperto con l'applicazione originale.", false);
+            } catch (error) {
+                setMessage("Impossibile aprire il file.");
+            }
+            return;
+        }
+
+        window.open(button.dataset.openUrl, "_blank", "noopener");
+    });
 
     async function refreshPreview() {
         const value = cartellaInput.value.trim();
