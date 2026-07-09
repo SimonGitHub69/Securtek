@@ -38,6 +38,19 @@ class MacroCategoriaPratica(BaseModel):
         return self.denominazione
 
 
+class TipologiaPratica(BaseModel):
+    denominazione = models.CharField("Denominazione", max_length=200, unique=True)
+    descrizione = models.TextField("Descrizione", blank=True)
+
+    class Meta:
+        verbose_name = "Tipologia pratica"
+        verbose_name_plural = "Tipologie pratiche"
+        ordering = ["denominazione"]
+
+    def __str__(self):
+        return self.denominazione
+
+
 class Pratica(BaseModel):
     class Stato(models.TextChoices):
         BOZZA = "bozza", "Bozza"
@@ -55,12 +68,6 @@ class Pratica(BaseModel):
         ALTA = "alta", "Alta"
         URGENTE = "urgente", "Urgente"
 
-    class Tipologia(models.TextChoices):
-        IMPIANTO_ELETTRICO = "impianto_elettrico", "Impianto elettrico"
-        IMPIANTO_TERMICO = "impianto_termico", "Impianto termico"
-        ENEA = "enea", "ENEA"
-        ATEX = "atex", "ATEX"
-
     codice = models.CharField("Codice", max_length=30, unique=True, blank=True)
     titolo = models.CharField("Titolo", max_length=200)
     cliente = models.ForeignKey(
@@ -69,10 +76,11 @@ class Pratica(BaseModel):
         related_name="pratiche",
         verbose_name="Cliente",
     )
-    tipologia = models.CharField(
-        "Tipologia",
-        max_length=30,
-        choices=Tipologia.choices,
+    tipologia = models.ForeignKey(
+        TipologiaPratica,
+        on_delete=models.PROTECT,
+        related_name="pratiche",
+        verbose_name="Tipologia",
     )
     stato = models.CharField(
         "Stato",
@@ -140,10 +148,11 @@ class Pratica(BaseModel):
 
 
 class TemplatePratica(BaseModel):
-    tipologia = models.CharField(
-        "Tipologia",
-        max_length=30,
-        choices=Pratica.Tipologia.choices,
+    tipologia = models.ForeignKey(
+        TipologiaPratica,
+        on_delete=models.PROTECT,
+        related_name="template_pratiche",
+        verbose_name="Tipologia",
         unique=True,
     )
     macro_categorie = models.ManyToManyField(
@@ -162,10 +171,10 @@ class TemplatePratica(BaseModel):
     class Meta:
         verbose_name = "Template pratica"
         verbose_name_plural = "Template pratiche"
-        ordering = ["tipologia"]
+        ordering = ["tipologia__denominazione"]
 
     def __str__(self):
-        return self.get_tipologia_display()
+        return str(self.tipologia)
 
 
 class PraticaCategoria(BaseModel):
@@ -397,8 +406,8 @@ class Tecnico(BaseModel):
     telefono = models.CharField("Telefono", max_length=30, blank=True)
 
     class Meta:
-        verbose_name = "Tecnico"
-        verbose_name_plural = "Tecnici"
+        verbose_name = "Personale"
+        verbose_name_plural = "Personale"
         ordering = ["cognome", "nome"]
 
     def __str__(self):

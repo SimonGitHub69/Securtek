@@ -16,7 +16,7 @@
 
         <div class="st-nav-section">Gestione</div>
 
-        <a class="st-nav-link {% if request.path|slice:':10' == '/pratiche/' and '/pratiche/categorie/' not in request.path and '/pratiche/macro-categorie/' not in request.path and '/pratiche/template-pratiche/' not in request.path and '/pratiche/studi-tecnici/' not in request.path and '/pratiche/incarichi/' not in request.path %}active{% endif %}" href="/pratiche/">
+        <a class="st-nav-link {% if request.path|slice:':10' == '/pratiche/' and '/pratiche/categorie/' not in request.path and '/pratiche/macro-categorie/' not in request.path and '/pratiche/tipologie/' not in request.path and '/pratiche/template-pratiche/' not in request.path and '/pratiche/studi-tecnici/' not in request.path and '/pratiche/incarichi/' not in request.path %}active{% endif %}" href="/pratiche/">
             <i class="ti ti-folder"></i>
             <span>Pratiche</span>
         </a>
@@ -49,6 +49,11 @@
         </a>
 
         <div class="st-nav-section">Parametri</div>
+
+        <a class="st-nav-link {% if request.path|slice:':20' == '/pratiche/tipologie/' %}active{% endif %}" href="/pratiche/tipologie/">
+            <i class="ti ti-list-details"></i>
+            <span>Tipologie pratiche</span>
+        </a>
 
         <a class="st-nav-link {% if request.path|slice:':20' == '/pratiche/categorie/' %}active{% endif %}" href="/pratiche/categorie/">
             <i class="ti ti-tags"></i>

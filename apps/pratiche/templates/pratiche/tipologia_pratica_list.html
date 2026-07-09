@@ -1,7 +1,7 @@
 {% extends "base/layout.html" %}
 
 {% block page_title %}
-Incarichi
+Tipologie pratiche
 {% endblock %}
 
 {% block extra_css %}
@@ -91,13 +91,13 @@ Incarichi
 <div class="page-header d-print-none mb-3">
     <div class="row align-items-center">
         <div class="col">
-            <h2 class="page-title">Incarichi</h2>
-            <div class="text-secondary">Elenco incarichi disponibili per il personale delle pratiche</div>
+            <h2 class="page-title">Tipologie pratiche</h2>
+            <div class="text-secondary">Tipologie disponibili per classificare le pratiche, es. ENEA, ATEX, Impianti termici</div>
         </div>
         <div class="col-auto">
-            <a href="{% url 'pratiche:incarico_tecnico_create' %}" class="btn btn-primary">
+            <a href="{% url 'pratiche:tipologia_pratica_create' %}" class="btn btn-primary">
                 <i class="ti ti-plus"></i>
-                Nuovo incarico
+                Nuova tipologia
             </a>
         </div>
     </div>
@@ -119,7 +119,7 @@ Incarichi
                     <button type="submit" class="btn btn-secondary">Cerca</button>
                 </div>
                 <div class="col-auto">
-                    <a href="{% url 'pratiche:incarico_tecnico_list' %}" class="btn btn-outline-secondary">Pulisci</a>
+                    <a href="{% url 'pratiche:tipologia_pratica_list' %}" class="btn btn-outline-secondary">Pulisci</a>
                 </div>
             </div>
         </form>
@@ -131,39 +131,43 @@ Incarichi
         <table class="table table-vcenter">
             <thead>
                 <tr>
-                    <th>Incarico</th>
+                    <th>Tipologia</th>
                     <th>Descrizione</th>
-                    <th>Personale</th>
+                    <th>Pratiche</th>
+                    <th>Template</th>
                     <th class="text-end">Azioni</th>
                 </tr>
             </thead>
             <tbody>
-                {% for incarico in incarichi %}
+                {% for tipologia in tipologie %}
                     <tr>
-                        <td class="fw-bold">{{ incarico.denominazione }}</td>
-                        <td>{{ incarico.descrizione|default:"-" }}</td>
+                        <td class="fw-bold">{{ tipologia.denominazione }}</td>
+                        <td>{{ tipologia.descrizione|default:"-" }}</td>
                         <td>
-                            <span class="badge bg-blue-lt">{{ incarico.tecnici_attivi }}</span>
+                            <span class="badge bg-blue-lt">{{ tipologia.pratiche_attive }}</span>
+                        </td>
+                        <td>
+                            <span class="badge bg-purple-lt">{{ tipologia.template_attivi }}</span>
                         </td>
                         <td class="text-end">
-                            <a href="{% url 'pratiche:incarico_tecnico_update' incarico.pk %}"
+                            <a href="{% url 'pratiche:tipologia_pratica_update' tipologia.pk %}"
                                class="btn btn-icon btn-outline-primary"
                                title="Modifica">
                                 <i class="ti ti-edit"></i>
                             </a>
                             <button type="button"
-                                    class="btn btn-icon btn-outline-danger js-delete-incarico"
+                                    class="btn btn-icon btn-outline-danger js-delete-tipologia"
                                     title="Elimina"
-                                    data-delete-action="{% url 'pratiche:incarico_tecnico_delete' incarico.pk %}"
-                                    data-delete-name="{{ incarico.denominazione }}">
+                                    data-delete-action="{% url 'pratiche:tipologia_pratica_delete' tipologia.pk %}"
+                                    data-delete-name="{{ tipologia.denominazione }}">
                                 <i class="ti ti-trash"></i>
                             </button>
                         </td>
                     </tr>
                 {% empty %}
                     <tr>
-                        <td colspan="4" class="text-center text-secondary py-4">
-                            Nessun incarico presente
+                        <td colspan="5" class="text-center text-secondary py-4">
+                            Nessuna tipologia presente
                         </td>
                     </tr>
                 {% endfor %}
@@ -172,9 +176,9 @@ Incarichi
     </div>
 </div>
 
-<div class="st-confirm" id="deleteIncaricoModal" hidden>
-    <div class="st-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="deleteIncaricoTitle">
-        <form method="post" id="deleteIncaricoForm">
+<div class="st-confirm" id="deleteTipologiaModal" hidden>
+    <div class="st-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="deleteTipologiaTitle">
+        <form method="post" id="deleteTipologiaForm">
             {% csrf_token %}
 
             <div class="st-confirm-body">
@@ -183,11 +187,11 @@ Incarichi
                 </div>
 
                 <div>
-                    <div class="st-confirm-title" id="deleteIncaricoTitle">
-                        Eliminare questo incarico?
+                    <div class="st-confirm-title" id="deleteTipologiaTitle">
+                        Eliminare questa tipologia?
                     </div>
                     <div class="st-confirm-text">
-                        <span class="st-confirm-name" id="deleteIncaricoName">Incarico selezionato</span>
+                        <span class="st-confirm-name" id="deleteTipologiaName">Tipologia selezionata</span>
                         non sarà più disponibile nella lista.
                     </div>
                 </div>
@@ -212,9 +216,9 @@ Incarichi
 {{ block.super }}
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-    const modalElement = document.getElementById("deleteIncaricoModal");
-    const form = document.getElementById("deleteIncaricoForm");
-    const nameElement = document.getElementById("deleteIncaricoName");
+    const modalElement = document.getElementById("deleteTipologiaModal");
+    const form = document.getElementById("deleteTipologiaForm");
+    const nameElement = document.getElementById("deleteTipologiaName");
     const cancelButton = modalElement ? modalElement.querySelector(".js-delete-cancel") : null;
 
     if (!modalElement || !form || !nameElement || !cancelButton) {
@@ -226,10 +230,10 @@ document.addEventListener("DOMContentLoaded", function () {
         form.removeAttribute("action");
     }
 
-    document.querySelectorAll(".js-delete-incarico").forEach(function (button) {
+    document.querySelectorAll(".js-delete-tipologia").forEach(function (button) {
         button.addEventListener("click", function () {
             form.action = button.dataset.deleteAction;
-            nameElement.textContent = button.dataset.deleteName || "Incarico selezionato";
+            nameElement.textContent = button.dataset.deleteName || "Tipologia selezionata";
             modalElement.hidden = false;
         });
     });

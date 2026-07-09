@@ -84,6 +84,7 @@ from apps.pratiche.forms import (
     TecnicoForm,
     TecnicoFormSet,
     TemplatePraticaForm,
+    TipologiaPraticaForm,
 )
 from apps.agenda.models import EventoAgenda
 from apps.pratiche.models import (
@@ -99,6 +100,7 @@ from apps.pratiche.models import (
     StudioTecnico,
     Tecnico,
     TemplatePratica,
+    TipologiaPratica,
 )
 
 
@@ -133,6 +135,31 @@ def open_with_default_application(file_path):
             pass
 
     os.startfile(str(file_path))
+
+
+def open_folder_in_file_manager(folder_path, file_path=None):
+    selected_file = None
+
+    if file_path:
+        selected_file = Path(file_path).expanduser().resolve()
+        if not selected_file.is_file():
+            raise OSError("File non trovato")
+        folder = selected_file.parent
+    else:
+        folder = Path(folder_path).expanduser().resolve()
+
+    if not folder.exists():
+        raise OSError("Cartella non trovata")
+
+    if os.name == "nt":
+        if selected_file:
+            subprocess.Popen(["explorer", "/select,", str(selected_file)], shell=False)
+            return
+
+        os.startfile(str(folder))
+        return
+
+    os.startfile(str(folder))
 
 
 def is_external_link(value):
@@ -271,6 +298,14 @@ def build_uploaded_file_entry(allegato):
                 "pk": allegato.pk,
             },
         ),
+        "open_folder_url": reverse(
+            "pratiche:pratica_categoria_allegato_folder_open",
+            kwargs={
+                "pratica_pk": allegato.pratica_categoria.pratica_id,
+                "categoria_pk": allegato.pratica_categoria_id,
+                "pk": allegato.pk,
+            },
+        ),
     }
 
 
@@ -331,6 +366,7 @@ def get_supported_file_entries(folder_path, pratica_categoria=None):
         description_url = ""
         delete_url = ""
         unlink_url = ""
+        open_folder_url = ""
 
         if pratica_categoria:
             url = reverse(
@@ -369,6 +405,13 @@ def get_supported_file_entries(folder_path, pratica_categoria=None):
                     "pk": pratica_categoria.pk,
                 },
             )
+            open_folder_url = reverse(
+                "pratiche:pratica_categoria_file_folder_open",
+                kwargs={
+                    "pratica_pk": pratica_categoria.pratica_id,
+                    "pk": pratica_categoria.pk,
+                },
+            ) + f"?file={quote(relative_path_text)}"
         else:
             preview_open_url = reverse("pratiche:folder_preview_file_open") + (
                 f"?path={quote(str(folder_path))}&file={quote(relative_path_text)}"
@@ -389,6 +432,7 @@ def get_supported_file_entries(folder_path, pratica_categoria=None):
                 "description_url": description_url,
                 "delete_url": delete_url,
                 "unlink_url": unlink_url,
+                "open_folder_url": open_folder_url,
             }
         )
 
@@ -497,7 +541,7 @@ def with_next(url, next_url):
 
 def apply_template_to_pratica(pratica, user=None):
     template = (
-        TemplatePratica.objects.filter(tipologia=pratica.tipologia, is_active=True)
+        TemplatePratica.objects.filter(tipologia_id=pratica.tipologia_id, is_active=True)
         .prefetch_related("macro_categorie__categorie", "categorie")
         .first()
     )
@@ -551,7 +595,7 @@ class PraticaListView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         queryset = (
             Pratica.objects.filter(is_active=True)
-            .select_related("cliente", "responsabile")
+            .select_related("cliente", "responsabile", "tipologia")
             .prefetch_related(
                 Prefetch(
                     "categoria_collegamenti",
@@ -570,6 +614,7 @@ class PraticaListView(LoginRequiredMixin, ListView):
         stato = self.request.GET.get("stato") or ""
         priorita = self.request.GET.get("priorita") or ""
         categoria = self.request.GET.get("categoria") or ""
+        tipologia = self.request.GET.get("tipologia") or ""
 
         if q:
             queryset = queryset.filter(
@@ -589,6 +634,9 @@ class PraticaListView(LoginRequiredMixin, ListView):
         if categoria:
             queryset = queryset.filter(categoria_collegamenti__categoria_id=categoria)
 
+        if tipologia:
+            queryset = queryset.filter(tipologia_id=tipologia)
+
         return queryset.distinct()
 
     def get_context_data(self, **kwargs):
@@ -596,6 +644,7 @@ class PraticaListView(LoginRequiredMixin, ListView):
         context["stati"] = Pratica.Stato.choices
         context["priorita"] = Pratica.Priorita.choices
         context["categorie"] = CategoriaPratica.objects.filter(is_active=True).order_by("denominazione")
+        context["tipologie"] = TipologiaPratica.objects.filter(is_active=True).order_by("denominazione")
         return context
 
 
@@ -603,7 +652,7 @@ class PraticaDetailView(LoginRequiredMixin, DetailView):
     model = Pratica
     template_name = "pratiche/pratica_detail.html"
     context_object_name = "pratica"
-    queryset = Pratica.objects.select_related("cliente", "responsabile").prefetch_related(
+    queryset = Pratica.objects.select_related("cliente", "responsabile", "tipologia").prefetch_related(
         Prefetch(
             "categoria_collegamenti",
             queryset=PraticaCategoria.objects.filter(is_active=True).select_related("categoria", "macro_categoria"),
@@ -614,7 +663,10 @@ class PraticaDetailView(LoginRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["tecnici"] = self.object.tecnici.filter(is_active=True)
-        context["eventi_agenda"] = self.object.eventi_agenda.filter(is_active=True).order_by(
+        context["eventi_agenda"] = self.object.eventi_agenda.filter(is_active=True).prefetch_related(
+            "tecnici__studio_appartenenza",
+            "tecnici__incarico",
+        ).order_by(
             "data_inizio",
             "ora_inizio",
         )[:8]
@@ -975,6 +1027,76 @@ class CategoriaPraticaDeleteView(LoginRequiredMixin, View):
         return redirect("pratiche:categoria_pratica_list")
 
 
+class TipologiaPraticaListView(LoginRequiredMixin, ListView):
+    model = TipologiaPratica
+    template_name = "pratiche/tipologia_pratica_list.html"
+    context_object_name = "tipologie"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = TipologiaPratica.objects.filter(is_active=True).annotate(
+            pratiche_attive=Count(
+                "pratiche",
+                filter=Q(pratiche__is_active=True),
+                distinct=True,
+            ),
+            template_attivi=Count(
+                "template_pratiche",
+                filter=Q(template_pratiche__is_active=True),
+                distinct=True,
+            ),
+        )
+        q = (self.request.GET.get("q") or "").strip()
+
+        if q:
+            queryset = queryset.filter(
+                Q(denominazione__icontains=q)
+                | Q(descrizione__icontains=q)
+            )
+
+        return queryset.order_by("denominazione")
+
+
+class TipologiaPraticaCreateView(LoginRequiredMixin, CreateView):
+    model = TipologiaPratica
+    form_class = TipologiaPraticaForm
+    template_name = "pratiche/tipologia_pratica_form.html"
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        form.instance.updated_by = self.request.user
+        messages.success(self.request, "Tipologia creata correttamente.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse("pratiche:tipologia_pratica_list")
+
+
+class TipologiaPraticaUpdateView(LoginRequiredMixin, UpdateView):
+    model = TipologiaPratica
+    form_class = TipologiaPraticaForm
+    template_name = "pratiche/tipologia_pratica_form.html"
+
+    def get_queryset(self):
+        return TipologiaPratica.objects.filter(is_active=True)
+
+    def form_valid(self, form):
+        form.instance.updated_by = self.request.user
+        messages.success(self.request, "Tipologia aggiornata correttamente.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse("pratiche:tipologia_pratica_list")
+
+
+class TipologiaPraticaDeleteView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        tipologia = get_object_or_404(TipologiaPratica, pk=kwargs["pk"], is_active=True)
+        tipologia.soft_delete(user=request.user)
+        messages.success(request, "Tipologia eliminata correttamente.")
+        return redirect("pratiche:tipologia_pratica_list")
+
+
 class MacroCategoriaPraticaListView(LoginRequiredMixin, ListView):
     model = MacroCategoriaPratica
     template_name = "pratiche/macro_categoria_pratica_list.html"
@@ -1104,8 +1226,9 @@ class TemplatePraticaListView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         return (
             TemplatePratica.objects.filter(is_active=True)
+            .select_related("tipologia")
             .prefetch_related("macro_categorie", "categorie")
-            .order_by("tipologia")
+            .order_by("tipologia__denominazione")
         )
 
 
@@ -1153,7 +1276,7 @@ class TemplatePraticaRowsView(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
         tipologia = (request.GET.get("tipologia") or "").strip()
         template = (
-            TemplatePratica.objects.filter(tipologia=tipologia, is_active=True)
+            TemplatePratica.objects.filter(tipologia_id=tipologia, is_active=True)
             .prefetch_related("macro_categorie__categorie", "categorie")
             .first()
         )
@@ -1299,6 +1422,24 @@ class PraticaCategoriaFileOpenView(LoginRequiredMixin, View):
             messages.success(request, f"File aperto: {file_path.name}")
         except OSError as exc:
             messages.error(request, f"Impossibile aprire il file con l'applicazione originale: {exc}")
+
+        return redirect(return_url)
+
+
+class PraticaCategoriaFileFolderOpenView(LoginRequiredMixin, View):
+    def get(self, request, *args, **kwargs):
+        pratica_categoria = get_pratica_categoria_or_404(kwargs["pratica_pk"], kwargs["pk"])
+        _, file_path = resolve_categoria_file_path(pratica_categoria, request.GET.get("file") or "")
+        return_url = get_safe_next_url(request) or (
+            reverse("pratiche:pratica_detail", kwargs={"pk": pratica_categoria.pratica_id})
+            + f"#category-detail-{pratica_categoria.pk}"
+        )
+
+        try:
+            open_folder_in_file_manager(file_path.parent, file_path)
+            messages.success(request, f"Cartella aperta per: {file_path.name}")
+        except OSError as exc:
+            messages.error(request, f"Impossibile aprire la cartella del file: {exc}")
 
         return redirect(return_url)
 
@@ -1541,6 +1682,31 @@ class PraticaCategoriaAllegatoOpenView(LoginRequiredMixin, View):
             messages.success(request, f"File aperto: {allegato.file_nome}")
         except OSError as exc:
             messages.error(request, f"Impossibile aprire il file con l'applicazione originale: {exc}")
+
+        return redirect(return_url)
+
+
+class PraticaCategoriaAllegatoFolderOpenView(LoginRequiredMixin, View):
+    def get(self, request, *args, **kwargs):
+        allegato = get_pratica_categoria_allegato_or_404(
+            kwargs["pratica_pk"], kwargs["categoria_pk"], kwargs["pk"]
+        )
+        return_url = get_safe_next_url(request) or (
+            reverse("pratiche:pratica_detail", kwargs={"pk": kwargs["pratica_pk"]})
+            + f"#category-detail-{kwargs['categoria_pk']}"
+        )
+
+        if not allegato.file:
+            messages.error(request, "File non disponibile.")
+            return redirect(return_url)
+
+        file_path = Path(allegato.file.path)
+
+        try:
+            open_folder_in_file_manager(file_path.parent, file_path)
+            messages.success(request, f"Cartella aperta per: {allegato.file_nome}")
+        except OSError as exc:
+            messages.error(request, f"Impossibile aprire la cartella del file: {exc}")
 
         return redirect(return_url)
 
@@ -1793,13 +1959,13 @@ class TecnicoCreateView(LoginRequiredMixin, CreateView):
         form.instance.pratica = self.pratica
         form.instance.created_by = self.request.user
         form.instance.updated_by = self.request.user
-        messages.success(self.request, "Tecnico aggiunto correttamente.")
+        messages.success(self.request, "Personale aggiunto correttamente.")
         return super().form_valid(form)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["pratica"] = self.pratica
-        context["page_title"] = "Nuovo tecnico"
+        context["page_title"] = "Nuovo personale"
         return context
 
     def get_success_url(self):
@@ -1816,13 +1982,13 @@ class TecnicoUpdateView(LoginRequiredMixin, UpdateView):
 
     def form_valid(self, form):
         form.instance.updated_by = self.request.user
-        messages.success(self.request, "Tecnico aggiornato correttamente.")
+        messages.success(self.request, "Personale aggiornato correttamente.")
         return super().form_valid(form)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["pratica"] = self.object.pratica
-        context["page_title"] = "Modifica tecnico"
+        context["page_title"] = "Modifica personale"
         return context
 
     def get_success_url(self):
@@ -1839,5 +2005,5 @@ class TecnicoDeleteView(LoginRequiredMixin, View):
         )
         pratica_pk = tecnico.pratica_id
         tecnico.soft_delete(user=request.user)
-        messages.success(request, "Tecnico eliminato correttamente.")
+        messages.success(request, "Personale eliminato correttamente.")
         return redirect("pratiche:pratica_detail", pk=pratica_pk)

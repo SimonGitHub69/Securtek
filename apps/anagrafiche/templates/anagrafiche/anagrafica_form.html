@@ -4,29 +4,6 @@
 {% if object %}Modifica anagrafica{% else %}Nuova anagrafica{% endif %}
 {% endblock %}
 
-{% block extra_css %}
-{{ block.super }}
-<style>
-.st-logo-preview {
-    align-items: center;
-    background: var(--tblr-bg-surface-secondary, #f8fafc);
-    border: 1px solid var(--tblr-border-color, #e6e8eb);
-    border-radius: 8px;
-    display: flex;
-    height: 96px;
-    justify-content: center;
-    overflow: hidden;
-    width: 160px;
-}
-
-.st-logo-preview img {
-    max-height: 82px;
-    max-width: 140px;
-    object-fit: contain;
-}
-</style>
-{% endblock %}
-
 {% block content %}
 
 <div class="container-xl">
@@ -44,7 +21,7 @@
         </div>
     </div>
 
-    <form method="post" enctype="multipart/form-data">
+    <form method="post">
         {% csrf_token %}
 
         <div class="card mb-3">
@@ -115,27 +92,6 @@
                             {% if form.telefono.errors %}
                                 <div class="invalid-feedback d-block">{{ form.telefono.errors|join:", " }}</div>
                             {% endif %}
-                        </div>
-                    </div>
-
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label class="form-label" for="{{ form.logo.id_for_label }}">
-                                {{ form.logo.label }}
-                            </label>
-                            <div class="d-flex align-items-start gap-3">
-                                {% if object and object.logo %}
-                                    <div class="st-logo-preview">
-                                        <img src="{{ object.logo.url }}" alt="Logo {{ object.ragione_sociale }}">
-                                    </div>
-                                {% endif %}
-                                <div class="flex-fill">
-                                    {{ form.logo }}
-                                    {% if form.logo.errors %}
-                                        <div class="invalid-feedback d-block">{{ form.logo.errors|join:", " }}</div>
-                                    {% endif %}
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>

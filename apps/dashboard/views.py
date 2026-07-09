@@ -19,6 +19,7 @@ from apps.pratiche.models import (
     PraticaCategoria,
     StudioTecnico,
     TemplatePratica,
+    TipologiaPratica,
 )
 
 SUPPORTED_DOCUMENT_EXTENSIONS = {
@@ -377,6 +378,7 @@ class SistemaView(TemplateView):
             },
         ]
         context["registry_counts"] = [
+            {"label": "Tipologie pratiche", "value": TipologiaPratica.objects.filter(is_active=True).count()},
             {"label": "Categorie", "value": CategoriaPratica.objects.filter(is_active=True).count()},
             {"label": "Macro-categorie", "value": MacroCategoriaPratica.objects.filter(is_active=True).count()},
             {"label": "Template pratiche", "value": TemplatePratica.objects.filter(is_active=True).count()},

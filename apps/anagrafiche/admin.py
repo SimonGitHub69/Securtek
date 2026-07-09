@@ -27,7 +27,7 @@ class IndirizzoInline(admin.TabularInline):
 
 @admin.register(Anagrafica)
 class AnagraficaAdmin(admin.ModelAdmin):
-    list_display = ("ragione_sociale", "partita_iva", "codice_fiscale", "email", "telefono", "logo", "is_active")
+    list_display = ("ragione_sociale", "partita_iva", "codice_fiscale", "email", "telefono", "is_active")
     search_fields = ("ragione_sociale", "partita_iva", "codice_fiscale", "email", "telefono")
     list_filter = ("is_active",)
     inlines = (ContattoInline, IndirizzoInline)

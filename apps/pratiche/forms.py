@@ -15,6 +15,7 @@ from apps.pratiche.models import (
     StudioTecnico,
     Tecnico,
     TemplatePratica,
+    TipologiaPratica,
 )
 
 
@@ -55,6 +56,7 @@ class PraticaForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["cliente"].queryset = Anagrafica.objects.filter(is_active=True)
+        self.fields["tipologia"].queryset = TipologiaPratica.objects.filter(is_active=True)
         self.fields["responsabile"].required = False
         self.fields["data_apertura"].input_formats = ["%Y-%m-%d"]
         self.fields["data_scadenza"].required = False
@@ -114,6 +116,21 @@ class StudioTecnicoForm(forms.ModelForm):
 class IncaricoTecnicoForm(forms.ModelForm):
     class Meta:
         model = IncaricoTecnico
+        fields = [
+            "denominazione",
+            "descrizione",
+            "note",
+        ]
+        widgets = {
+            "denominazione": forms.TextInput(attrs={"class": "form-control"}),
+            "descrizione": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "note": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+        }
+
+
+class TipologiaPraticaForm(forms.ModelForm):
+    class Meta:
+        model = TipologiaPratica
         fields = [
             "denominazione",
             "descrizione",
@@ -196,6 +213,7 @@ class TemplatePraticaForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["tipologia"].queryset = TipologiaPratica.objects.filter(is_active=True)
         self.fields["macro_categorie"].queryset = MacroCategoriaPratica.objects.filter(is_active=True)
         self.fields["macro_categorie"].required = False
         self.fields["categorie"].queryset = CategoriaPratica.objects.filter(is_active=True)

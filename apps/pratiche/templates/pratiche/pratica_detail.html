@@ -175,7 +175,7 @@
                     </dd>
 
                     <dt class="col-sm-4">Tipologia</dt>
-                    <dd class="col-sm-8">{{ pratica.get_tipologia_display|default:"-" }}</dd>
+                    <dd class="col-sm-8">{{ pratica.tipologia|default:"-" }}</dd>
 
 
                     <dt class="col-sm-4">Responsabile</dt>
@@ -361,6 +361,7 @@
                                     <th>Data</th>
                                     <th>Tipo</th>
                                     <th>Titolo</th>
+                                    <th>Personale</th>
                                     <th>Stato</th>
                                     <th class="text-end">Azioni</th>
                                 </tr>
@@ -383,6 +384,21 @@
                                             <div class="fw-bold">{{ evento.titolo }}</div>
                                             {% if evento.descrizione %}
                                                 <div class="text-secondary small">{{ evento.descrizione|truncatechars:90 }}</div>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if evento.tipo == "scadenza" %}
+                                                {% for tecnico in evento.tecnici.all %}
+                                                    {% if tecnico.is_active %}
+                                                        <span class="badge bg-blue-lt me-1 mb-1">
+                                                            {{ tecnico.cognome }} {{ tecnico.nome }}
+                                                        </span>
+                                                    {% endif %}
+                                                {% empty %}
+                                                    <span class="text-secondary">-</span>
+                                                {% endfor %}
+                                            {% else %}
+                                                <span class="text-secondary">-</span>
                                             {% endif %}
                                         </td>
                                         <td>{{ evento.get_stato_display }}</td>
@@ -614,14 +630,11 @@
                                                                                 data-delete-mode="unlink">
                                                                             <i class="ti ti-unlink"></i>
                                                                         </button>
-                                                                        <button type="button"
-                                                                                class="btn btn-icon btn-outline-danger js-delete-file"
-                                                                                title="Elimina file"
-                                                                                data-delete-action="{{ allegato.destroy_url }}"
-                                                                                data-delete-file="{{ allegato.name }}"
-                                                                                data-delete-mode="delete">
-                                                                            <i class="ti ti-trash"></i>
-                                                                        </button>
+                                                                        <a href="{{ allegato.open_folder_url }}?next={{ request.get_full_path|urlencode }}%23category-detail-{{ collegamento.pk }}"
+                                                                           class="btn btn-icon btn-outline-secondary"
+                                                                           title="Apri cartella di origine">
+                                                                            <i class="ti ti-folder-open"></i>
+                                                                        </a>
                                                                     </td>
                                                                 </tr>
                                                             {% endfor %}
@@ -717,14 +730,11 @@
                                                                                 data-delete-mode="unlink">
                                                                             <i class="ti ti-unlink"></i>
                                                                         </button>
-                                                                        <button type="button"
-                                                                                class="btn btn-icon btn-outline-danger js-delete-file"
-                                                                                title="Elimina file"
-                                                                                data-delete-action="{{ file.delete_url }}"
-                                                                                data-delete-file="{{ file.name }}"
-                                                                                data-delete-mode="delete">
-                                                                            <i class="ti ti-trash"></i>
-                                                                        </button>
+                                                                        <a href="{{ file.open_folder_url }}&next={{ request.get_full_path|urlencode }}%23category-detail-{{ collegamento.pk }}"
+                                                                           class="btn btn-icon btn-outline-secondary"
+                                                                           title="Apri cartella di origine">
+                                                                            <i class="ti ti-folder-open"></i>
+                                                                        </a>
                                                                     </td>
                                                                 </tr>
                                                             {% endfor %}
@@ -770,7 +780,7 @@
     <div class="col-12">
         <div class="card">
             <div class="card-header">
-                <h3 class="card-title">Tecnici</h3>
+                <h3 class="card-title">Personale</h3>
                 <div class="card-actions">
                     <a href="{% url 'pratiche:tecnico_create' pratica.pk %}" class="btn btn-primary btn-sm">
                         <i class="ti ti-plus"></i>
@@ -835,7 +845,7 @@
                         <div class="empty-icon">
                             <i class="ti ti-users"></i>
                         </div>
-                        <p class="empty-title">Nessun tecnico registrato</p>
+                        <p class="empty-title">Nessun personale registrato</p>
                     </div>
                 {% endif %}
             </div>
@@ -924,10 +934,10 @@
 
                 <div>
                     <div class="st-confirm-title" id="deleteTecnicoTitle">
-                        Eliminare questo tecnico?
+                        Eliminare dal personale?
                     </div>
                     <div class="st-confirm-text">
-                        <span class="st-confirm-name" id="deleteTecnicoName">Tecnico selezionato</span>
+                        <span class="st-confirm-name" id="deleteTecnicoName">Personale selezionato</span>
                         non sarà più visibile nella pratica.
                     </div>
                 </div>
@@ -1107,7 +1117,7 @@ document.addEventListener("DOMContentLoaded", function () {
         document.querySelectorAll(".js-delete-tecnico").forEach(function (button) {
             button.addEventListener("click", function () {
                 form.action = button.dataset.deleteAction;
-                nameElement.textContent = button.dataset.deleteName || "Tecnico selezionato";
+                nameElement.textContent = button.dataset.deleteName || "Personale selezionato";
                 modalElement.hidden = false;
             });
         });

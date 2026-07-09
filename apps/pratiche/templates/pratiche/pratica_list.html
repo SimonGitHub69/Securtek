@@ -25,7 +25,7 @@ Pratiche
     <div class="card-body">
         <form method="get">
             <div class="row g-2 align-items-end">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Ricerca</label>
                     <input type="text"
                            name="q"
@@ -33,7 +33,18 @@ Pratiche
                            class="form-control"
                            placeholder="Codice, titolo o cliente">
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
+                    <label class="form-label">Tipologia</label>
+                    <select name="tipologia" class="form-select">
+                        <option value="">Tutte</option>
+                        {% for tipologia in tipologie %}
+                            <option value="{{ tipologia.pk }}" {% if request.GET.tipologia == tipologia.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ tipologia.denominazione }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
                     <label class="form-label">Categoria</label>
                     <select name="categoria" class="form-select">
                         <option value="">Tutte</option>
@@ -44,7 +55,7 @@ Pratiche
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label">Stato</label>
                     <select name="stato" class="form-select">
                         <option value="">Tutti</option>
@@ -55,7 +66,7 @@ Pratiche
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label">Priorita</label>
                     <select name="priorita" class="form-select">
                         <option value="">Tutte</option>
@@ -104,7 +115,7 @@ Pratiche
                             </a>
                         </td>
                         <td>{{ pratica.cliente }}</td>
-                        <td>{{ pratica.get_tipologia_display }}</td>
+                        <td>{{ pratica.tipologia }}</td>
                         <td>
                             {% for collegamento in pratica.macro_categorie_attive %}
                                 <span class="badge bg-purple-lt me-1 mb-1">

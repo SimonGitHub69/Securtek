@@ -2,7 +2,7 @@ from django.db import models
 from django.utils import timezone
 
 from apps.core.models import BaseModel
-from apps.pratiche.models import Pratica
+from apps.pratiche.models import Pratica, Tecnico
 
 
 class EventoAgenda(BaseModel):
@@ -31,8 +31,15 @@ class EventoAgenda(BaseModel):
     data_fine = models.DateField("Data fine / scadenza", null=True, blank=True)
     ora_fine = models.TimeField("Ora fine", null=True, blank=True)
     notifica_email = models.BooleanField("Notifica email", default=True)
+    giorni_preavviso = models.PositiveSmallIntegerField("Giorni preavviso", default=7)
     notificato_il = models.DateTimeField("Notificato il", null=True, blank=True)
     descrizione = models.TextField("Descrizione", blank=True)
+    tecnici = models.ManyToManyField(
+        Tecnico,
+        related_name="eventi_agenda",
+        verbose_name="Personale",
+        blank=True,
+    )
 
     class Meta:
         verbose_name = "Evento agenda"

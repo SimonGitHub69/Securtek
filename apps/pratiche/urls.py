@@ -24,12 +24,14 @@ from apps.pratiche.views import (
     PraticaCategoriaAllegatoDeleteView,
     PraticaCategoriaAllegatoDestroyView,
     PraticaCategoriaAllegatoFileView,
+    PraticaCategoriaAllegatoFolderOpenView,
     PraticaCategoriaAllegatoOpenView,
     PraticaCategoriaAllegatoPickView,
     PraticaCategoriaAllegatoUploadView,
     PraticaCategoriaCreateView,
     PraticaCategoriaDeleteView,
     PraticaCategoriaFileDeleteView,
+    PraticaCategoriaFileFolderOpenView,
     PraticaCategoriaFileDescriptionView,
     PraticaCategoriaFileOpenView,
     PraticaCategoriaFileUnlinkView,
@@ -53,6 +55,10 @@ from apps.pratiche.views import (
     TemplatePraticaListView,
     TemplatePraticaRowsView,
     TemplatePraticaUpdateView,
+    TipologiaPraticaCreateView,
+    TipologiaPraticaDeleteView,
+    TipologiaPraticaListView,
+    TipologiaPraticaUpdateView,
 )
 
 app_name = "pratiche"
@@ -74,6 +80,10 @@ urlpatterns = [
     path("categorie/nuova/", CategoriaPraticaCreateView.as_view(), name="categoria_pratica_create"),
     path("categorie/<int:pk>/modifica/", CategoriaPraticaUpdateView.as_view(), name="categoria_pratica_update"),
     path("categorie/<int:pk>/elimina/", CategoriaPraticaDeleteView.as_view(), name="categoria_pratica_delete"),
+    path("tipologie/", TipologiaPraticaListView.as_view(), name="tipologia_pratica_list"),
+    path("tipologie/nuova/", TipologiaPraticaCreateView.as_view(), name="tipologia_pratica_create"),
+    path("tipologie/<int:pk>/modifica/", TipologiaPraticaUpdateView.as_view(), name="tipologia_pratica_update"),
+    path("tipologie/<int:pk>/elimina/", TipologiaPraticaDeleteView.as_view(), name="tipologia_pratica_delete"),
     path("macro-categorie/", MacroCategoriaPraticaListView.as_view(), name="macro_categoria_pratica_list"),
     path("macro-categorie/nuova/", MacroCategoriaPraticaCreateView.as_view(), name="macro_categoria_pratica_create"),
     path("macro-categorie/<int:pk>/modifica/", MacroCategoriaPraticaUpdateView.as_view(), name="macro_categoria_pratica_update"),
@@ -114,6 +124,11 @@ urlpatterns = [
         name="pratica_categoria_file_open",
     ),
     path(
+        "<int:pratica_pk>/categorie/<int:pk>/file/cartella/",
+        PraticaCategoriaFileFolderOpenView.as_view(),
+        name="pratica_categoria_file_folder_open",
+    ),
+    path(
         "<int:pratica_pk>/categorie/<int:pk>/file/aggiungi/",
         PraticaCategoriaFileUploadView.as_view(),
         name="pratica_categoria_file_upload",
@@ -152,6 +167,11 @@ urlpatterns = [
         "<int:pratica_pk>/categorie/<int:categoria_pk>/allegati/<int:pk>/apri/",
         PraticaCategoriaAllegatoOpenView.as_view(),
         name="pratica_categoria_allegato_open",
+    ),
+    path(
+        "<int:pratica_pk>/categorie/<int:categoria_pk>/allegati/<int:pk>/cartella/",
+        PraticaCategoriaAllegatoFolderOpenView.as_view(),
+        name="pratica_categoria_allegato_folder_open",
     ),
     path(
         "<int:pratica_pk>/categorie/<int:categoria_pk>/allegati/<int:pk>/elimina/",

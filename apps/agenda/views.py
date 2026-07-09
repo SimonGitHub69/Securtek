@@ -4,6 +4,7 @@ from datetime import date, time, timedelta
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
@@ -11,7 +12,7 @@ from django.views.generic import CreateView, TemplateView, UpdateView, View
 
 from apps.agenda.forms import ConfigurazioneNotificaEmailForm, EventoAgendaForm
 from apps.agenda.models import ConfigurazioneNotificaEmail, EventoAgenda
-from apps.pratiche.models import Pratica
+from apps.pratiche.models import Pratica, Tecnico, TipologiaPratica
 
 
 class PraticaScadenzaAgendaItem:
@@ -37,7 +38,45 @@ class PraticaScadenzaAgendaItem:
         return "Programmato"
 
 
-def get_pratica_deadline_items(start_date, end_date, pratica_id=""):
+def get_agenda_filters(request):
+    return {
+        "pratica_id": request.GET.get("pratica") or "",
+        "tipologia_id": request.GET.get("tipologia") or "",
+    }
+
+
+def build_agenda_query_prefix(pratica_id="", tipologia_id=""):
+    params = []
+    if pratica_id:
+        params.append(f"pratica={pratica_id}")
+    if tipologia_id:
+        params.append(f"tipologia={tipologia_id}")
+    return f"?{'&'.join(params)}" if params else ""
+
+
+def build_agenda_query_suffix(pratica_id="", tipologia_id=""):
+    prefix = build_agenda_query_prefix(pratica_id, tipologia_id)
+    return prefix.replace("?", "&", 1) if prefix else ""
+
+
+def get_agenda_filter_context(filters):
+    return {
+        "tipologie": TipologiaPratica.objects.filter(is_active=True).order_by("denominazione"),
+        "selected_pratica": filters["pratica_id"],
+        "selected_tipologia": filters["tipologia_id"],
+        "selected_pratica_obj": get_selected_pratica(filters["pratica_id"]),
+        "agenda_query_prefix": build_agenda_query_prefix(
+            filters["pratica_id"],
+            filters["tipologia_id"],
+        ),
+        "agenda_query_suffix": build_agenda_query_suffix(
+            filters["pratica_id"],
+            filters["tipologia_id"],
+        ),
+    }
+
+
+def get_pratica_deadline_items(start_date, end_date, pratica_id="", tipologia_id=""):
     stati_finali = [
         Pratica.Stato.COMPLETATA,
         Pratica.Stato.ANNULLATA,
@@ -57,7 +96,17 @@ def get_pratica_deadline_items(start_date, end_date, pratica_id=""):
     if pratica_id:
         pratiche = pratiche.filter(pk=pratica_id)
 
+    if tipologia_id:
+        pratiche = pratiche.filter(tipologia_id=tipologia_id)
+
     return [PraticaScadenzaAgendaItem(pratica) for pratica in pratiche]
+
+
+def get_selected_pratica(pratica_id):
+    if not pratica_id:
+        return None
+
+    return Pratica.objects.filter(pk=pratica_id, is_active=True).first()
 
 
 class AgendaCalendarView(LoginRequiredMixin, TemplateView):
@@ -76,16 +125,20 @@ class AgendaCalendarView(LoginRequiredMixin, TemplateView):
             return date(today.year, today.month, 1)
 
     def get_events_queryset(self, month_start, month_end):
+        filters = get_agenda_filters(self.request)
         queryset = (
             EventoAgenda.objects.filter(is_active=True)
             .filter(data_inizio__lte=month_end)
             .filter(Q(data_fine__isnull=True, data_inizio__gte=month_start) | Q(data_fine__gte=month_start))
-            .select_related("pratica", "pratica__cliente")
+            .select_related("pratica", "pratica__cliente", "pratica__tipologia")
+            .prefetch_related("tecnici__studio_appartenenza", "tecnici__incarico")
         )
-        pratica_id = self.request.GET.get("pratica") or ""
 
-        if pratica_id:
-            queryset = queryset.filter(pratica_id=pratica_id)
+        if filters["pratica_id"]:
+            queryset = queryset.filter(pratica_id=filters["pratica_id"])
+
+        if filters["tipologia_id"]:
+            queryset = queryset.filter(pratica__tipologia_id=filters["tipologia_id"])
 
         return queryset.order_by("data_inizio", "ora_inizio", "titolo")
 
@@ -96,9 +149,16 @@ class AgendaCalendarView(LoginRequiredMixin, TemplateView):
         month_end = date(month_start.year, month_start.month, days_in_month)
         previous_month = date(month_start.year - 1, 12, 1) if month_start.month == 1 else date(month_start.year, month_start.month - 1, 1)
         next_month = date(month_start.year + 1, 1, 1) if month_start.month == 12 else date(month_start.year, month_start.month + 1, 1)
-        pratica_id = self.request.GET.get("pratica") or ""
+        filters = get_agenda_filters(self.request)
         events = list(self.get_events_queryset(month_start, month_end))
-        events.extend(get_pratica_deadline_items(month_start, month_end, pratica_id))
+        events.extend(
+            get_pratica_deadline_items(
+                month_start,
+                month_end,
+                filters["pratica_id"],
+                filters["tipologia_id"],
+            )
+        )
         events.sort(key=lambda event: (event.data_inizio, event.ora_inizio or time.min, event.tipo, event.titolo))
         events_by_day = {}
 
@@ -139,7 +199,7 @@ class AgendaCalendarView(LoginRequiredMixin, TemplateView):
                     and event.stato not in {EventoAgenda.Stato.COMPLETATO, EventoAgenda.Stato.ANNULLATO}
                 ][:12],
                 "pratiche": Pratica.objects.filter(is_active=True).order_by("-data_apertura", "-id"),
-                "selected_pratica": pratica_id,
+                **get_agenda_filter_context(filters),
             }
         )
         return context
@@ -159,19 +219,34 @@ class AgendaDayView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         selected_date = self.get_selected_date()
-        pratica_id = self.request.GET.get("pratica") or ""
+        filters = get_agenda_filters(self.request)
         events = list(
             EventoAgenda.objects.filter(is_active=True)
             .filter(data_inizio__lte=selected_date)
             .filter(Q(data_fine__isnull=True, data_inizio=selected_date) | Q(data_fine__gte=selected_date))
-            .select_related("pratica", "pratica__cliente")
+            .select_related("pratica", "pratica__cliente", "pratica__tipologia")
+            .prefetch_related("tecnici__studio_appartenenza", "tecnici__incarico")
             .order_by("ora_inizio", "tipo", "titolo")
         )
 
-        if pratica_id:
-            events = [event for event in events if str(event.pratica_id) == str(pratica_id)]
+        if filters["pratica_id"]:
+            events = [event for event in events if str(event.pratica_id) == str(filters["pratica_id"])]
 
-        events.extend(get_pratica_deadline_items(selected_date, selected_date, pratica_id))
+        if filters["tipologia_id"]:
+            events = [
+                event
+                for event in events
+                if str(event.pratica.tipologia_id) == str(filters["tipologia_id"])
+            ]
+
+        events.extend(
+            get_pratica_deadline_items(
+                selected_date,
+                selected_date,
+                filters["pratica_id"],
+                filters["tipologia_id"],
+            )
+        )
         events.sort(key=lambda event: (event.ora_inizio or time.min, event.tipo, event.titolo))
 
         previous_day = selected_date - timedelta(days=1)
@@ -183,10 +258,41 @@ class AgendaDayView(LoginRequiredMixin, TemplateView):
                 "next_day": next_day,
                 "events": events,
                 "pratiche": Pratica.objects.filter(is_active=True).order_by("-data_apertura", "-id"),
-                "selected_pratica": pratica_id,
+                **get_agenda_filter_context(filters),
             }
         )
         return context
+
+
+class EventoAgendaTecniciView(LoginRequiredMixin, View):
+    def get(self, request, *args, **kwargs):
+        pratica_id = request.GET.get("pratica") or ""
+
+        if not pratica_id:
+            return JsonResponse({"tecnici": []})
+
+        tecnici = (
+            Tecnico.objects.filter(pratica_id=pratica_id, is_active=True)
+            .select_related("studio_appartenenza", "incarico")
+            .order_by("cognome", "nome")
+        )
+
+        return JsonResponse(
+            {
+                "tecnici": [
+                    {
+                        "id": tecnico.pk,
+                        "nome": tecnico.nome,
+                        "cognome": tecnico.cognome,
+                        "studio": tecnico.studio_appartenenza.denominazione if tecnico.studio_appartenenza else "",
+                        "incarico": tecnico.incarico.denominazione if tecnico.incarico else "",
+                        "email": tecnico.email or "",
+                        "telefono": tecnico.telefono or "",
+                    }
+                    for tecnico in tecnici
+                ]
+            }
+        )
 
 
 class EventoAgendaCreateView(LoginRequiredMixin, CreateView):
@@ -217,6 +323,7 @@ class EventoAgendaCreateView(LoginRequiredMixin, CreateView):
         context = super().get_context_data(**kwargs)
         context["page_title"] = "Nuovo evento"
         context["cancel_url"] = self.get_success_url()
+        context["selected_tecnici_ids"] = []
         return context
 
     def get_success_url(self):
@@ -246,6 +353,9 @@ class EventoAgendaUpdateView(LoginRequiredMixin, UpdateView):
         context = super().get_context_data(**kwargs)
         context["page_title"] = "Modifica evento"
         context["cancel_url"] = self.get_success_url()
+        context["selected_tecnici_ids"] = list(
+            self.object.tecnici.filter(is_active=True).values_list("pk", flat=True)
+        )
         return context
 
     def get_success_url(self):

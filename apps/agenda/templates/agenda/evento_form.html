@@ -4,6 +4,69 @@
 {{ page_title }}
 {% endblock %}
 
+{% block extra_css %}
+{{ block.super }}
+<style>
+.st-confirm {
+    background: rgba(15, 23, 42, 0.45);
+    bottom: 0;
+    display: flex;
+    left: 0;
+    padding: 1rem;
+    position: fixed;
+    right: 0;
+    top: 0;
+    z-index: 1080;
+}
+
+.st-confirm[hidden] {
+    display: none;
+}
+
+.st-confirm-dialog {
+    background: var(--tblr-bg-surface, #fff);
+    border-radius: 8px;
+    box-shadow: 0 1rem 3rem rgba(15, 23, 42, 0.2);
+    margin: auto;
+    max-width: 720px;
+    overflow: hidden;
+    width: 100%;
+}
+
+.st-confirm-body {
+    padding: 1.25rem;
+}
+
+.st-confirm-footer {
+    align-items: center;
+    background: var(--tblr-bg-surface-secondary, #f8fafc);
+    border-top: 1px solid var(--tblr-border-color, #e6e8eb);
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    padding: 0.75rem 1.25rem;
+}
+
+.st-tecnici-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.st-tecnico-picker-row {
+    align-items: center;
+    border-bottom: 1px solid var(--tblr-border-color, #e6e8eb);
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.75rem 0;
+}
+
+.st-tecnico-picker-row:last-child {
+    border-bottom: 0;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 
 <div class="page-header d-print-none mb-3">
@@ -16,7 +79,7 @@
 </div>
 
 <div class="card">
-    <form method="post">
+    <form method="post" id="eventoAgendaForm">
         {% csrf_token %}
 
         <div class="card-body">
@@ -26,16 +89,45 @@
 
             <div class="row">
                 {% for field in form %}
-                    <div class="{% if field.name in 'descrizione note' %}col-12{% elif field.name in 'data_inizio data_fine ora_inizio ora_fine tipo stato' %}col-md-3{% else %}col-md-6{% endif %}">
-                        <div class="mb-3">
-                            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                            {{ field }}
-                            {% if field.errors %}
-                                <div class="invalid-feedback d-block">{{ field.errors|join:", " }}</div>
-                            {% endif %}
+                    {% if field.name != "tecnici" %}
+                        <div class="{% if field.name in 'descrizione note' %}col-12{% elif field.name in 'data_inizio data_fine ora_inizio ora_fine tipo stato giorni_preavviso' %}col-md-3{% elif field.name == 'notifica_email' %}col-md-3{% else %}col-md-6{% endif %}">
+                            <div class="mb-3{% if field.name == 'notifica_email' %} form-check mt-4 pt-2{% endif %}">
+                                {% if field.name != "notifica_email" %}
+                                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                {% else %}
+                                    <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                {% endif %}
+                                {{ field }}
+                                {% if field.help_text %}
+                                    <div class="form-text">{{ field.help_text }}</div>
+                                {% endif %}
+                                {% if field.errors %}
+                                    <div class="invalid-feedback d-block">{{ field.errors|join:", " }}</div>
+                                {% endif %}
+                            </div>
                         </div>
-                    </div>
+                    {% endif %}
                 {% endfor %}
+            </div>
+
+            <div class="mb-3" id="personaleSection">
+                <label class="form-label">Personale assegnato</label>
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="openTecniciModal">
+                        <i class="ti ti-users"></i>
+                        Seleziona personale
+                    </button>
+                    <span class="text-secondary small" id="personaleHint">
+                        Seleziona uno o più nominativi del personale collegato alla pratica.
+                    </span>
+                </div>
+                <div class="st-tecnici-badges" id="selectedTecniciBadges"></div>
+                <div id="tecniciHiddenInputs">
+                    {{ form.tecnici }}
+                </div>
+                {% if form.tecnici.errors %}
+                    <div class="invalid-feedback d-block">{{ form.tecnici.errors|join:", " }}</div>
+                {% endif %}
             </div>
         </div>
 
@@ -49,4 +141,211 @@
     </form>
 </div>
 
+<div class="st-confirm" id="tecniciModal" hidden>
+    <div class="st-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="tecniciModalTitle">
+        <div class="st-confirm-body">
+            <h3 class="mb-1" id="tecniciModalTitle">Seleziona personale</h3>
+            <div class="text-secondary small mb-3">
+                Personale registrato nella pratica selezionata.
+            </div>
+            <div id="tecniciModalMessage" class="alert alert-warning" hidden></div>
+            <div id="tecniciModalRows"></div>
+        </div>
+        <div class="st-confirm-footer">
+            <button type="button" class="btn btn-outline-secondary" id="closeTecniciModal">
+                Annulla
+            </button>
+            <button type="button" class="btn btn-primary" id="confirmTecniciModal">
+                <i class="ti ti-check"></i>
+                Conferma selezione
+            </button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const praticaField = document.getElementById("id_pratica");
+    const tecniciHiddenInputs = document.getElementById("tecniciHiddenInputs");
+    const selectedTecniciBadges = document.getElementById("selectedTecniciBadges");
+    const tecniciModal = document.getElementById("tecniciModal");
+    const tecniciModalRows = document.getElementById("tecniciModalRows");
+    const tecniciModalMessage = document.getElementById("tecniciModalMessage");
+    const openTecniciModalButton = document.getElementById("openTecniciModal");
+    const closeTecniciModalButton = document.getElementById("closeTecniciModal");
+    const confirmTecniciModalButton = document.getElementById("confirmTecniciModal");
+  const tecniciUrl = "{% url 'agenda:evento_tecnici' %}";
+    const initialSelectedIds = new Set([
+        {% for tecnico_id in selected_tecnici_ids %}{{ tecnico_id }}{% if not forloop.last %}, {% endif %}{% endfor %}
+    ]);
+    let availableTecnici = [];
+    let draftSelectedIds = new Set(initialSelectedIds);
+
+    function getSelectedIdsFromHiddenInputs() {
+        return new Set(
+            Array.from(tecniciHiddenInputs.querySelectorAll('input[name="tecnici"]'))
+                .map(function (input) {
+                    return input.value;
+                })
+        );
+    }
+
+    function syncHiddenInputs(selectedIds) {
+        tecniciHiddenInputs.innerHTML = "";
+
+        selectedIds.forEach(function (id) {
+            const input = document.createElement("input");
+            input.type = "hidden";
+            input.name = "tecnici";
+            input.value = id;
+            tecniciHiddenInputs.appendChild(input);
+        });
+    }
+
+    function renderSelectedBadges(selectedIds) {
+        selectedTecniciBadges.innerHTML = "";
+
+        if (!selectedIds.size) {
+            selectedTecniciBadges.innerHTML = '<span class="text-secondary small">Nessun personale selezionato.</span>';
+            return;
+        }
+
+        availableTecnici
+            .filter(function (tecnico) {
+                return selectedIds.has(String(tecnico.id));
+            })
+            .forEach(function (tecnico) {
+                const badge = document.createElement("span");
+                badge.className = "badge bg-blue-lt";
+                badge.textContent = `${tecnico.cognome} ${tecnico.nome}`;
+                selectedTecniciBadges.appendChild(badge);
+            });
+    }
+
+    function renderModalRows() {
+        tecniciModalRows.innerHTML = "";
+        tecniciModalMessage.hidden = true;
+
+        if (!availableTecnici.length) {
+            tecniciModalMessage.textContent = "Nessun personale registrato per la pratica selezionata.";
+            tecniciModalMessage.hidden = false;
+            return;
+        }
+
+        availableTecnici.forEach(function (tecnico) {
+            const row = document.createElement("label");
+            row.className = "st-tecnico-picker-row";
+            row.innerHTML = `
+                <input type="checkbox"
+                       class="form-check-input mt-0 js-tecnico-checkbox"
+                       value="${tecnico.id}"
+                       ${draftSelectedIds.has(String(tecnico.id)) ? "checked" : ""}>
+                <div>
+                    <div class="fw-bold">${tecnico.cognome} ${tecnico.nome}</div>
+                    <div class="text-secondary small">
+                        ${tecnico.studio || "Studio non indicato"}
+                        ${tecnico.incarico ? " · " + tecnico.incarico : ""}
+                    </div>
+                </div>
+            `;
+            tecniciModalRows.appendChild(row);
+        });
+    }
+
+    async function loadTecniciForPratica(praticaId, preserveSelection) {
+        if (!praticaId) {
+            availableTecnici = [];
+            if (!preserveSelection) {
+                draftSelectedIds = new Set();
+                syncHiddenInputs(draftSelectedIds);
+            }
+            renderSelectedBadges(getSelectedIdsFromHiddenInputs());
+            return;
+        }
+
+        const response = await fetch(`${tecniciUrl}?pratica=${encodeURIComponent(praticaId)}`);
+        const data = await response.json();
+        availableTecnici = data.tecnici || [];
+
+        if (!preserveSelection) {
+            draftSelectedIds = new Set();
+            syncHiddenInputs(draftSelectedIds);
+        } else {
+            const validIds = new Set(availableTecnici.map(function (tecnico) {
+                return String(tecnico.id);
+            }));
+            draftSelectedIds = new Set(
+                Array.from(getSelectedIdsFromHiddenInputs()).filter(function (id) {
+                    return validIds.has(String(id));
+                })
+            );
+            syncHiddenInputs(draftSelectedIds);
+        }
+
+        renderSelectedBadges(getSelectedIdsFromHiddenInputs());
+    }
+
+    function openModal() {
+        if (!praticaField || !praticaField.value) {
+            window.alert("Seleziona prima una pratica.");
+            return;
+        }
+
+        draftSelectedIds = new Set(getSelectedIdsFromHiddenInputs());
+        renderModalRows();
+        tecniciModal.hidden = false;
+    }
+
+    function closeModal() {
+        tecniciModal.hidden = true;
+    }
+
+    if (praticaField) {
+        praticaField.addEventListener("change", function () {
+            loadTecniciForPratica(praticaField.value, false);
+        });
+    }
+
+    if (openTecniciModalButton) {
+        openTecniciModalButton.addEventListener("click", openModal);
+    }
+
+    if (closeTecniciModalButton) {
+        closeTecniciModalButton.addEventListener("click", closeModal);
+    }
+
+    if (confirmTecniciModalButton) {
+        confirmTecniciModalButton.addEventListener("click", function () {
+            draftSelectedIds = new Set(
+                Array.from(tecniciModalRows.querySelectorAll(".js-tecnico-checkbox:checked"))
+                    .map(function (checkbox) {
+                        return checkbox.value;
+                    })
+            );
+            syncHiddenInputs(draftSelectedIds);
+            renderSelectedBadges(draftSelectedIds);
+            closeModal();
+        });
+    }
+
+    if (tecniciModal) {
+        tecniciModal.addEventListener("click", function (event) {
+            if (event.target === tecniciModal) {
+                closeModal();
+            }
+        });
+    }
+
+    syncHiddenInputs(initialSelectedIds);
+    if (praticaField && praticaField.value) {
+        loadTecniciForPratica(praticaField.value, true);
+    } else {
+        renderSelectedBadges(initialSelectedIds);
+    }
+});
+</script>
 {% endblock %}

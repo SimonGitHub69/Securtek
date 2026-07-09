@@ -16,7 +16,6 @@ class AnagraficaForm(forms.ModelForm):
             "codice_fiscale",
             "email",
             "telefono",
-            "logo",
         ]
 
         widgets = {
@@ -25,7 +24,6 @@ class AnagraficaForm(forms.ModelForm):
             "codice_fiscale": forms.TextInput(attrs={"class": "form-control"}),
             "email": forms.EmailInput(attrs={"class": "form-control"}),
             "telefono": forms.TextInput(attrs={"class": "form-control"}),
-            "logo": forms.ClearableFileInput(attrs={"class": "form-control", "accept": "image/*"}),
         }
 
 

@@ -35,7 +35,7 @@ Template pratiche
             <tbody>
                 {% for template in template_pratiche %}
                     <tr>
-                        <td class="fw-bold">{{ template.get_tipologia_display }}</td>
+                        <td class="fw-bold">{{ template.tipologia }}</td>
                         <td>
                             {% for macro in template.macro_categorie.all %}
                                 {% if macro.is_active %}

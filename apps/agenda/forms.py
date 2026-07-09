@@ -1,10 +1,17 @@
 from django import forms
 
 from apps.agenda.models import ConfigurazioneNotificaEmail, EventoAgenda
-from apps.pratiche.models import Pratica
+from apps.pratiche.models import Pratica, Tecnico
 
 
 class EventoAgendaForm(forms.ModelForm):
+    tecnici = forms.ModelMultipleChoiceField(
+        label="Personale",
+        queryset=Tecnico.objects.none(),
+        required=False,
+        widget=forms.MultipleHiddenInput(),
+    )
+
     class Meta:
         model = EventoAgenda
         fields = [
@@ -17,6 +24,7 @@ class EventoAgendaForm(forms.ModelForm):
             "data_fine",
             "ora_fine",
             "notifica_email",
+            "giorni_preavviso",
             "descrizione",
             "note",
         ]
@@ -30,6 +38,7 @@ class EventoAgendaForm(forms.ModelForm):
             "data_fine": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
             "ora_fine": forms.TimeInput(attrs={"class": "form-control", "type": "time"}),
             "notifica_email": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "giorni_preavviso": forms.NumberInput(attrs={"class": "form-control", "min": 0}),
             "descrizione": forms.Textarea(attrs={"class": "form-control", "rows": 4}),
             "note": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
         }
@@ -45,16 +54,52 @@ class EventoAgendaForm(forms.ModelForm):
         self.fields["data_fine"].required = False
         self.fields["ora_inizio"].required = False
         self.fields["ora_fine"].required = False
+        self.fields["giorni_preavviso"].help_text = (
+            "Giorni prima della data evento/scadenza in cui inviare la notifica email."
+        )
+
+        if not self.instance.pk and self.fields["giorni_preavviso"].initial in (None, ""):
+            self.fields["giorni_preavviso"].initial = ConfigurazioneNotificaEmail.get_solo().giorni_preavviso
+
+        pratica_id = self.data.get("pratica") if self.is_bound else None
+        if not pratica_id and self.instance.pk:
+            pratica_id = self.instance.pratica_id
+        if not pratica_id:
+            pratica_id = self.initial.get("pratica")
+
+        if pratica_id:
+            self.fields["tecnici"].queryset = Tecnico.objects.filter(
+                pratica_id=pratica_id,
+                is_active=True,
+            ).select_related("studio_appartenenza", "incarico")
+
+        if self.instance.pk:
+            self.fields["tecnici"].initial = self.instance.tecnici.filter(is_active=True)
 
     def clean(self):
         cleaned_data = super().clean()
         data_inizio = cleaned_data.get("data_inizio")
         data_fine = cleaned_data.get("data_fine")
+        pratica = cleaned_data.get("pratica")
+        tecnici = cleaned_data.get("tecnici") or []
 
         if data_inizio and data_fine and data_fine < data_inizio:
             self.add_error("data_fine", "La data fine non puo' precedere la data inizio.")
 
+        if pratica and tecnici:
+            invalid_tecnici = [tecnico for tecnico in tecnici if tecnico.pratica_id != pratica.pk]
+            if invalid_tecnici:
+                self.add_error("tecnici", "Il personale selezionato deve appartenere alla pratica scelta.")
+
         return cleaned_data
+
+    def save(self, commit=True):
+        evento = super().save(commit=commit)
+
+        if commit:
+            evento.tecnici.set(self.cleaned_data.get("tecnici") or [])
+
+        return evento
 
 
 class ConfigurazioneNotificaEmailForm(forms.ModelForm):

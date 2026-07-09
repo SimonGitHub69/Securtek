@@ -4,30 +4,6 @@
 {{ anagrafica.ragione_sociale }}
 {% endblock %}
 
-{% block extra_css %}
-{{ block.super }}
-<style>
-.st-anagrafica-logo {
-    align-items: center;
-    background: var(--tblr-bg-surface-secondary, #f8fafc);
-    border: 1px solid var(--tblr-border-color, #e6e8eb);
-    border-radius: 8px;
-    display: flex;
-    height: 120px;
-    justify-content: center;
-    margin-bottom: 1rem;
-    overflow: hidden;
-    width: 200px;
-}
-
-.st-anagrafica-logo img {
-    max-height: 104px;
-    max-width: 180px;
-    object-fit: contain;
-}
-</style>
-{% endblock %}
-
 {% block content %}
 
 <div class="container-xl">
@@ -82,12 +58,6 @@
                 </div>
 
                 <div class="card-body">
-
-                    {% if anagrafica.logo %}
-                        <div class="st-anagrafica-logo">
-                            <img src="{{ anagrafica.logo.url }}" alt="Logo {{ anagrafica.ragione_sociale }}">
-                        </div>
-                    {% endif %}
 
                     <table class="table table-borderless">
 
@@ -183,7 +153,7 @@
                                                     -
                                                 {% endfor %}
                                             </td>
-                                            <td>{{ pratica.get_tipologia_display }}</td>
+                                            <td>{{ pratica.tipologia }}</td>
                                             <td>
                                                 <span class="badge bg-blue-lt">{{ pratica.get_stato_display }}</span>
                                             </td>

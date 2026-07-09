@@ -13,7 +13,15 @@ from apps.pratiche.models import (
     StudioTecnico,
     Tecnico,
     TemplatePratica,
+    TipologiaPratica,
 )
+
+
+@admin.register(TipologiaPratica)
+class TipologiaPraticaAdmin(admin.ModelAdmin):
+    list_display = ("denominazione", "is_active")
+    search_fields = ("denominazione", "descrizione")
+    list_filter = ("is_active",)
 
 
 @admin.register(CategoriaPratica)

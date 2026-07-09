@@ -159,8 +159,14 @@ Agenda
             <h2 class="page-title">Agenda lavori</h2>
             <div class="text-secondary">Eventi, lavori e scadenze collegati alle pratiche</div>
         </div>
-        <div class="col-auto">
-            <a href="{% url 'agenda:evento_create' %}{% if selected_pratica %}?pratica={{ selected_pratica }}{% endif %}" class="btn btn-primary">
+        <div class="col-auto d-flex gap-2">
+            {% if selected_pratica_obj %}
+                <a href="{% url 'pratiche:pratica_detail' selected_pratica_obj.pk %}" class="btn btn-outline-secondary">
+                    <i class="ti ti-arrow-left"></i>
+                    Torna alla pratica
+                </a>
+            {% endif %}
+            <a href="{% url 'agenda:evento_create' %}{{ agenda_query_prefix }}" class="btn btn-primary">
                 <i class="ti ti-plus"></i>
                 Nuovo evento
             </a>
@@ -171,13 +177,24 @@ Agenda
 <div class="card mb-3">
     <div class="card-body">
         <form method="get" class="row g-2 align-items-end">
-            <div class="col-md-5">
+            <div class="col-md-4">
                 <label class="form-label">Pratica</label>
                 <select name="pratica" class="form-select">
                     <option value="">Tutte le pratiche</option>
                     {% for pratica in pratiche %}
                         <option value="{{ pratica.pk }}" {% if selected_pratica|stringformat:"s" == pratica.pk|stringformat:"s" %}selected{% endif %}>
                             {{ pratica.codice }} - {{ pratica.titolo }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Tipologia pratica</label>
+                <select name="tipologia" class="form-select">
+                    <option value="">Tutte le tipologie</option>
+                    {% for tipologia in tipologie %}
+                        <option value="{{ tipologia.pk }}" {% if selected_tipologia|stringformat:"s" == tipologia.pk|stringformat:"s" %}selected{% endif %}>
+                            {{ tipologia.denominazione }}
                         </option>
                     {% endfor %}
                 </select>
@@ -198,12 +215,12 @@ Agenda
             <div class="card-header">
                 <div class="card-title">{{ month_start|date:"F Y" }}</div>
                 <div class="card-actions">
-                    <a href="{% url 'agenda:calendar' %}?year={{ previous_month.year }}&month={{ previous_month.month }}{% if selected_pratica %}&pratica={{ selected_pratica }}{% endif %}" class="btn btn-outline-secondary btn-sm">
+                    <a href="{% url 'agenda:calendar' %}?year={{ previous_month.year }}&month={{ previous_month.month }}{{ agenda_query_suffix }}" class="btn btn-outline-secondary btn-sm">
                         <i class="ti ti-chevron-left"></i>
                     </a>
-                    <a href="{% url 'agenda:calendar' %}" class="btn btn-outline-secondary btn-sm">Oggi</a>
-                    <a href="{% url 'agenda:day' %}{% if selected_pratica %}?pratica={{ selected_pratica }}{% endif %}" class="btn btn-outline-secondary btn-sm">Giorno</a>
-                    <a href="{% url 'agenda:calendar' %}?year={{ next_month.year }}&month={{ next_month.month }}{% if selected_pratica %}&pratica={{ selected_pratica }}{% endif %}" class="btn btn-outline-secondary btn-sm">
+                    <a href="{% url 'agenda:calendar' %}{{ agenda_query_prefix }}" class="btn btn-outline-secondary btn-sm">Oggi</a>
+                    <a href="{% url 'agenda:day' %}{{ agenda_query_prefix }}" class="btn btn-outline-secondary btn-sm">Giorno</a>
+                    <a href="{% url 'agenda:calendar' %}?year={{ next_month.year }}&month={{ next_month.month }}{{ agenda_query_suffix }}" class="btn btn-outline-secondary btn-sm">
                         <i class="ti ti-chevron-right"></i>
                     </a>
                 </div>
@@ -222,12 +239,12 @@ Agenda
                         {% for day in week %}
                             <div class="st-calendar-day {% if not day.in_month %}is-muted{% endif %} {% if day.is_today %}is-today{% endif %}">
                                 <div class="d-flex align-items-center justify-content-between">
-                                    <a href="{% url 'agenda:day' %}?data={{ day.date|date:'Y-m-d' }}{% if selected_pratica %}&pratica={{ selected_pratica }}{% endif %}"
+                                    <a href="{% url 'agenda:day' %}?data={{ day.date|date:'Y-m-d' }}{{ agenda_query_suffix }}"
                                        class="st-calendar-number text-reset text-decoration-none">
                                         {{ day.date|date:"j" }}
                                     </a>
                                     {% if day.in_month %}
-                                        <a href="{% url 'agenda:evento_create' %}?data={{ day.date|date:'Y-m-d' }}{% if selected_pratica %}&pratica={{ selected_pratica }}{% endif %}"
+                                        <a href="{% url 'agenda:evento_create' %}?data={{ day.date|date:'Y-m-d' }}{{ agenda_query_suffix }}"
                                            class="btn btn-icon btn-sm btn-ghost-primary"
                                            title="Aggiungi">
                                             <i class="ti ti-plus"></i>

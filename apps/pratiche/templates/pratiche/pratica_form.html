@@ -609,8 +609,8 @@ Pratica
 
             <div class="d-flex align-items-center justify-content-between mb-2">
                 <div>
-                    <h3 class="card-title mb-1">Tecnici</h3>
-                    <div class="text-secondary small">Tecnici collegati alla pratica con studio e incarico.</div>
+                    <h3 class="card-title mb-1">Personale</h3>
+                    <div class="text-secondary small">Personale collegato alla pratica con studio e incarico.</div>
                 </div>
                 <button type="button"
                         class="btn btn-outline-primary btn-sm js-add-formset-row"
@@ -695,7 +695,7 @@ Pratica
                                                 class="btn btn-icon btn-outline-danger btn-sm js-remove-formset-row"
                                                 data-prefix="tecnici"
                                                 data-target="tecnici-formset-body"
-                                                title="Rimuovi tecnico">
+                                                title="Rimuovi dal personale">
                                             <i class="ti ti-trash"></i>
                                         </button>
                                     </div>
@@ -727,7 +727,7 @@ Pratica
                                     class="btn btn-icon btn-outline-danger btn-sm js-remove-formset-row"
                                     data-prefix="tecnici"
                                     data-target="tecnici-formset-body"
-                                    title="Rimuovi tecnico">
+                                    title="Rimuovi dal personale">
                                 <i class="ti ti-trash"></i>
                             </button>
                         </div>
@@ -976,7 +976,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 .filter(Boolean)
                 .join(" ");
 
-            return fullName || "Tecnico selezionato";
+            return fullName || "Personale selezionato";
         }
 
         const macroLabel = selectLabel(row.querySelector('select[name$="-macro_categoria"]'))
@@ -1352,15 +1352,6 @@ document.addEventListener("DOMContentLoaded", function () {
                            class="btn btn-icon btn-outline-danger btn-sm js-inline-remove-selected-file"
                            data-file="${escapeHtml(fileName)}"
                            title="Rimuovi file selezionato">
-                       <i class="ti ti-trash"></i>
-                   </button>`
-                : file.delete_url
-                ? `<button type="button"
-                           class="btn btn-icon btn-outline-danger btn-sm js-inline-delete-disk-file"
-                           data-delete-url="${escapeHtml(file.delete_url)}"
-                           data-folder-path="${escapeHtml(file.folder_path || "")}"
-                           data-file="${escapeHtml(fileName)}"
-                           title="Elimina file dalla cartella">
                        <i class="ti ti-trash"></i>
                    </button>`
                 : "";
@@ -1852,25 +1843,6 @@ document.addEventListener("DOMContentLoaded", function () {
         deletePreviewFileTitle.textContent = "Rimuovere questo file?";
         setDeletePreviewFileText(button.dataset.file || "File selezionato", "sarà tolto dai file singoli da salvare.");
         deletePreviewFileSubmitText.textContent = "Rimuovi";
-        deletePreviewFileModal.hidden = false;
-    });
-
-    document.addEventListener("click", function (event) {
-        const button = event.target.closest(".js-inline-delete-disk-file");
-
-        if (!button) {
-            return;
-        }
-
-        if (!deletePreviewFileModal || !deletePreviewFileName || !deletePreviewFileTitle || !deletePreviewFileText || !deletePreviewFileSubmitText) {
-            return;
-        }
-
-        pendingDeletePreviewButton = button;
-        pendingDeletePreviewMode = "disk";
-        deletePreviewFileTitle.textContent = "Eliminare questo file?";
-        setDeletePreviewFileText(button.dataset.file || "File selezionato", "sarà rimosso fisicamente dalla cartella collegata.");
-        deletePreviewFileSubmitText.textContent = "Elimina";
         deletePreviewFileModal.hidden = false;
     });
 
