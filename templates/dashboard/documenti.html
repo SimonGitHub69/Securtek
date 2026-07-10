@@ -2,139 +2,333 @@
 
 {% block title %}Documenti{% endblock %}
 
+{% block extra_css %}
+{{ block.super }}
+<style>
+.st-kpi-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.st-kpi-card {
+    align-items: stretch;
+    background: var(--tblr-bg-surface, #fff);
+    border: 1px solid var(--tblr-border-color, #e6e8eb);
+    border-radius: 8px;
+    box-shadow: 0 0.125rem 0.25rem rgba(15, 23, 42, 0.04);
+    display: flex;
+    min-height: 96px;
+    overflow: hidden;
+}
+
+.st-kpi-accent {
+    flex: 0 0 4px;
+}
+
+.st-kpi-content {
+    display: flex;
+    flex: 1;
+    justify-content: space-between;
+    padding: 1rem;
+}
+
+.st-kpi-label {
+    color: var(--tblr-secondary, #667085);
+    font-size: 0.875rem;
+    margin-bottom: 0.35rem;
+}
+
+.st-kpi-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.st-kpi-icon {
+    align-items: center;
+    border-radius: 8px;
+    display: flex;
+    height: 42px;
+    justify-content: center;
+    width: 42px;
+}
+
+.st-kpi-icon .ti {
+    font-size: 1.35rem;
+}
+
+.st-doc-name {
+    font-weight: 600;
+    line-height: 1.35;
+    max-width: 22rem;
+}
+
+.st-doc-meta {
+    color: var(--tblr-secondary, #667085);
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    max-width: 22rem;
+}
+
+.st-doc-pratica {
+    max-width: 14rem;
+}
+
+.st-doc-empty {
+    color: var(--tblr-secondary, #667085);
+    padding: 3rem 1.5rem;
+    text-align: center;
+}
+
+.st-doc-empty .ti {
+    display: block;
+    font-size: 2.5rem;
+    margin-bottom: 0.75rem;
+    opacity: 0.45;
+}
+
+@media (max-width: 992px) {
+    .st-kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 576px) {
+    .st-kpi-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="page-header d-print-none">
-    <div class="container-xl">
-        <div class="row g-2 align-items-center">
-            <div class="col">
-                <h2 class="page-title">Documenti</h2>
-                <div class="text-secondary">File collegati alle pratiche tramite cartelle categoria e comunicazioni.</div>
+<div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">Documenti</h2>
+            <div class="text-secondary">File collegati alle pratiche tramite cartelle categoria e comunicazioni.</div>
+        </div>
+    </div>
+</div>
+
+<div class="st-kpi-grid mb-4">
+    <div class="st-kpi-card">
+        <div class="st-kpi-accent bg-primary"></div>
+        <div class="st-kpi-content">
+            <div>
+                <div class="st-kpi-label">Totale documenti</div>
+                <div class="st-kpi-value">{{ document_counts.totale }}</div>
+            </div>
+            <div class="st-kpi-icon bg-primary-lt text-primary">
+                <i class="ti ti-files"></i>
+            </div>
+        </div>
+    </div>
+    <div class="st-kpi-card">
+        <div class="st-kpi-accent bg-blue"></div>
+        <div class="st-kpi-content">
+            <div>
+                <div class="st-kpi-label">Da cartelle</div>
+                <div class="st-kpi-value">{{ document_counts.cartelle }}</div>
+            </div>
+            <div class="st-kpi-icon bg-blue-lt text-blue">
+                <i class="ti ti-folder"></i>
+            </div>
+        </div>
+    </div>
+    <div class="st-kpi-card">
+        <div class="st-kpi-accent bg-success"></div>
+        <div class="st-kpi-content">
+            <div>
+                <div class="st-kpi-label">File singoli</div>
+                <div class="st-kpi-value">{{ document_counts.singoli }}</div>
+            </div>
+            <div class="st-kpi-icon bg-success-lt text-success">
+                <i class="ti ti-paperclip"></i>
+            </div>
+        </div>
+    </div>
+    <div class="st-kpi-card">
+        <div class="st-kpi-accent bg-orange"></div>
+        <div class="st-kpi-content">
+            <div>
+                <div class="st-kpi-label">Comunicazioni</div>
+                <div class="st-kpi-value">{{ document_counts.comunicazioni }}</div>
+            </div>
+            <div class="st-kpi-icon bg-orange-lt text-orange">
+                <i class="ti ti-mail"></i>
             </div>
         </div>
     </div>
 </div>
 
-<div class="page-body">
-    <div class="container-xl">
-        <div class="row row-cards mb-3">
-            <div class="col-sm-6 col-lg-3">
-                <div class="card">
-                    <div class="card-body">
-                        <div class="text-secondary small">Totale documenti</div>
-                        <div class="h2 mb-0">{{ document_counts.totale }}</div>
-                    </div>
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-8 col-lg-6">
+                    <label class="form-label" for="document-search">Cerca documenti</label>
+                    <input type="search"
+                           id="document-search"
+                           name="q"
+                           value="{{ q }}"
+                           class="form-control"
+                           placeholder="Nome file, pratica, categoria o descrizione">
                 </div>
-            </div>
-            <div class="col-sm-6 col-lg-3">
-                <div class="card">
-                    <div class="card-body">
-                        <div class="text-secondary small">Da cartelle</div>
-                        <div class="h2 mb-0">{{ document_counts.cartelle }}</div>
-                    </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="ti ti-search"></i>
+                        Cerca
+                    </button>
                 </div>
-            </div>
-            <div class="col-sm-6 col-lg-3">
-                <div class="card">
-                    <div class="card-body">
-                        <div class="text-secondary small">File singoli</div>
-                        <div class="h2 mb-0">{{ document_counts.singoli }}</div>
+                {% if q %}
+                    <div class="col-auto">
+                        <a href="{% url 'dashboard:documenti' %}" class="btn btn-outline-secondary">Pulisci</a>
                     </div>
-                </div>
+                {% endif %}
             </div>
-            <div class="col-sm-6 col-lg-3">
-                <div class="card">
-                    <div class="card-body">
-                        <div class="text-secondary small">Comunicazioni</div>
-                        <div class="h2 mb-0">{{ document_counts.comunicazioni }}</div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        </form>
+    </div>
+</div>
 
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title">Archivio documenti</h3>
-                <div class="card-actions">
-                    <form method="get" class="d-flex gap-2">
-                        <input type="search"
-                               name="q"
-                               value="{{ q }}"
-                               class="form-control"
-                               placeholder="Cerca file, pratica o descrizione">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="ti ti-search"></i>
-                            Cerca
-                        </button>
-                    </form>
-                </div>
-            </div>
-
-            <div class="table-responsive">
-                <table class="table table-vcenter">
-                    <thead>
-                        <tr>
-                            <th>Documento</th>
-                            <th>Pratica</th>
-                            <th>Origine</th>
-                            <th>Tipo</th>
-                            <th>Categoria</th>
-                            <th>Descrizione</th>
-                            <th>Aggiornato</th>
-                            <th class="text-end">Azioni</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for document in documents %}
-                            <tr>
-                                <td>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <i class="ti {{ document.icon }} text-primary"></i>
-                                        <span class="fw-semibold">{{ document.name }}</span>
-                                    </div>
-                                </td>
-                                <td>
-                                    <a href="{{ document.detail_url }}">
-                                        {{ document.pratica.codice }} - {{ document.pratica.titolo }}
-                                    </a>
-                                </td>
-                                <td>
-                                    <span class="badge bg-blue-lt">{{ document.source }}</span>
-                                </td>
-                                <td>
-                                    <span class="badge bg-secondary-lt">{{ document.type }}</span>
-                                </td>
-                                <td>
-                                    {% if document.category %}
-                                        {% if document.macro %}
-                                            <span class="badge bg-purple-lt">{{ document.macro }}</span>
-                                        {% endif %}
-                                        <span class="badge bg-green-lt">{{ document.category }}</span>
-                                    {% else %}
-                                        <span class="text-secondary">-</span>
-                                    {% endif %}
-                                </td>
-                                <td>{{ document.description|default:"-"|truncatechars:80 }}</td>
-                                <td>{{ document.updated_at|date:"d/m/Y H:i" }}</td>
-                                <td class="text-end">
-                                    <a href="{% if document.open_app_url %}{{ document.open_app_url }}{% else %}{{ document.open_url }}{% endif %}"
-                                       class="btn btn-icon btn-outline-primary"
-                                       {% if not document.open_app_url %}target="_blank"{% endif %}
-                                       title="{% if document.open_app_url %}Apri con applicazione originale{% else %}Apri documento{% endif %}">
-                                        <i class="ti ti-eye"></i>
-                                    </a>
-                                </td>
-                            </tr>
-                        {% empty %}
-                            <tr>
-                                <td colspan="8" class="text-center text-secondary py-4">
-                                    Nessun documento collegato.
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Archivio documenti</h3>
+        <div class="card-actions">
+            <span class="text-secondary small">
+                {% if documents %}
+                    {{ documents|length }} document{% if documents|length != 1 %}i{% endif %}{% if q %} trovat{% if documents|length == 1 %}o{% else %}i{% endif %}{% endif %}
+                {% else %}
+                    Nessun risultato
+                {% endif %}
+            </span>
         </div>
     </div>
+
+    {% if documents %}
+        <div class="table-responsive">
+            <table class="table table-vcenter card-table">
+                <thead>
+                    <tr>
+                        <th>Documento</th>
+                        <th>Pratica</th>
+                        <th class="d-none d-lg-table-cell">Classificazione</th>
+                        <th class="d-none d-md-table-cell">Aggiornato</th>
+                        <th class="text-end">Azioni</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for document in documents %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-start gap-3">
+                                    {% with ext=document.type|lower %}
+                                        {% if ext == "pdf" %}
+                                            <span class="avatar bg-red-lt text-red">
+                                                <i class="ti ti-file-type-pdf"></i>
+                                            </span>
+                                        {% elif ext == "doc" or ext == "docx" %}
+                                            <span class="avatar bg-blue-lt text-blue">
+                                                <i class="ti ti-file-type-doc"></i>
+                                            </span>
+                                        {% elif ext == "xls" or ext == "xlsx" or ext == "xlsm" %}
+                                            <span class="avatar bg-green-lt text-green">
+                                                <i class="ti ti-file-type-xls"></i>
+                                            </span>
+                                        {% elif ext == "jpg" or ext == "jpeg" or ext == "png" %}
+                                            <span class="avatar bg-purple-lt text-purple">
+                                                <i class="ti ti-photo"></i>
+                                            </span>
+                                        {% elif ext == "htm" or ext == "html" %}
+                                            <span class="avatar bg-cyan-lt text-cyan">
+                                                <i class="ti ti-file-code"></i>
+                                            </span>
+                                        {% elif ext == "eml" or document.source == "Comunicazione" %}
+                                            <span class="avatar bg-orange-lt text-orange">
+                                                <i class="ti ti-mail"></i>
+                                            </span>
+                                        {% else %}
+                                            <span class="avatar bg-primary-lt text-primary">
+                                                <i class="ti {{ document.icon }}"></i>
+                                            </span>
+                                        {% endif %}
+                                    {% endwith %}
+                                    <div class="text-truncate">
+                                        <div class="st-doc-name text-truncate" title="{{ document.name }}">
+                                            {{ document.name }}
+                                        </div>
+                                        {% if document.description %}
+                                            <div class="st-doc-meta text-truncate" title="{{ document.description }}">
+                                                {{ document.description|truncatechars:90 }}
+                                            </div>
+                                        {% endif %}
+                                        <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+                                            <span class="badge bg-secondary-lt">{{ document.type }}</span>
+                                            <span class="d-lg-none badge
+                                                {% if document.source == 'Cartella categoria' %}bg-blue-lt
+                                                {% elif document.source == 'File singolo' %}bg-green-lt
+                                                {% else %}bg-orange-lt{% endif %}">
+                                                {% if document.source == "Cartella categoria" %}Cartella
+                                                {% elif document.source == "File singolo" %}Singolo
+                                                {% else %}Comunicazione{% endif %}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <a href="{{ document.detail_url }}" class="text-reset d-block st-doc-pratica">
+                                    <div class="fw-semibold text-truncate" title="{{ document.pratica.titolo }}">
+                                        {{ document.pratica.titolo }}
+                                    </div>
+                                    <div class="text-secondary small">{{ document.pratica.codice }}</div>
+                                </a>
+                            </td>
+                            <td class="d-none d-lg-table-cell">
+                                <div class="d-flex flex-wrap gap-1">
+                                    {% if document.source == "Cartella categoria" %}
+                                        <span class="badge bg-blue-lt">Cartella</span>
+                                    {% elif document.source == "File singolo" %}
+                                        <span class="badge bg-green-lt">Singolo</span>
+                                    {% else %}
+                                        <span class="badge bg-orange-lt">Comunicazione</span>
+                                    {% endif %}
+                                    {% if document.macro %}
+                                        <span class="badge bg-purple-lt">{{ document.macro }}</span>
+                                    {% endif %}
+                                    {% if document.category %}
+                                        <span class="badge bg-green-lt">{{ document.category }}</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td class="d-none d-md-table-cell text-secondary">
+                                {{ document.updated_at|date:"d/m/Y H:i" }}
+                            </td>
+                            <td class="text-end">
+                                <a href="{% if document.open_app_url %}{{ document.open_app_url }}{% else %}{{ document.open_url }}{% endif %}"
+                                   class="btn btn-icon btn-outline-primary"
+                                   {% if not document.open_app_url %}target="_blank"{% endif %}
+                                   title="{% if document.open_app_url %}Apri con applicazione originale{% else %}Apri documento{% endif %}">
+                                    <i class="ti ti-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="st-doc-empty">
+            <i class="ti ti-file-off"></i>
+            {% if q %}
+                <div class="fw-semibold mb-1">Nessun documento trovato</div>
+                <div class="small">Prova a modificare i termini di ricerca o <a href="{% url 'dashboard:documenti' %}">mostra tutti i documenti</a>.</div>
+            {% else %}
+                <div class="fw-semibold mb-1">Nessun documento collegato</div>
+                <div class="small">I file compariranno qui quando saranno allegati a pratiche, cartelle o comunicazioni.</div>
+            {% endif %}
+        </div>
+    {% endif %}
 </div>
 {% endblock %}

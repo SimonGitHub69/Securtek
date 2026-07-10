@@ -19,6 +19,17 @@ from urllib.parse import quote, unquote, urlparse
 from urllib.parse import urlencode
 
 
+def _search_list_context(request):
+    q = (request.GET.get("q") or "").strip()
+    params = request.GET.copy()
+    params.pop("page", None)
+    return {
+        "q": q,
+        "has_filters": bool(q),
+        "filter_query": params.urlencode(),
+    }
+
+
 def decode_email_header(message, header_name):
     value = message.get(header_name, "")
     return str(value) if value else ""
@@ -82,7 +93,6 @@ from apps.pratiche.forms import (
     PraticaMacroCategoriaApplyForm,
     StudioTecnicoForm,
     TecnicoForm,
-    TecnicoFormSet,
     TemplatePraticaForm,
     TipologiaPraticaForm,
 )
@@ -645,6 +655,29 @@ class PraticaListView(LoginRequiredMixin, ListView):
         context["priorita"] = Pratica.Priorita.choices
         context["categorie"] = CategoriaPratica.objects.filter(is_active=True).order_by("denominazione")
         context["tipologie"] = TipologiaPratica.objects.filter(is_active=True).order_by("denominazione")
+
+        today = timezone.localdate()
+        stati_finali = {
+            Pratica.Stato.COMPLETATA,
+            Pratica.Stato.ANNULLATA,
+            Pratica.Stato.ARCHIVIATA,
+        }
+        base_qs = Pratica.objects.filter(is_active=True)
+        in_corso_qs = base_qs.exclude(stato__in=stati_finali)
+        context["pratica_counts"] = {
+            "totale": base_qs.count(),
+            "in_corso": in_corso_qs.count(),
+            "scadute": in_corso_qs.filter(data_scadenza__lt=today).count(),
+            "urgenti": in_corso_qs.filter(
+                priorita__in=[Pratica.Priorita.URGENTE, Pratica.Priorita.ALTA]
+            ).count(),
+        }
+
+        params = self.request.GET.copy()
+        params.pop("page", None)
+        context["filter_query"] = params.urlencode()
+        context["has_filters"] = bool(params)
+        context["q"] = (self.request.GET.get("q") or "").strip()
         return context
 
 
@@ -719,12 +752,6 @@ class PraticaCreateView(LoginRequiredMixin, CreateView):
                 prefix="categorie",
                 queryset=PraticaCategoria.objects.none(),
             ),
-            "tecnici_formset": TecnicoFormSet(
-                data=data,
-                instance=pratica,
-                prefix="tecnici",
-                queryset=Tecnico.objects.none(),
-            ),
         }
 
     def post(self, request, *args, **kwargs):
@@ -792,7 +819,7 @@ class PraticaCreateView(LoginRequiredMixin, CreateView):
         next_url = get_safe_next_url(self.request)
         context["next_url"] = next_url
         context["cancel_url"] = next_url or reverse("pratiche:pratica_list")
-        if "categorie_formset" not in context or "tecnici_formset" not in context:
+        if "categorie_formset" not in context:
             context.update(self.get_inline_formsets())
         return context
 
@@ -816,12 +843,6 @@ class PraticaUpdateView(LoginRequiredMixin, UpdateView):
                 instance=self.object,
                 prefix="categorie",
                 queryset=PraticaCategoria.objects.filter(is_active=True),
-            ),
-            "tecnici_formset": TecnicoFormSet(
-                data=data,
-                instance=self.object,
-                prefix="tecnici",
-                queryset=Tecnico.objects.filter(is_active=True),
             ),
         }
 
@@ -877,8 +898,9 @@ class PraticaUpdateView(LoginRequiredMixin, UpdateView):
         next_url = get_safe_next_url(self.request)
         context["next_url"] = next_url
         context["cancel_url"] = with_next(detail_url, next_url)
-        if "categorie_formset" not in context or "tecnici_formset" not in context:
+        if "categorie_formset" not in context:
             context.update(self.get_inline_formsets())
+        context["tecnici"] = self.object.tecnici.filter(is_active=True)
         return context
 
     def get_success_url(self):
@@ -986,6 +1008,20 @@ class CategoriaPraticaListView(LoginRequiredMixin, ListView):
 
         return queryset.order_by("denominazione")
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(_search_list_context(self.request))
+        base_qs = CategoriaPratica.objects.filter(is_active=True)
+        context["categoria_counts"] = {
+            "totale": base_qs.count(),
+            "con_pratiche": base_qs.filter(
+                pratica_collegamenti__is_active=True,
+                pratica_collegamenti__pratica__is_active=True,
+            ).distinct().count(),
+            "in_macro": base_qs.filter(macro_categorie__is_active=True).distinct().count(),
+        }
+        return context
+
 
 class CategoriaPraticaCreateView(LoginRequiredMixin, CreateView):
     model = CategoriaPratica
@@ -1056,6 +1092,17 @@ class TipologiaPraticaListView(LoginRequiredMixin, ListView):
 
         return queryset.order_by("denominazione")
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(_search_list_context(self.request))
+        base_qs = TipologiaPratica.objects.filter(is_active=True)
+        context["tipologia_counts"] = {
+            "totale": base_qs.count(),
+            "con_pratiche": base_qs.filter(pratiche__is_active=True).distinct().count(),
+            "con_template": base_qs.filter(template_pratiche__is_active=True).distinct().count(),
+        }
+        return context
+
 
 class TipologiaPraticaCreateView(LoginRequiredMixin, CreateView):
     model = TipologiaPratica
@@ -1122,6 +1169,20 @@ class MacroCategoriaPraticaListView(LoginRequiredMixin, ListView):
             )
 
         return queryset.prefetch_related("categorie").order_by("denominazione").distinct()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(_search_list_context(self.request))
+        base_qs = MacroCategoriaPratica.objects.filter(is_active=True)
+        context["macro_counts"] = {
+            "totale": base_qs.count(),
+            "con_categorie": base_qs.filter(categorie__is_active=True).distinct().count(),
+            "con_pratiche": base_qs.filter(
+                pratica_collegamenti__is_active=True,
+                pratica_collegamenti__pratica__is_active=True,
+            ).distinct().count(),
+        }
+        return context
 
 
 class MacroCategoriaPraticaCreateView(LoginRequiredMixin, CreateView):
@@ -1224,12 +1285,30 @@ class TemplatePraticaListView(LoginRequiredMixin, ListView):
     context_object_name = "template_pratiche"
 
     def get_queryset(self):
-        return (
+        queryset = (
             TemplatePratica.objects.filter(is_active=True)
             .select_related("tipologia")
             .prefetch_related("macro_categorie", "categorie")
-            .order_by("tipologia__denominazione")
         )
+        q = (self.request.GET.get("q") or "").strip()
+        if q:
+            queryset = queryset.filter(
+                Q(tipologia__denominazione__icontains=q)
+                | Q(macro_categorie__denominazione__icontains=q)
+                | Q(categorie__denominazione__icontains=q)
+            )
+        return queryset.order_by("tipologia__denominazione").distinct()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(_search_list_context(self.request))
+        base_qs = TemplatePratica.objects.filter(is_active=True)
+        context["template_counts"] = {
+            "totale": base_qs.count(),
+            "con_macro": base_qs.filter(macro_categorie__is_active=True).distinct().count(),
+            "con_categorie": base_qs.filter(categorie__is_active=True).distinct().count(),
+        }
+        return context
 
 
 class TemplatePraticaCreateView(LoginRequiredMixin, CreateView):
@@ -1505,19 +1584,34 @@ class PraticaCategoriaFileUploadView(LoginRequiredMixin, View):
         return redirect("pratiche:pratica_detail", pk=kwargs["pratica_pk"])
 
 
+def request_wants_json(request):
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return True
+    accept = request.headers.get("Accept", "")
+    return "application/json" in accept
+
+
 class PraticaCategoriaFileDescriptionView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         pratica_categoria = get_pratica_categoria_or_404(kwargs["pratica_pk"], kwargs["pk"])
         relative_file = (request.POST.get("file") or "").strip()
+        wants_json = request_wants_json(request)
 
-        resolve_categoria_file_path(pratica_categoria, relative_file)
+        try:
+            resolve_categoria_file_path(pratica_categoria, relative_file)
+        except Http404 as exc:
+            if wants_json:
+                return JsonResponse({"success": False, "error": str(exc) or "File non disponibile"}, status=404)
+            raise
+
+        description = (request.POST.get("descrizione") or "").strip()
 
         metadata, created = PraticaCategoriaFile.objects.update_or_create(
             pratica_categoria=pratica_categoria,
             percorso_relativo=relative_file,
             is_active=True,
             defaults={
-                "descrizione": (request.POST.get("descrizione") or "").strip(),
+                "descrizione": description,
                 "scollegato": False,
                 "updated_by": request.user,
             },
@@ -1527,8 +1621,22 @@ class PraticaCategoriaFileDescriptionView(LoginRequiredMixin, View):
             metadata.created_by = request.user
             metadata.save(update_fields=["created_by", "updated_at"])
 
+        if wants_json:
+            return JsonResponse(
+                {
+                    "success": True,
+                    "file": relative_file,
+                    "descrizione": metadata.descrizione,
+                    "message": "Descrizione file salvata.",
+                }
+            )
+
+        return_url = get_safe_next_url(request) or (
+            reverse("pratiche:pratica_detail", kwargs={"pk": kwargs["pratica_pk"]})
+            + f"#category-detail-{pratica_categoria.pk}"
+        )
         messages.success(request, "Descrizione file salvata.")
-        return redirect("pratiche:pratica_detail", pk=kwargs["pratica_pk"])
+        return redirect(return_url)
 
 
 class PraticaCategoriaFileDeleteView(LoginRequiredMixin, View):
@@ -1840,6 +1948,17 @@ class StudioTecnicoListView(LoginRequiredMixin, ListView):
 
         return queryset.order_by("denominazione")
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(_search_list_context(self.request))
+        base_qs = StudioTecnico.objects.filter(is_active=True)
+        context["studio_counts"] = {
+            "totale": base_qs.count(),
+            "con_personale": base_qs.filter(tecnici__is_active=True).distinct().count(),
+            "con_email": base_qs.exclude(email="").count(),
+        }
+        return context
+
 
 class StudioTecnicoCreateView(LoginRequiredMixin, CreateView):
     model = StudioTecnico
@@ -1904,6 +2023,17 @@ class IncaricoTecnicoListView(LoginRequiredMixin, ListView):
             )
 
         return queryset.order_by("denominazione")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(_search_list_context(self.request))
+        base_qs = IncaricoTecnico.objects.filter(is_active=True)
+        context["incarico_counts"] = {
+            "totale": base_qs.count(),
+            "con_personale": base_qs.filter(tecnici__is_active=True).distinct().count(),
+            "con_descrizione": base_qs.exclude(descrizione="").count(),
+        }
+        return context
 
 
 class IncaricoTecnicoCreateView(LoginRequiredMixin, CreateView):

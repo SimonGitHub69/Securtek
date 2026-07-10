@@ -7,6 +7,84 @@ Anagrafiche
 {% block extra_css %}
 {{ block.super }}
 <style>
+.st-kpi-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.st-kpi-card {
+    align-items: stretch;
+    background: var(--tblr-bg-surface, #fff);
+    border: 1px solid var(--tblr-border-color, #e6e8eb);
+    border-radius: 8px;
+    box-shadow: 0 0.125rem 0.25rem rgba(15, 23, 42, 0.04);
+    display: flex;
+    min-height: 96px;
+    overflow: hidden;
+}
+
+.st-kpi-accent {
+    flex: 0 0 4px;
+}
+
+.st-kpi-content {
+    display: flex;
+    flex: 1;
+    justify-content: space-between;
+    padding: 1rem;
+}
+
+.st-kpi-label {
+    color: var(--tblr-secondary, #667085);
+    font-size: 0.875rem;
+    margin-bottom: 0.35rem;
+}
+
+.st-kpi-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.st-kpi-icon {
+    align-items: center;
+    border-radius: 8px;
+    display: flex;
+    height: 42px;
+    justify-content: center;
+    width: 42px;
+}
+
+.st-kpi-icon .ti {
+    font-size: 1.35rem;
+}
+
+.st-anag-name {
+    font-weight: 600;
+    line-height: 1.35;
+    max-width: 22rem;
+}
+
+.st-anag-meta {
+    color: var(--tblr-secondary, #667085);
+    font-size: 0.8125rem;
+    line-height: 1.4;
+}
+
+.st-anag-empty {
+    color: var(--tblr-secondary, #667085);
+    padding: 3rem 1.5rem;
+    text-align: center;
+}
+
+.st-anag-empty .ti {
+    display: block;
+    font-size: 2.5rem;
+    margin-bottom: 0.75rem;
+    opacity: 0.45;
+}
+
 .st-confirm {
     background: rgba(15, 23, 42, 0.45);
     bottom: 0;
@@ -83,124 +161,284 @@ Anagrafiche
     justify-content: flex-end;
     padding: 0.75rem 1.25rem;
 }
+
+@media (max-width: 992px) {
+    .st-kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 576px) {
+    .st-kpi-grid {
+        grid-template-columns: 1fr;
+    }
+}
 </style>
 {% endblock %}
 
 {% block content %}
 
-<div class="container-xl">
+<div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">Anagrafiche</h2>
+            <div class="text-secondary">Clienti e aziende con contatti, indirizzi e pratiche collegate.</div>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'anagrafiche:anagrafica_create' %}" class="btn btn-primary">
+                <i class="ti ti-plus"></i>
+                Nuova anagrafica
+            </a>
+        </div>
+    </div>
+</div>
 
-    <div class="page-header d-print-none mb-3">
-        <div class="row align-items-center">
-            <div class="col">
-                <h2 class="page-title">Anagrafiche</h2>
+<div class="st-kpi-grid mb-4">
+    <div class="st-kpi-card">
+        <div class="st-kpi-accent bg-primary"></div>
+        <div class="st-kpi-content">
+            <div>
+                <div class="st-kpi-label">Totale anagrafiche</div>
+                <div class="st-kpi-value">{{ anagrafica_counts.totale }}</div>
             </div>
-
-            <div class="col-auto">
-                <a href="{% url 'anagrafiche:anagrafica_create' %}" class="btn btn-primary">
-                    Nuova Anagrafica
-                </a>
+            <div class="st-kpi-icon bg-primary-lt text-primary">
+                <i class="ti ti-building"></i>
             </div>
         </div>
     </div>
+    <div class="st-kpi-card">
+        <div class="st-kpi-accent bg-blue"></div>
+        <div class="st-kpi-content">
+            <div>
+                <div class="st-kpi-label">Con contatti</div>
+                <div class="st-kpi-value">{{ anagrafica_counts.con_contatti }}</div>
+            </div>
+            <div class="st-kpi-icon bg-blue-lt text-blue">
+                <i class="ti ti-address-book"></i>
+            </div>
+        </div>
+    </div>
+    <div class="st-kpi-card">
+        <div class="st-kpi-accent bg-green"></div>
+        <div class="st-kpi-content">
+            <div>
+                <div class="st-kpi-label">Con indirizzi</div>
+                <div class="st-kpi-value">{{ anagrafica_counts.con_indirizzi }}</div>
+            </div>
+            <div class="st-kpi-icon bg-green-lt text-green">
+                <i class="ti ti-map-pin"></i>
+            </div>
+        </div>
+    </div>
+    <div class="st-kpi-card">
+        <div class="st-kpi-accent bg-orange"></div>
+        <div class="st-kpi-content">
+            <div>
+                <div class="st-kpi-label">Con pratiche</div>
+                <div class="st-kpi-value">{{ anagrafica_counts.con_pratiche }}</div>
+            </div>
+            <div class="st-kpi-icon bg-orange-lt text-orange">
+                <i class="ti ti-briefcase"></i>
+            </div>
+        </div>
+    </div>
+</div>
 
-    <div class="card mb-3">
-        <div class="card-body">
-            <form method="get">
-                <div class="row">
-                    <div class="col-md-6">
-                        <input
-                            type="text"
-                            name="q"
-                            value="{{ request.GET.q }}"
-                            class="form-control"
-                            placeholder="Cerca ragione sociale, P.IVA, email..."
-                        >
-                    </div>
-
-                    <div class="col-auto">
-                        <button type="submit" class="btn btn-secondary">
-                            Cerca
-                        </button>
-                    </div>
-
-                    <div class="col-auto">
-                        <a href="{% url 'anagrafiche:anagrafica_list' %}" class="btn btn-outline-secondary">
-                            Pulisci
-                        </a>
-                    </div>
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-6 col-lg-4">
+                    <label class="form-label" for="anagrafica-search">Cerca anagrafiche</label>
+                    <input type="search"
+                           id="anagrafica-search"
+                           name="q"
+                           value="{{ q }}"
+                           class="form-control"
+                           placeholder="Ragione sociale, P.IVA, CF, email...">
                 </div>
-            </form>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="ti ti-search"></i>
+                        Cerca
+                    </button>
+                </div>
+                {% if has_filters %}
+                    <div class="col-auto">
+                        <a href="{% url 'anagrafiche:anagrafica_list' %}" class="btn btn-outline-secondary">Pulisci</a>
+                    </div>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Elenco anagrafiche</h3>
+        <div class="card-actions">
+            <span class="text-secondary small">
+                {% if anagrafiche %}
+                    {% if is_paginated %}
+                        {{ page_obj.paginator.count }} anagrafic{% if page_obj.paginator.count == 1 %}a{% else %}he{% endif %}{% if has_filters %} trovat{% if page_obj.paginator.count == 1 %}a{% else %}e{% endif %}{% endif %}
+                    {% else %}
+                        {{ anagrafiche|length }} anagrafic{% if anagrafiche|length == 1 %}a{% else %}he{% endif %}{% if has_filters %} trovat{% if anagrafiche|length == 1 %}a{% else %}e{% endif %}{% endif %}
+                    {% endif %}
+                {% else %}
+                    Nessun risultato
+                {% endif %}
+            </span>
         </div>
     </div>
 
-    <div class="card">
+    {% if anagrafiche %}
         <div class="table-responsive">
-
-            <table class="table table-vcenter">
+            <table class="table table-vcenter card-table">
                 <thead>
                     <tr>
-                        <th>Ragione Sociale</th>
-                        <th>Partita IVA</th>
-                        <th>Email</th>
-                        <th>Telefono</th>
+                        <th>Anagrafica</th>
+                        <th class="d-none d-md-table-cell">Partita IVA</th>
+                        <th class="d-none d-lg-table-cell">Email</th>
+                        <th class="d-none d-lg-table-cell">Telefono</th>
                         <th>Contatti</th>
-                        <th>Indirizzi</th>
+                        <th class="d-none d-md-table-cell">Indirizzi</th>
                         <th class="text-end">Azioni</th>
                     </tr>
                 </thead>
-
                 <tbody>
                     {% for anagrafica in anagrafiche %}
-                    <tr>
-                        <td>
-                            <a href="{% url 'anagrafiche:anagrafica_detail' anagrafica.pk %}"
-                               class="text-reset fw-bold">
-                                {{ anagrafica.ragione_sociale }}
-                            </a>
-                        </td>
-                        <td>{{ anagrafica.partita_iva }}</td>
-                        <td>{{ anagrafica.email }}</td>
-                        <td>{{ anagrafica.telefono }}</td>
-                        <td>
-                            <span class="badge bg-blue-lt">{{ anagrafica.contatti_attivi }}</span>
-                        </td>
-                        <td>
-                            <span class="badge bg-green-lt">{{ anagrafica.indirizzi_attivi }}</span>
-                        </td>
-
-                        <td class="text-end">
-
-                            <a href="{% url 'anagrafiche:anagrafica_detail' anagrafica.pk %}"
-                            class="btn btn-icon btn-outline-primary"
-                            title="Scheda e modifica">
-
-                                <i class="ti ti-edit"></i>
-                            </a>
-
-                            <button type="button"
-                                    class="btn btn-icon btn-outline-danger js-delete-anagrafica"
-                                    title="Elimina"
-                                    data-delete-action="{% url 'anagrafiche:anagrafica_delete' anagrafica.pk %}"
-                                    data-delete-name="{{ anagrafica.ragione_sociale }}">
-                                <i class="ti ti-trash"></i>
-                            </button>
-
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="7" class="text-center text-muted">
-                            Nessuna azienda presente
-                        </td>
-                    </tr>
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-start gap-3">
+                                    <span class="avatar bg-primary-lt text-primary">
+                                        <i class="ti ti-building"></i>
+                                    </span>
+                                    <div class="text-truncate">
+                                        <a href="{% url 'anagrafiche:anagrafica_detail' anagrafica.pk %}"
+                                           class="st-anag-name text-reset text-truncate d-block"
+                                           title="{{ anagrafica.ragione_sociale }}">
+                                            {{ anagrafica.ragione_sociale }}
+                                        </a>
+                                        <div class="st-anag-meta">
+                                            {% if anagrafica.codice_fiscale %}
+                                                CF {{ anagrafica.codice_fiscale }}
+                                            {% elif anagrafica.partita_iva %}
+                                                P.IVA {{ anagrafica.partita_iva }}
+                                            {% else %}
+                                                Nessun codice fiscale
+                                            {% endif %}
+                                        </div>
+                                        <div class="d-md-none st-anag-meta mt-1">
+                                            {% if anagrafica.email %}{{ anagrafica.email }}{% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="d-none d-md-table-cell">
+                                {% if anagrafica.partita_iva %}
+                                    <span class="text-secondary">{{ anagrafica.partita_iva }}</span>
+                                {% else %}
+                                    <span class="text-secondary">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="d-none d-lg-table-cell">
+                                {% if anagrafica.email %}
+                                    <span class="text-truncate d-block" style="max-width: 14rem;" title="{{ anagrafica.email }}">{{ anagrafica.email }}</span>
+                                {% else %}
+                                    <span class="text-secondary">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="d-none d-lg-table-cell">
+                                {% if anagrafica.telefono %}
+                                    {{ anagrafica.telefono }}
+                                {% else %}
+                                    <span class="text-secondary">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-blue-lt">{{ anagrafica.contatti_attivi }}</span>
+                            </td>
+                            <td class="d-none d-md-table-cell">
+                                <span class="badge bg-green-lt">{{ anagrafica.indirizzi_attivi }}</span>
+                            </td>
+                            <td class="text-end">
+                                <div class="btn-list flex-nowrap justify-content-end">
+                                    <a href="{% url 'anagrafiche:anagrafica_detail' anagrafica.pk %}"
+                                       class="btn btn-icon btn-outline-primary"
+                                       title="Apri scheda">
+                                        <i class="ti ti-eye"></i>
+                                    </a>
+                                    <a href="{% url 'anagrafiche:anagrafica_update' anagrafica.pk %}"
+                                       class="btn btn-icon btn-outline-secondary"
+                                       title="Modifica">
+                                        <i class="ti ti-edit"></i>
+                                    </a>
+                                    <button type="button"
+                                            class="btn btn-icon btn-outline-danger js-delete-anagrafica"
+                                            title="Elimina"
+                                            data-delete-action="{% url 'anagrafiche:anagrafica_delete' anagrafica.pk %}"
+                                            data-delete-name="{{ anagrafica.ragione_sociale }}">
+                                        <i class="ti ti-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
                     {% endfor %}
                 </tbody>
             </table>
-
         </div>
-    </div>
 
+        {% if is_paginated %}
+            <div class="card-footer d-flex align-items-center">
+                <p class="m-0 text-secondary small">
+                    Pagina {{ page_obj.number }} di {{ page_obj.paginator.num_pages }}
+                </p>
+                <ul class="pagination m-0 ms-auto">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if filter_query %}&{{ filter_query }}{% endif %}">
+                                <i class="ti ti-chevron-left"></i>
+                                Precedente
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">
+                                <i class="ti ti-chevron-left"></i>
+                                Precedente
+                            </span>
+                        </li>
+                    {% endif %}
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if filter_query %}&{{ filter_query }}{% endif %}">
+                                Successiva
+                                <i class="ti ti-chevron-right"></i>
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">
+                                Successiva
+                                <i class="ti ti-chevron-right"></i>
+                            </span>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        {% endif %}
+    {% else %}
+        <div class="st-anag-empty">
+            <i class="ti ti-building-off"></i>
+            {% if has_filters %}
+                <div class="fw-semibold mb-1">Nessuna anagrafica trovata</div>
+                <div class="small">Prova a modificare la ricerca o <a href="{% url 'anagrafiche:anagrafica_list' %}">mostra tutte le anagrafiche</a>.</div>
+            {% else %}
+                <div class="fw-semibold mb-1">Nessuna anagrafica registrata</div>
+                <div class="small">Crea la prima anagrafica con il pulsante in alto.</div>
+            {% endif %}
+        </div>
+    {% endif %}
 </div>
 
 <div class="st-confirm" id="deleteAnagraficaModal" hidden>
@@ -260,7 +498,7 @@ document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll(".js-delete-anagrafica").forEach(function (button) {
         button.addEventListener("click", function () {
             form.action = button.dataset.deleteAction;
-            nameElement.textContent = button.dataset.deleteName || "L'anagrafica selezionata non sarà più visibile nella lista.";
+            nameElement.textContent = button.dataset.deleteName || "L'anagrafica selezionata";
             modalElement.hidden = false;
         });
     });

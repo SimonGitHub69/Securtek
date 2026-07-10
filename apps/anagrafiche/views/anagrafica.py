@@ -45,6 +45,23 @@ class AnagraficaListView(LoginRequiredMixin, ListView):
 
         return queryset.order_by("ragione_sociale")
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        base_qs = Anagrafica.objects.filter(is_active=True)
+        context["anagrafica_counts"] = {
+            "totale": base_qs.count(),
+            "con_contatti": base_qs.filter(contatti__is_active=True).distinct().count(),
+            "con_indirizzi": base_qs.filter(indirizzi__is_active=True).distinct().count(),
+            "con_pratiche": base_qs.filter(pratiche__is_active=True).distinct().count(),
+        }
+
+        params = self.request.GET.copy()
+        params.pop("page", None)
+        context["filter_query"] = params.urlencode()
+        context["q"] = (self.request.GET.get("q") or "").strip()
+        context["has_filters"] = bool(context["q"])
+        return context
+
 
 class AnagraficaDetailView(LoginRequiredMixin, DetailView):
     model = Anagrafica

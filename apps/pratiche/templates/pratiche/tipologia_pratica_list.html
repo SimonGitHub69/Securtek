@@ -7,6 +7,81 @@ Tipologie pratiche
 {% block extra_css %}
 {{ block.super }}
 <style>
+.st-kpi-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.st-kpi-card {
+    align-items: stretch;
+    background: var(--tblr-bg-surface, #fff);
+    border: 1px solid var(--tblr-border-color, #e6e8eb);
+    border-radius: 8px;
+    box-shadow: 0 0.125rem 0.25rem rgba(15, 23, 42, 0.04);
+    display: flex;
+    min-height: 96px;
+    overflow: hidden;
+}
+
+.st-kpi-accent { flex: 0 0 4px; }
+
+.st-kpi-content {
+    display: flex;
+    flex: 1;
+    justify-content: space-between;
+    padding: 1rem;
+}
+
+.st-kpi-label {
+    color: var(--tblr-secondary, #667085);
+    font-size: 0.875rem;
+    margin-bottom: 0.35rem;
+}
+
+.st-kpi-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.st-kpi-icon {
+    align-items: center;
+    border-radius: 8px;
+    display: flex;
+    height: 42px;
+    justify-content: center;
+    width: 42px;
+}
+
+.st-kpi-icon .ti { font-size: 1.35rem; }
+
+.st-config-name {
+    font-weight: 600;
+    line-height: 1.35;
+    max-width: 22rem;
+}
+
+.st-config-meta {
+    color: var(--tblr-secondary, #667085);
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    max-width: 28rem;
+}
+
+.st-config-empty {
+    color: var(--tblr-secondary, #667085);
+    padding: 3rem 1.5rem;
+    text-align: center;
+}
+
+.st-config-empty .ti {
+    display: block;
+    font-size: 2.5rem;
+    margin-bottom: 0.75rem;
+    opacity: 0.45;
+}
+
 .st-confirm {
     background: rgba(15, 23, 42, 0.45);
     bottom: 0;
@@ -19,9 +94,7 @@ Tipologie pratiche
     z-index: 1080;
 }
 
-.st-confirm[hidden] {
-    display: none;
-}
+.st-confirm[hidden] { display: none; }
 
 .st-confirm-dialog {
     background: var(--tblr-bg-surface, #fff);
@@ -51,9 +124,7 @@ Tipologie pratiche
     width: 44px;
 }
 
-.st-confirm-icon .ti {
-    font-size: 1.35rem;
-}
+.st-confirm-icon .ti { font-size: 1.35rem; }
 
 .st-confirm-title {
     color: var(--tblr-body-color, #1f2937);
@@ -83,6 +154,14 @@ Tipologie pratiche
     justify-content: flex-end;
     padding: 0.75rem 1.25rem;
 }
+
+@media (max-width: 992px) {
+    .st-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 576px) {
+    .st-kpi-grid { grid-template-columns: 1fr; }
+}
 </style>
 {% endblock %}
 
@@ -92,7 +171,7 @@ Tipologie pratiche
     <div class="row align-items-center">
         <div class="col">
             <h2 class="page-title">Tipologie pratiche</h2>
-            <div class="text-secondary">Tipologie disponibili per classificare le pratiche, es. ENEA, ATEX, Impianti termici</div>
+            <div class="text-secondary">Tipologie disponibili per classificare le pratiche, es. ENEA, ATEX, Impianti termici.</div>
         </div>
         <div class="col-auto">
             <a href="{% url 'pratiche:tipologia_pratica_create' %}" class="btn btn-primary">
@@ -103,89 +182,222 @@ Tipologie pratiche
     </div>
 </div>
 
+<div class="st-kpi-grid mb-4">
+    <div class="st-kpi-card">
+        <div class="st-kpi-accent bg-primary"></div>
+        <div class="st-kpi-content">
+            <div>
+                <div class="st-kpi-label">Totale tipologie</div>
+                <div class="st-kpi-value">{{ tipologia_counts.totale }}</div>
+            </div>
+            <div class="st-kpi-icon bg-primary-lt text-primary">
+                <i class="ti ti-tags"></i>
+            </div>
+        </div>
+    </div>
+    <div class="st-kpi-card">
+        <div class="st-kpi-accent bg-blue"></div>
+        <div class="st-kpi-content">
+            <div>
+                <div class="st-kpi-label">Con pratiche</div>
+                <div class="st-kpi-value">{{ tipologia_counts.con_pratiche }}</div>
+            </div>
+            <div class="st-kpi-icon bg-blue-lt text-blue">
+                <i class="ti ti-briefcase"></i>
+            </div>
+        </div>
+    </div>
+    <div class="st-kpi-card">
+        <div class="st-kpi-accent bg-purple"></div>
+        <div class="st-kpi-content">
+            <div>
+                <div class="st-kpi-label">Con template</div>
+                <div class="st-kpi-value">{{ tipologia_counts.con_template }}</div>
+            </div>
+            <div class="st-kpi-icon bg-purple-lt text-purple">
+                <i class="ti ti-template"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="card mb-3">
     <div class="card-body">
         <form method="get">
             <div class="row g-2 align-items-end">
-                <div class="col-md-5">
-                    <label class="form-label">Ricerca</label>
-                    <input type="text"
+                <div class="col-md-8 col-lg-6">
+                    <label class="form-label" for="tipologia-search">Cerca tipologie</label>
+                    <input type="search"
+                           id="tipologia-search"
                            name="q"
-                           value="{{ request.GET.q }}"
+                           value="{{ q }}"
                            class="form-control"
                            placeholder="Denominazione o descrizione">
                 </div>
                 <div class="col-auto">
-                    <button type="submit" class="btn btn-secondary">Cerca</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="ti ti-search"></i>
+                        Cerca
+                    </button>
                 </div>
-                <div class="col-auto">
-                    <a href="{% url 'pratiche:tipologia_pratica_list' %}" class="btn btn-outline-secondary">Pulisci</a>
-                </div>
+                {% if has_filters %}
+                    <div class="col-auto">
+                        <a href="{% url 'pratiche:tipologia_pratica_list' %}" class="btn btn-outline-secondary">Pulisci</a>
+                    </div>
+                {% endif %}
             </div>
         </form>
     </div>
 </div>
 
 <div class="card">
-    <div class="table-responsive">
-        <table class="table table-vcenter">
-            <thead>
-                <tr>
-                    <th>Tipologia</th>
-                    <th>Descrizione</th>
-                    <th>Pratiche</th>
-                    <th>Template</th>
-                    <th class="text-end">Azioni</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for tipologia in tipologie %}
-                    <tr>
-                        <td class="fw-bold">{{ tipologia.denominazione }}</td>
-                        <td>{{ tipologia.descrizione|default:"-" }}</td>
-                        <td>
-                            <span class="badge bg-blue-lt">{{ tipologia.pratiche_attive }}</span>
-                        </td>
-                        <td>
-                            <span class="badge bg-purple-lt">{{ tipologia.template_attivi }}</span>
-                        </td>
-                        <td class="text-end">
-                            <a href="{% url 'pratiche:tipologia_pratica_update' tipologia.pk %}"
-                               class="btn btn-icon btn-outline-primary"
-                               title="Modifica">
-                                <i class="ti ti-edit"></i>
-                            </a>
-                            <button type="button"
-                                    class="btn btn-icon btn-outline-danger js-delete-tipologia"
-                                    title="Elimina"
-                                    data-delete-action="{% url 'pratiche:tipologia_pratica_delete' tipologia.pk %}"
-                                    data-delete-name="{{ tipologia.denominazione }}">
-                                <i class="ti ti-trash"></i>
-                            </button>
-                        </td>
-                    </tr>
-                {% empty %}
-                    <tr>
-                        <td colspan="5" class="text-center text-secondary py-4">
-                            Nessuna tipologia presente
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="card-header">
+        <h3 class="card-title">Elenco tipologie</h3>
+        <div class="card-actions">
+            <span class="text-secondary small">
+                {% if tipologie %}
+                    {% if is_paginated %}
+                        {{ page_obj.paginator.count }} tipologi{% if page_obj.paginator.count == 1 %}a{% else %}e{% endif %}{% if has_filters %} trovat{% if page_obj.paginator.count == 1 %}a{% else %}e{% endif %}{% endif %}
+                    {% else %}
+                        {{ tipologie|length }} tipologi{% if tipologie|length == 1 %}a{% else %}e{% endif %}{% if has_filters %} trovat{% if tipologie|length == 1 %}a{% else %}e{% endif %}{% endif %}
+                    {% endif %}
+                {% else %}
+                    Nessun risultato
+                {% endif %}
+            </span>
+        </div>
     </div>
+
+    {% if tipologie %}
+        <div class="table-responsive">
+            <table class="table table-vcenter card-table">
+                <thead>
+                    <tr>
+                        <th>Tipologia</th>
+                        <th class="d-none d-md-table-cell">Descrizione</th>
+                        <th>Pratiche</th>
+                        <th class="d-none d-lg-table-cell">Template</th>
+                        <th class="text-end">Azioni</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tipologia in tipologie %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-start gap-3">
+                                    <span class="avatar bg-cyan-lt text-cyan">
+                                        <i class="ti ti-tags"></i>
+                                    </span>
+                                    <div class="text-truncate">
+                                        <div class="st-config-name text-truncate" title="{{ tipologia.denominazione }}">
+                                            {{ tipologia.denominazione }}
+                                        </div>
+                                        {% if tipologia.descrizione %}
+                                            <div class="st-config-meta text-truncate d-md-none" title="{{ tipologia.descrizione }}">
+                                                {{ tipologia.descrizione|truncatechars:80 }}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="d-none d-md-table-cell">
+                                {% if tipologia.descrizione %}
+                                    <span class="st-config-meta text-truncate d-block" title="{{ tipologia.descrizione }}">
+                                        {{ tipologia.descrizione|truncatechars:90 }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-secondary">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-blue-lt">{{ tipologia.pratiche_attive }}</span>
+                            </td>
+                            <td class="d-none d-lg-table-cell">
+                                <span class="badge bg-purple-lt">{{ tipologia.template_attivi }}</span>
+                            </td>
+                            <td class="text-end">
+                                <div class="btn-list flex-nowrap justify-content-end">
+                                    <a href="{% url 'pratiche:tipologia_pratica_update' tipologia.pk %}"
+                                       class="btn btn-icon btn-outline-primary"
+                                       title="Modifica">
+                                        <i class="ti ti-edit"></i>
+                                    </a>
+                                    <button type="button"
+                                            class="btn btn-icon btn-outline-danger js-delete-tipologia"
+                                            title="Elimina"
+                                            data-delete-action="{% url 'pratiche:tipologia_pratica_delete' tipologia.pk %}"
+                                            data-delete-name="{{ tipologia.denominazione }}">
+                                        <i class="ti ti-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if is_paginated %}
+            <div class="card-footer d-flex align-items-center">
+                <p class="m-0 text-secondary small">
+                    Pagina {{ page_obj.number }} di {{ page_obj.paginator.num_pages }}
+                </p>
+                <ul class="pagination m-0 ms-auto">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if filter_query %}&{{ filter_query }}{% endif %}">
+                                <i class="ti ti-chevron-left"></i>
+                                Precedente
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">
+                                <i class="ti ti-chevron-left"></i>
+                                Precedente
+                            </span>
+                        </li>
+                    {% endif %}
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if filter_query %}&{{ filter_query }}{% endif %}">
+                                Successiva
+                                <i class="ti ti-chevron-right"></i>
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">
+                                Successiva
+                                <i class="ti ti-chevron-right"></i>
+                            </span>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        {% endif %}
+    {% else %}
+        <div class="st-config-empty">
+            <i class="ti ti-tags-off"></i>
+            {% if has_filters %}
+                <div class="fw-semibold mb-1">Nessuna tipologia trovata</div>
+                <div class="small">Prova a modificare la ricerca o <a href="{% url 'pratiche:tipologia_pratica_list' %}">mostra tutte le tipologie</a>.</div>
+            {% else %}
+                <div class="fw-semibold mb-1">Nessuna tipologia presente</div>
+                <div class="small">Crea la prima tipologia con il pulsante <strong>Nuova tipologia</strong> in alto a destra.</div>
+            {% endif %}
+        </div>
+    {% endif %}
 </div>
 
 <div class="st-confirm" id="deleteTipologiaModal" hidden>
     <div class="st-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="deleteTipologiaTitle">
         <form method="post" id="deleteTipologiaForm">
             {% csrf_token %}
-
             <div class="st-confirm-body">
                 <div class="st-confirm-icon">
                     <i class="ti ti-trash"></i>
                 </div>
-
                 <div>
                     <div class="st-confirm-title" id="deleteTipologiaTitle">
                         Eliminare questa tipologia?
@@ -196,11 +408,8 @@ Tipologie pratiche
                     </div>
                 </div>
             </div>
-
             <div class="st-confirm-footer">
-                <button type="button" class="btn btn-outline-secondary js-delete-cancel">
-                    Annulla
-                </button>
+                <button type="button" class="btn btn-outline-secondary js-delete-cancel">Annulla</button>
                 <button type="submit" class="btn btn-danger">
                     <i class="ti ti-trash"></i>
                     Elimina
@@ -239,13 +448,11 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     cancelButton.addEventListener("click", closeModal);
-
     modalElement.addEventListener("click", function (event) {
         if (event.target === modalElement) {
             closeModal();
         }
     });
-
     document.addEventListener("keydown", function (event) {
         if (event.key === "Escape" && !modalElement.hidden) {
             closeModal();

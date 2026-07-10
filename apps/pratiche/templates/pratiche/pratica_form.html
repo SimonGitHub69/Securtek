@@ -126,6 +126,19 @@ Pratica
     white-space: nowrap;
 }
 
+.st-detail-empty {
+    color: var(--tblr-secondary, #667085);
+    padding: 2rem 1.5rem;
+    text-align: center;
+}
+
+.st-detail-empty .ti {
+    display: block;
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    opacity: 0.45;
+}
+
 .st-inline-table .btn-icon {
     align-items: center;
     display: inline-flex;
@@ -138,20 +151,6 @@ Pratica
 
 .st-inline-table .input-group .btn-icon {
     border-radius: 0;
-}
-
-.st-tech-table {
-    margin-bottom: 0;
-    min-width: 1160px;
-}
-
-.st-tech-table tbody tr.js-formset-row > td {
-    vertical-align: middle;
-}
-
-.st-tech-table .st-col-actions {
-    min-width: 90px;
-    width: 90px;
 }
 
 .st-category-preview-row[hidden] {
@@ -612,128 +611,79 @@ Pratica
                     <h3 class="card-title mb-1">Personale</h3>
                     <div class="text-secondary small">Personale collegato alla pratica con studio e incarico.</div>
                 </div>
-                <button type="button"
-                        class="btn btn-outline-primary btn-sm js-add-formset-row"
-                        data-prefix="tecnici"
-                        data-template="tecnici-empty-form"
-                        data-target="tecnici-formset-body">
-                    <i class="ti ti-plus"></i>
-                    Aggiungi riga
-                </button>
+                {% if object %}
+                    <a href="{% url 'pratiche:tecnico_create' object.pk %}" class="btn btn-primary btn-sm">
+                        <i class="ti ti-plus"></i>
+                        Aggiungi
+                    </a>
+                {% endif %}
             </div>
 
-            {{ tecnici_formset.management_form }}
-            {% if tecnici_formset.non_form_errors %}
-                <div class="alert alert-danger">{{ tecnici_formset.non_form_errors }}</div>
+            {% if object %}
+                {% if tecnici %}
+                    <div class="table-responsive mb-4">
+                        <table class="table table-vcenter card-table">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Studio</th>
+                                    <th>Incarico</th>
+                                    <th>Email</th>
+                                    <th>Telefono</th>
+                                    <th class="text-end">Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for tecnico in tecnici %}
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="avatar bg-success-lt text-success">
+                                                    <i class="ti ti-user"></i>
+                                                </span>
+                                                <div class="fw-semibold">{{ tecnico.nome }} {{ tecnico.cognome }}</div>
+                                            </div>
+                                        </td>
+                                        <td>{{ tecnico.studio_appartenenza|default:"-" }}</td>
+                                        <td>{{ tecnico.incarico|default:"-" }}</td>
+                                        <td>
+                                            {% if tecnico.email %}
+                                                <a href="mailto:{{ tecnico.email }}" class="text-reset">{{ tecnico.email }}</a>
+                                            {% else %}
+                                                <span class="text-secondary">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ tecnico.telefono|default:"-" }}</td>
+                                        <td class="text-end">
+                                            <a href="{% url 'pratiche:tecnico_update' object.pk tecnico.pk %}"
+                                               class="btn btn-icon btn-outline-primary"
+                                               title="Modifica">
+                                                <i class="ti ti-edit"></i>
+                                            </a>
+                                            <button type="button"
+                                                    class="btn btn-icon btn-outline-danger js-delete-tecnico"
+                                                    title="Elimina"
+                                                    data-delete-action="{% url 'pratiche:tecnico_delete' object.pk tecnico.pk %}"
+                                                    data-delete-name="{{ tecnico.nome }} {{ tecnico.cognome }}">
+                                                <i class="ti ti-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="st-detail-empty mb-4">
+                        <i class="ti ti-users"></i>
+                        <p class="mb-0">Nessun personale registrato</p>
+                    </div>
+                {% endif %}
+            {% else %}
+                <div class="alert alert-info mb-4">
+                    Salva prima la pratica per aggiungere personale.
+                </div>
             {% endif %}
-            <div class="table-responsive">
-                <table class="table table-vcenter st-inline-table st-tech-table">
-                    <thead>
-                        <tr>
-                            <th>Nome</th>
-                            <th>Cognome</th>
-                            <th>Studio</th>
-                            <th>Incarico</th>
-                            <th>Email</th>
-                            <th>Telefono</th>
-                            <th class="st-wide">Note</th>
-                            <th class="text-end st-col-actions">Azioni</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tecnici-formset-body">
-                        {% for tecnico_form in tecnici_formset %}
-                            <tr class="js-formset-row">
-                                <td>
-                                    <span hidden>
-                                        {% for hidden in tecnico_form.hidden_fields %}{{ hidden }}{% endfor %}
-                                        {{ tecnico_form.DELETE }}
-                                    </span>
-                                    {{ tecnico_form.nome }}
-                                    {% if tecnico_form.nome.errors %}
-                                        <div class="invalid-feedback d-block">{{ tecnico_form.nome.errors|join:", " }}</div>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {{ tecnico_form.cognome }}
-                                    {% if tecnico_form.cognome.errors %}
-                                        <div class="invalid-feedback d-block">{{ tecnico_form.cognome.errors|join:", " }}</div>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {{ tecnico_form.studio_appartenenza }}
-                                    {% if tecnico_form.studio_appartenenza.errors %}
-                                        <div class="invalid-feedback d-block">{{ tecnico_form.studio_appartenenza.errors|join:", " }}</div>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {{ tecnico_form.incarico }}
-                                    {% if tecnico_form.incarico.errors %}
-                                        <div class="invalid-feedback d-block">{{ tecnico_form.incarico.errors|join:", " }}</div>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {{ tecnico_form.email }}
-                                    {% if tecnico_form.email.errors %}
-                                        <div class="invalid-feedback d-block">{{ tecnico_form.email.errors|join:", " }}</div>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {{ tecnico_form.telefono }}
-                                    {% if tecnico_form.telefono.errors %}
-                                        <div class="invalid-feedback d-block">{{ tecnico_form.telefono.errors|join:", " }}</div>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {{ tecnico_form.note }}
-                                    {% if tecnico_form.note.errors %}
-                                        <div class="invalid-feedback d-block">{{ tecnico_form.note.errors|join:", " }}</div>
-                                    {% endif %}
-                                </td>
-                                <td class="text-end">
-                                    <div class="st-row-actions">
-                                        <button type="button"
-                                                class="btn btn-icon btn-outline-danger btn-sm js-remove-formset-row"
-                                                data-prefix="tecnici"
-                                                data-target="tecnici-formset-body"
-                                                title="Rimuovi dal personale">
-                                            <i class="ti ti-trash"></i>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-
-            <template id="tecnici-empty-form">
-                <tr class="js-formset-row">
-                    <td>
-                        <span hidden>
-                            {% for hidden in tecnici_formset.empty_form.hidden_fields %}{{ hidden }}{% endfor %}
-                            {{ tecnici_formset.empty_form.DELETE }}
-                        </span>
-                        {{ tecnici_formset.empty_form.nome }}
-                    </td>
-                    <td>{{ tecnici_formset.empty_form.cognome }}</td>
-                    <td>{{ tecnici_formset.empty_form.studio_appartenenza }}</td>
-                    <td>{{ tecnici_formset.empty_form.incarico }}</td>
-                    <td>{{ tecnici_formset.empty_form.email }}</td>
-                    <td>{{ tecnici_formset.empty_form.telefono }}</td>
-                    <td>{{ tecnici_formset.empty_form.note }}</td>
-                    <td class="text-end">
-                        <div class="st-row-actions">
-                            <button type="button"
-                                    class="btn btn-icon btn-outline-danger btn-sm js-remove-formset-row"
-                                    data-prefix="tecnici"
-                                    data-target="tecnici-formset-body"
-                                    title="Rimuovi dal personale">
-                                <i class="ti ti-trash"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            </template>
         </div>
 
         <div class="card-footer text-end">
@@ -774,6 +724,40 @@ Pratica
                 Rimuovi
             </button>
         </div>
+    </div>
+</div>
+
+<div class="st-confirm" id="deleteTecnicoModal" hidden>
+    <div class="st-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="deleteTecnicoTitle">
+        <form method="post" id="deleteTecnicoForm">
+            {% csrf_token %}
+
+            <div class="st-confirm-body">
+                <div class="st-confirm-icon">
+                    <i class="ti ti-trash"></i>
+                </div>
+
+                <div>
+                    <div class="st-confirm-title" id="deleteTecnicoTitle">
+                        Eliminare dal personale?
+                    </div>
+                    <div class="st-confirm-text">
+                        <span class="st-confirm-name" id="deleteTecnicoName">Personale selezionato</span>
+                        non sarà più visibile nella pratica.
+                    </div>
+                </div>
+            </div>
+
+            <div class="st-confirm-footer">
+                <button type="button" class="btn btn-outline-secondary js-delete-tecnico-cancel">
+                    Annulla
+                </button>
+                <button type="submit" class="btn btn-danger">
+                    <i class="ti ti-trash"></i>
+                    Elimina
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -942,6 +926,10 @@ document.addEventListener("DOMContentLoaded", function () {
     const removeCategoryConfirm = removeCategoryModal ? removeCategoryModal.querySelector(".js-remove-category-confirm") : null;
     const removeCategoryCancel = removeCategoryModal ? removeCategoryModal.querySelector(".js-remove-category-cancel") : null;
     let pendingRemoveButton = null;
+    const deleteTecnicoModal = document.getElementById("deleteTecnicoModal");
+    const deleteTecnicoForm = document.getElementById("deleteTecnicoForm");
+    const deleteTecnicoName = document.getElementById("deleteTecnicoName");
+    const deleteTecnicoCancel = deleteTecnicoModal ? deleteTecnicoModal.querySelector(".js-delete-tecnico-cancel") : null;
     const unlinkPreviewFileModal = document.getElementById("unlinkPreviewFileModal");
     const unlinkPreviewFileName = document.getElementById("unlinkPreviewFileName");
     const unlinkPreviewFileConfirm = unlinkPreviewFileModal ? unlinkPreviewFileModal.querySelector(".js-unlink-preview-file-confirm") : null;
@@ -1073,9 +1061,40 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
+    function closeDeleteTecnicoModal() {
+        if (!deleteTecnicoModal || !deleteTecnicoForm) {
+            return;
+        }
+
+        deleteTecnicoModal.hidden = true;
+        deleteTecnicoForm.removeAttribute("action");
+    }
+
+    if (deleteTecnicoModal && deleteTecnicoForm && deleteTecnicoName && deleteTecnicoCancel) {
+        document.querySelectorAll(".js-delete-tecnico").forEach(function (button) {
+            button.addEventListener("click", function () {
+                deleteTecnicoForm.action = button.dataset.deleteAction;
+                deleteTecnicoName.textContent = button.dataset.deleteName || "Personale selezionato";
+                deleteTecnicoModal.hidden = false;
+            });
+        });
+
+        deleteTecnicoCancel.addEventListener("click", closeDeleteTecnicoModal);
+
+        deleteTecnicoModal.addEventListener("click", function (event) {
+            if (event.target === deleteTecnicoModal) {
+                closeDeleteTecnicoModal();
+            }
+        });
+    }
+
     document.addEventListener("keydown", function (event) {
         if (event.key === "Escape" && removeCategoryModal && !removeCategoryModal.hidden) {
             closeRemoveCategoryModal();
+        }
+
+        if (event.key === "Escape" && deleteTecnicoModal && !deleteTecnicoModal.hidden) {
+            closeDeleteTecnicoModal();
         }
     });
 

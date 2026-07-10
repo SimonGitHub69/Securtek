@@ -4,13 +4,112 @@
 Pratiche
 {% endblock %}
 
+{% block extra_css %}
+{{ block.super }}
+<style>
+.st-kpi-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.st-kpi-card {
+    align-items: stretch;
+    background: var(--tblr-bg-surface, #fff);
+    border: 1px solid var(--tblr-border-color, #e6e8eb);
+    border-radius: 8px;
+    box-shadow: 0 0.125rem 0.25rem rgba(15, 23, 42, 0.04);
+    display: flex;
+    min-height: 96px;
+    overflow: hidden;
+}
+
+.st-kpi-accent {
+    flex: 0 0 4px;
+}
+
+.st-kpi-content {
+    display: flex;
+    flex: 1;
+    justify-content: space-between;
+    padding: 1rem;
+}
+
+.st-kpi-label {
+    color: var(--tblr-secondary, #667085);
+    font-size: 0.875rem;
+    margin-bottom: 0.35rem;
+}
+
+.st-kpi-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.st-kpi-icon {
+    align-items: center;
+    border-radius: 8px;
+    display: flex;
+    height: 42px;
+    justify-content: center;
+    width: 42px;
+}
+
+.st-kpi-icon .ti {
+    font-size: 1.35rem;
+}
+
+.st-pratica-name {
+    font-weight: 600;
+    line-height: 1.35;
+    max-width: 22rem;
+}
+
+.st-pratica-meta {
+    color: var(--tblr-secondary, #667085);
+    font-size: 0.8125rem;
+    line-height: 1.4;
+}
+
+.st-pratica-cliente {
+    max-width: 14rem;
+}
+
+.st-pratica-empty {
+    color: var(--tblr-secondary, #667085);
+    padding: 3rem 1.5rem;
+    text-align: center;
+}
+
+.st-pratica-empty .ti {
+    display: block;
+    font-size: 2.5rem;
+    margin-bottom: 0.75rem;
+    opacity: 0.45;
+}
+
+@media (max-width: 992px) {
+    .st-kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 576px) {
+    .st-kpi-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 
 <div class="page-header d-print-none mb-3">
     <div class="row align-items-center">
         <div class="col">
             <h2 class="page-title">Pratiche</h2>
-            <div class="text-secondary">Elenco pratiche operative</div>
+            <div class="text-secondary">Elenco pratiche operative con stato, classificazione e scadenze.</div>
         </div>
         <div class="col-auto">
             <a href="{% url 'pratiche:pratica_create' %}" class="btn btn-primary">
@@ -21,21 +120,73 @@ Pratiche
     </div>
 </div>
 
+<div class="st-kpi-grid mb-4">
+    <div class="st-kpi-card">
+        <div class="st-kpi-accent bg-primary"></div>
+        <div class="st-kpi-content">
+            <div>
+                <div class="st-kpi-label">Totale pratiche</div>
+                <div class="st-kpi-value">{{ pratica_counts.totale }}</div>
+            </div>
+            <div class="st-kpi-icon bg-primary-lt text-primary">
+                <i class="ti ti-folders"></i>
+            </div>
+        </div>
+    </div>
+    <div class="st-kpi-card">
+        <div class="st-kpi-accent bg-blue"></div>
+        <div class="st-kpi-content">
+            <div>
+                <div class="st-kpi-label">In corso</div>
+                <div class="st-kpi-value">{{ pratica_counts.in_corso }}</div>
+            </div>
+            <div class="st-kpi-icon bg-blue-lt text-blue">
+                <i class="ti ti-progress"></i>
+            </div>
+        </div>
+    </div>
+    <div class="st-kpi-card">
+        <div class="st-kpi-accent bg-danger"></div>
+        <div class="st-kpi-content">
+            <div>
+                <div class="st-kpi-label">Scadute</div>
+                <div class="st-kpi-value">{{ pratica_counts.scadute }}</div>
+            </div>
+            <div class="st-kpi-icon bg-danger-lt text-danger">
+                <i class="ti ti-calendar-exclamation"></i>
+            </div>
+        </div>
+    </div>
+    <div class="st-kpi-card">
+        <div class="st-kpi-accent bg-orange"></div>
+        <div class="st-kpi-content">
+            <div>
+                <div class="st-kpi-label">Priorità alta</div>
+                <div class="st-kpi-value">{{ pratica_counts.urgenti }}</div>
+            </div>
+            <div class="st-kpi-icon bg-orange-lt text-orange">
+                <i class="ti ti-alert-triangle"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="card mb-3">
     <div class="card-body">
         <form method="get">
             <div class="row g-2 align-items-end">
-                <div class="col-md-3">
-                    <label class="form-label">Ricerca</label>
-                    <input type="text"
+                <div class="col-md-4 col-lg-3">
+                    <label class="form-label" for="pratica-search">Cerca pratiche</label>
+                    <input type="search"
+                           id="pratica-search"
                            name="q"
-                           value="{{ request.GET.q }}"
+                           value="{{ q }}"
                            class="form-control"
                            placeholder="Codice, titolo o cliente">
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label">Tipologia</label>
-                    <select name="tipologia" class="form-select">
+                <div class="col-md-4 col-lg-2">
+                    <label class="form-label" for="pratica-tipologia">Tipologia</label>
+                    <select id="pratica-tipologia" name="tipologia" class="form-select">
                         <option value="">Tutte</option>
                         {% for tipologia in tipologie %}
                             <option value="{{ tipologia.pk }}" {% if request.GET.tipologia == tipologia.pk|stringformat:"s" %}selected{% endif %}>
@@ -44,9 +195,9 @@ Pratiche
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label">Categoria</label>
-                    <select name="categoria" class="form-select">
+                <div class="col-md-4 col-lg-2">
+                    <label class="form-label" for="pratica-categoria">Categoria</label>
+                    <select id="pratica-categoria" name="categoria" class="form-select">
                         <option value="">Tutte</option>
                         {% for categoria in categorie %}
                             <option value="{{ categoria.pk }}" {% if request.GET.categoria == categoria.pk|stringformat:"s" %}selected{% endif %}>
@@ -55,9 +206,9 @@ Pratiche
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label">Stato</label>
-                    <select name="stato" class="form-select">
+                <div class="col-md-4 col-lg-2">
+                    <label class="form-label" for="pratica-stato">Stato</label>
+                    <select id="pratica-stato" name="stato" class="form-select">
                         <option value="">Tutti</option>
                         {% for value, label in stati %}
                             <option value="{{ value }}" {% if request.GET.stato == value %}selected{% endif %}>
@@ -66,9 +217,9 @@ Pratiche
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label">Priorita</label>
-                    <select name="priorita" class="form-select">
+                <div class="col-md-4 col-lg-2">
+                    <label class="form-label" for="pratica-priorita">Priorità</label>
+                    <select id="pratica-priorita" name="priorita" class="form-select">
                         <option value="">Tutte</option>
                         {% for value, label in priorita %}
                             <option value="{{ value }}" {% if request.GET.priorita == value %}selected{% endif %}>
@@ -78,94 +229,209 @@ Pratiche
                     </select>
                 </div>
                 <div class="col-auto">
-                    <button type="submit" class="btn btn-secondary">Filtra</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="ti ti-search"></i>
+                        Filtra
+                    </button>
                 </div>
-                <div class="col-auto">
-                    <a href="{% url 'pratiche:pratica_list' %}" class="btn btn-outline-secondary">Pulisci</a>
-                </div>
+                {% if has_filters %}
+                    <div class="col-auto">
+                        <a href="{% url 'pratiche:pratica_list' %}" class="btn btn-outline-secondary">Pulisci</a>
+                    </div>
+                {% endif %}
             </div>
         </form>
     </div>
 </div>
 
 <div class="card">
-    <div class="table-responsive">
-        <table class="table table-vcenter">
-            <thead>
-                <tr>
-                    <th>Codice</th>
-                    <th>Titolo</th>
-                    <th>Cliente</th>
-                    <th>Tipologia</th>
-                    <th>Macro-categoria</th>
-                    <th>Categoria</th>
-                    <th>Stato</th>
-                    <th>Priorita</th>
-                    <th>Scadenza</th>
-                    <th class="text-end">Azioni</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for pratica in pratiche %}
-                    <tr>
-                        <td class="text-secondary">{{ pratica.codice }}</td>
-                        <td>
-                            <a href="{% url 'pratiche:pratica_detail' pratica.pk %}" class="text-reset fw-bold">
-                                {{ pratica.titolo }}
-                            </a>
-                        </td>
-                        <td>{{ pratica.cliente }}</td>
-                        <td>{{ pratica.tipologia }}</td>
-                        <td>
-                            {% for collegamento in pratica.macro_categorie_attive %}
-                                <span class="badge bg-purple-lt me-1 mb-1">
-                                    {{ collegamento.macro_categoria.denominazione }}
-                                </span>
-                            {% empty %}
-                                -
-                            {% endfor %}
-                        </td>
-                        <td>
-                            {% for collegamento in pratica.categorie_attive %}
-                                {% if collegamento.macro_categoria %}
-                                    {{ collegamento.macro_categoria.denominazione }} /
-                                {% endif %}
-                                {{ collegamento.categoria.denominazione }}{% if not forloop.last %}, {% endif %}
-                            {% empty %}
-                                -
-                            {% endfor %}
-                        </td>
-                        <td>
-                            <span class="badge bg-blue-lt">{{ pratica.get_stato_display }}</span>
-                        </td>
-                        <td>{{ pratica.get_priorita_display }}</td>
-                        <td>
-                            {% if pratica.data_scadenza %}
-                                <span class="{% if pratica.is_scaduta %}text-danger fw-bold{% endif %}">
-                                    {{ pratica.data_scadenza|date:"d/m/Y" }}
-                                </span>
-                            {% else %}
-                                <span class="text-secondary">-</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-end">
-                            <a href="{% url 'pratiche:pratica_detail' pratica.pk %}"
-                               class="btn btn-icon btn-outline-primary"
-                               title="Scheda e modifica">
-                                <i class="ti ti-edit"></i>
-                            </a>
-                        </td>
-                    </tr>
-                {% empty %}
-                    <tr>
-                        <td colspan="10" class="text-center text-secondary py-4">
-                            Nessuna pratica presente
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="card-header">
+        <h3 class="card-title">Elenco pratiche</h3>
+        <div class="card-actions">
+            <span class="text-secondary small">
+                {% if pratiche %}
+                    {% if is_paginated %}
+                        {{ page_obj.paginator.count }} pratic{% if page_obj.paginator.count == 1 %}a{% else %}he{% endif %}{% if has_filters %} trovat{% if page_obj.paginator.count == 1 %}a{% else %}e{% endif %}{% endif %}
+                    {% else %}
+                        {{ pratiche|length }} pratic{% if pratiche|length == 1 %}a{% else %}he{% endif %}{% if has_filters %} trovat{% if pratiche|length == 1 %}a{% else %}e{% endif %}{% endif %}
+                    {% endif %}
+                {% else %}
+                    Nessun risultato
+                {% endif %}
+            </span>
+        </div>
     </div>
+
+    {% if pratiche %}
+        <div class="table-responsive">
+            <table class="table table-vcenter card-table">
+                <thead>
+                    <tr>
+                        <th>Pratica</th>
+                        <th>Cliente</th>
+                        <th class="d-none d-lg-table-cell">Classificazione</th>
+                        <th>Stato</th>
+                        <th class="d-none d-md-table-cell">Scadenza</th>
+                        <th class="text-end">Azioni</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pratica in pratiche %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-start gap-3">
+                                    <span class="avatar
+                                        {% if pratica.stato == 'completata' %}bg-success-lt text-success
+                                        {% elif pratica.stato == 'annullata' %}bg-danger-lt text-danger
+                                        {% elif pratica.stato == 'archiviata' %}bg-secondary-lt text-secondary
+                                        {% elif pratica.stato == 'in_lavorazione' %}bg-blue-lt text-blue
+                                        {% elif pratica.stato == 'bozza' %}bg-secondary-lt text-secondary
+                                        {% else %}bg-primary-lt text-primary{% endif %}">
+                                        <i class="ti ti-briefcase"></i>
+                                    </span>
+                                    <div class="text-truncate">
+                                        <a href="{% url 'pratiche:pratica_detail' pratica.pk %}"
+                                           class="st-pratica-name text-reset text-truncate d-block"
+                                           title="{{ pratica.titolo }}">
+                                            {{ pratica.titolo }}
+                                        </a>
+                                        <div class="st-pratica-meta">{{ pratica.codice }}</div>
+                                        <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+                                            <span class="badge bg-cyan-lt">{{ pratica.tipologia }}</span>
+                                            {% if pratica.is_scaduta %}
+                                                <span class="d-md-none badge bg-danger-lt">Scaduta</span>
+                                            {% endif %}
+                                            <span class="d-lg-none badge
+                                                {% if pratica.priorita == 'urgente' %}bg-danger-lt
+                                                {% elif pratica.priorita == 'alta' %}bg-orange-lt
+                                                {% elif pratica.priorita == 'bassa' %}bg-secondary-lt
+                                                {% else %}bg-blue-lt{% endif %}">
+                                                {{ pratica.get_priorita_display }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="st-pratica-cliente text-truncate" title="{{ pratica.cliente }}">
+                                    <div class="fw-semibold text-truncate">{{ pratica.cliente }}</div>
+                                </div>
+                            </td>
+                            <td class="d-none d-lg-table-cell">
+                                <div class="d-flex flex-wrap gap-1">
+                                    {% for collegamento in pratica.macro_categorie_attive %}
+                                        <span class="badge bg-purple-lt">
+                                            {{ collegamento.macro_categoria.denominazione }}
+                                        </span>
+                                    {% endfor %}
+                                    {% for collegamento in pratica.categorie_attive %}
+                                        <span class="badge bg-green-lt">
+                                            {% if collegamento.macro_categoria %}{{ collegamento.macro_categoria.denominazione }} / {% endif %}{{ collegamento.categoria.denominazione }}
+                                        </span>
+                                    {% empty %}
+                                        {% if not pratica.macro_categorie_attive %}
+                                            <span class="text-secondary small">-</span>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex flex-column align-items-start gap-1">
+                                    <span class="badge
+                                        {% if pratica.stato == 'completata' %}bg-success-lt
+                                        {% elif pratica.stato == 'annullata' %}bg-danger-lt
+                                        {% elif pratica.stato == 'archiviata' %}bg-secondary-lt
+                                        {% elif pratica.stato == 'in_attesa_cliente' or pratica.stato == 'in_attesa_esterna' %}bg-orange-lt
+                                        {% elif pratica.stato == 'in_lavorazione' %}bg-blue-lt
+                                        {% elif pratica.stato == 'bozza' %}bg-secondary-lt
+                                        {% else %}bg-primary-lt{% endif %}">
+                                        {{ pratica.get_stato_display }}
+                                    </span>
+                                    <span class="d-none d-md-inline badge
+                                        {% if pratica.priorita == 'urgente' %}bg-danger-lt
+                                        {% elif pratica.priorita == 'alta' %}bg-orange-lt
+                                        {% elif pratica.priorita == 'bassa' %}bg-secondary-lt
+                                        {% else %}bg-blue-lt{% endif %}">
+                                        {{ pratica.get_priorita_display }}
+                                    </span>
+                                </div>
+                            </td>
+                            <td class="d-none d-md-table-cell">
+                                {% if pratica.data_scadenza %}
+                                    <span class="{% if pratica.is_scaduta %}text-danger fw-semibold{% else %}text-secondary{% endif %}">
+                                        {{ pratica.data_scadenza|date:"d/m/Y" }}
+                                    </span>
+                                    {% if pratica.is_scaduta %}
+                                        <div class="text-danger small">Scaduta</div>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-secondary">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <a href="{% url 'pratiche:pratica_detail' pratica.pk %}"
+                                   class="btn btn-icon btn-outline-primary"
+                                   title="Scheda e modifica">
+                                    <i class="ti ti-edit"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if is_paginated %}
+            <div class="card-footer d-flex align-items-center">
+                <p class="m-0 text-secondary small">
+                    Pagina {{ page_obj.number }} di {{ page_obj.paginator.num_pages }}
+                </p>
+                <ul class="pagination m-0 ms-auto">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if filter_query %}&{{ filter_query }}{% endif %}">
+                                <i class="ti ti-chevron-left"></i>
+                                Precedente
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">
+                                <i class="ti ti-chevron-left"></i>
+                                Precedente
+                            </span>
+                        </li>
+                    {% endif %}
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if filter_query %}&{{ filter_query }}{% endif %}">
+                                Successiva
+                                <i class="ti ti-chevron-right"></i>
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">
+                                Successiva
+                                <i class="ti ti-chevron-right"></i>
+                            </span>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        {% endif %}
+    {% else %}
+        <div class="st-pratica-empty">
+            <i class="ti ti-folder-off"></i>
+            {% if has_filters %}
+                <div class="fw-semibold mb-1">Nessuna pratica trovata</div>
+                <div class="small">Prova a modificare i filtri o <a href="{% url 'pratiche:pratica_list' %}">mostra tutte le pratiche</a>.</div>
+            {% else %}
+                <div class="fw-semibold mb-1">Nessuna pratica presente</div>
+                <div class="small">Crea la prima pratica con il pulsante <strong>Nuova pratica</strong> in alto a destra.</div>
+            {% endif %}
+        </div>
+    {% endif %}
 </div>
 
 {% endblock %}

@@ -4,377 +4,523 @@
 {{ anagrafica.ragione_sociale }}
 {% endblock %}
 
+{% block extra_css %}
+{{ block.super }}
+<style>
+.st-kpi-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.st-kpi-card {
+    align-items: stretch;
+    background: var(--tblr-bg-surface, #fff);
+    border: 1px solid var(--tblr-border-color, #e6e8eb);
+    border-radius: 8px;
+    box-shadow: 0 0.125rem 0.25rem rgba(15, 23, 42, 0.04);
+    display: flex;
+    min-height: 96px;
+    overflow: hidden;
+}
+
+.st-kpi-accent {
+    flex: 0 0 4px;
+}
+
+.st-kpi-content {
+    display: flex;
+    flex: 1;
+    justify-content: space-between;
+    padding: 1rem;
+}
+
+.st-kpi-label {
+    color: var(--tblr-secondary, #667085);
+    font-size: 0.875rem;
+    margin-bottom: 0.35rem;
+}
+
+.st-kpi-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.st-kpi-icon {
+    align-items: center;
+    border-radius: 8px;
+    display: flex;
+    height: 42px;
+    justify-content: center;
+    width: 42px;
+}
+
+.st-kpi-icon .ti {
+    font-size: 1.35rem;
+}
+
+.st-detail-dl dt {
+    color: var(--tblr-secondary, #667085);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    margin-bottom: 0.15rem;
+}
+
+.st-detail-dl dd {
+    margin-bottom: 1rem;
+}
+
+.st-detail-dl dd:last-child {
+    margin-bottom: 0;
+}
+
+.st-detail-empty {
+    color: var(--tblr-secondary, #667085);
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+}
+
+.st-detail-empty .ti {
+    display: block;
+    font-size: 2.25rem;
+    margin-bottom: 0.65rem;
+    opacity: 0.45;
+}
+
+.st-section-count {
+    color: var(--tblr-secondary, #667085);
+    font-size: 0.8125rem;
+}
+
+.st-contact-item {
+    border-bottom: 1px solid var(--tblr-border-color, #e6e8eb);
+    padding: 0.85rem 0;
+}
+
+.st-contact-item:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+}
+
+.st-contact-item:first-child {
+    padding-top: 0;
+}
+
+@media (max-width: 992px) {
+    .st-kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 576px) {
+    .st-kpi-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 
-<div class="container-xl">
-
-    <div class="page-header d-print-none mb-3">
-        <div class="row align-items-center">
-
-            <div class="col">
-                <h2 class="page-title">
-                    {{ anagrafica.ragione_sociale }}
-                </h2>
-
-                <div class="text-secondary">
-                    Scheda Anagrafica
+<div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+        <div class="col">
+            <div class="d-flex align-items-start gap-3">
+                <span class="avatar avatar-lg bg-primary-lt text-primary">
+                    <i class="ti ti-building"></i>
+                </span>
+                <div>
+                    <h2 class="page-title mb-1">{{ anagrafica.ragione_sociale }}</h2>
+                    <div class="text-secondary mb-2">
+                        {% if anagrafica.partita_iva %}P.IVA {{ anagrafica.partita_iva }}{% endif %}
+                        {% if anagrafica.partita_iva and anagrafica.codice_fiscale %} · {% endif %}
+                        {% if anagrafica.codice_fiscale %}CF {{ anagrafica.codice_fiscale }}{% endif %}
+                        {% if not anagrafica.partita_iva and not anagrafica.codice_fiscale %}Scheda anagrafica cliente{% endif %}
+                        {% if anagrafica.email %}
+                            {% if anagrafica.partita_iva or anagrafica.codice_fiscale %} · {% endif %}
+                            {{ anagrafica.email }}
+                        {% endif %}
+                        {% if anagrafica.telefono %}
+                            · {{ anagrafica.telefono }}
+                        {% endif %}
+                    </div>
+                    <div class="d-flex flex-wrap align-items-center gap-1">
+                        {% if contatti %}
+                            <span class="badge bg-blue-lt">{{ contatti|length }} contatt{% if contatti|length == 1 %}o{% else %}i{% endif %}</span>
+                        {% endif %}
+                        {% if indirizzi %}
+                            <span class="badge bg-green-lt">{{ indirizzi|length }} indirizz{% if indirizzi|length == 1 %}o{% else %}i{% endif %}</span>
+                        {% endif %}
+                        {% if pratiche_in_essere %}
+                            <span class="badge bg-orange-lt">{{ pratiche_in_essere|length }} pratic{% if pratiche_in_essere|length == 1 %}a{% else %}he{% endif %} attive</span>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
-
-            <div class="col-auto">
-
-                <a href="{% url 'anagrafiche:anagrafica_update' anagrafica.pk %}"
-                   class="btn btn-primary">
-
+        </div>
+        <div class="col-auto">
+            <div class="btn-list">
+                <a href="{% url 'anagrafiche:anagrafica_update' anagrafica.pk %}" class="btn btn-primary">
                     <i class="ti ti-edit"></i>
                     Modifica
-
                 </a>
-
-                <a href="{% url 'anagrafiche:anagrafica_list' %}"
-                   class="btn btn-outline-secondary">
-
+                <a href="{% url 'anagrafiche:anagrafica_list' %}" class="btn btn-outline-secondary">
                     <i class="ti ti-arrow-left"></i>
                     Elenco
-
                 </a>
-
             </div>
+        </div>
+    </div>
+</div>
 
+<div class="st-kpi-grid mb-4">
+    <div class="st-kpi-card">
+        <div class="st-kpi-accent bg-blue"></div>
+        <div class="st-kpi-content">
+            <div>
+                <div class="st-kpi-label">Contatti</div>
+                <div class="st-kpi-value">{{ contatti|length }}</div>
+            </div>
+            <div class="st-kpi-icon bg-blue-lt text-blue">
+                <i class="ti ti-address-book"></i>
+            </div>
+        </div>
+    </div>
+    <div class="st-kpi-card">
+        <div class="st-kpi-accent bg-green"></div>
+        <div class="st-kpi-content">
+            <div>
+                <div class="st-kpi-label">Indirizzi</div>
+                <div class="st-kpi-value">{{ indirizzi|length }}</div>
+            </div>
+            <div class="st-kpi-icon bg-green-lt text-green">
+                <i class="ti ti-map-pin"></i>
+            </div>
+        </div>
+    </div>
+    <div class="st-kpi-card">
+        <div class="st-kpi-accent bg-orange"></div>
+        <div class="st-kpi-content">
+            <div>
+                <div class="st-kpi-label">Pratiche in essere</div>
+                <div class="st-kpi-value">{{ pratiche_in_essere|length }}</div>
+            </div>
+            <div class="st-kpi-icon bg-orange-lt text-orange">
+                <i class="ti ti-briefcase"></i>
+            </div>
+        </div>
+    </div>
+    <div class="st-kpi-card">
+        <div class="st-kpi-accent bg-primary"></div>
+        <div class="st-kpi-content">
+            <div>
+                <div class="st-kpi-label">Dati fiscali</div>
+                <div class="st-kpi-value" style="font-size: 1.25rem; line-height: 1.3;">
+                    {% if anagrafica.partita_iva or anagrafica.codice_fiscale %}OK{% else %}-{% endif %}
+                </div>
+            </div>
+            <div class="st-kpi-icon bg-primary-lt text-primary">
+                <i class="ti ti-id"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row row-cards mb-3">
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Dati generali</h3>
+            </div>
+            <div class="card-body">
+                <dl class="row st-detail-dl mb-0">
+                    <dt class="col-sm-4">Ragione sociale</dt>
+                    <dd class="col-sm-8 fw-semibold">{{ anagrafica.ragione_sociale }}</dd>
+
+                    <dt class="col-sm-4">Partita IVA</dt>
+                    <dd class="col-sm-8">{{ anagrafica.partita_iva|default:"-" }}</dd>
+
+                    <dt class="col-sm-4">Codice fiscale</dt>
+                    <dd class="col-sm-8">{{ anagrafica.codice_fiscale|default:"-" }}</dd>
+
+                    <dt class="col-sm-4">Email</dt>
+                    <dd class="col-sm-8">
+                        {% if anagrafica.email %}
+                            <a href="mailto:{{ anagrafica.email }}">{{ anagrafica.email }}</a>
+                        {% else %}
+                            <span class="text-secondary">-</span>
+                        {% endif %}
+                    </dd>
+
+                    <dt class="col-sm-4">Telefono</dt>
+                    <dd class="col-sm-8">
+                        {% if anagrafica.telefono %}
+                            <a href="tel:{{ anagrafica.telefono }}">{{ anagrafica.telefono }}</a>
+                        {% else %}
+                            <span class="text-secondary">-</span>
+                        {% endif %}
+                    </dd>
+                </dl>
+            </div>
         </div>
     </div>
 
-
-    <div class="row">
-
-        <div class="col-lg-6">
-
-            <div class="card">
-
-                <div class="card-header">
-                    <h3 class="card-title">
-                        Dati Generali
-                    </h3>
-                </div>
-
-                <div class="card-body">
-
-                    <table class="table table-borderless">
-
-                        <tr>
-                            <th width="180">Ragione Sociale</th>
-                            <td>{{ anagrafica.ragione_sociale }}</td>
-                        </tr>
-
-                        <tr>
-                            <th>Partita IVA</th>
-                            <td>{{ anagrafica.partita_iva }}</td>
-                        </tr>
-
-                        <tr>
-                            <th>Codice Fiscale</th>
-                            <td>{{ anagrafica.codice_fiscale }}</td>
-                        </tr>
-
-                        <tr>
-                            <th>Email</th>
-                            <td>{{ anagrafica.email }}</td>
-                        </tr>
-
-                        <tr>
-                            <th>Telefono</th>
-                            <td>{{ anagrafica.telefono }}</td>
-                        </tr>
-
-                    </table>
-
-                </div>
-
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Riepilogo</h3>
             </div>
+            <div class="card-body">
+                <dl class="row st-detail-dl mb-0">
+                    <dt class="col-sm-5">Contatti attivi</dt>
+                    <dd class="col-sm-7">
+                        <span class="badge bg-blue-lt">{{ contatti|length }}</span>
+                    </dd>
 
+                    <dt class="col-sm-5">Indirizzi attivi</dt>
+                    <dd class="col-sm-7">
+                        <span class="badge bg-green-lt">{{ indirizzi|length }}</span>
+                    </dd>
+
+                    <dt class="col-sm-5">Pratiche in essere</dt>
+                    <dd class="col-sm-7">
+                        <span class="badge bg-orange-lt">{{ pratiche_in_essere|length }}</span>
+                    </dd>
+                </dl>
+            </div>
         </div>
+    </div>
+</div>
 
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">Pratiche in essere</h3>
+        <div class="card-actions">
+            <span class="st-section-count me-2">{{ pratiche_in_essere|length }} pratic{% if pratiche_in_essere|length == 1 %}a{% else %}he{% endif %}</span>
+            {% url 'anagrafiche:anagrafica_detail' anagrafica.pk as anagrafica_return_url %}
+            <a href="{% url 'pratiche:pratica_create' %}?cliente={{ anagrafica.pk }}&next={{ anagrafica_return_url|urlencode }}" class="btn btn-primary btn-sm">
+                <i class="ti ti-plus"></i>
+                Nuova pratica
+            </a>
+        </div>
     </div>
 
-    <div class="row mt-3">
-
-        <div class="col-12">
-
-            <div class="card">
-
-                <div class="card-header">
-                    <h3 class="card-title">
-                        Pratiche in essere
-                    </h3>
-                    <div class="card-actions">
-                        {% url 'anagrafiche:anagrafica_detail' anagrafica.pk as anagrafica_return_url %}
-                        <a href="{% url 'pratiche:pratica_create' %}?cliente={{ anagrafica.pk }}&next={{ anagrafica_return_url|urlencode }}" class="btn btn-primary btn-sm">
-                            <i class="ti ti-plus"></i>
-                            Nuova pratica
-                        </a>
-                    </div>
-                </div>
-
-                <div class="card-body">
-
-                    {% if pratiche_in_essere %}
-
-                        <div class="table-responsive">
-                            <table class="table table-vcenter">
-                                <thead>
-                                    <tr>
-                                        <th>Codice</th>
-                                        <th>Titolo</th>
-                                        <th>Categorie</th>
-                                        <th>Tipologia</th>
-                                        <th>Stato</th>
-                                        <th>Scadenza</th>
-                                        <th class="text-end">Azioni</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for pratica in pratiche_in_essere %}
-                                        <tr>
-                                            <td class="text-secondary">{{ pratica.codice }}</td>
-                                            <td>
-                                                <a href="{% url 'pratiche:pratica_detail' pratica.pk %}?next={{ anagrafica_return_url|urlencode }}" class="text-reset fw-bold">
-                                                    {{ pratica.titolo }}
-                                                </a>
-                                                {% if pratica.responsabile %}
-                                                    <div class="text-secondary small">
-                                                        Responsabile: {{ pratica.responsabile }}
-                                                    </div>
-                                                {% endif %}
-                                            </td>
-                                            <td>
-                                                {% for collegamento in pratica.categorie_attive %}
-                                                    {{ collegamento.categoria.denominazione }}{% if collegamento.versione %} {{ collegamento.versione }}{% endif %}{% if not forloop.last %}, {% endif %}
-                                                {% empty %}
-                                                    -
-                                                {% endfor %}
-                                            </td>
-                                            <td>{{ pratica.tipologia }}</td>
-                                            <td>
-                                                <span class="badge bg-blue-lt">{{ pratica.get_stato_display }}</span>
-                                            </td>
-                                            <td>
-                                                {% if pratica.data_scadenza %}
-                                                    <span class="{% if pratica.is_scaduta %}text-danger fw-bold{% endif %}">
-                                                        {{ pratica.data_scadenza|date:"d/m/Y" }}
-                                                    </span>
-                                                {% else %}
-                                                    <span class="text-secondary">-</span>
-                                                {% endif %}
-                                            </td>
-                                            <td class="text-end">
-                                                <a href="{% url 'pratiche:pratica_detail' pratica.pk %}?next={{ anagrafica_return_url|urlencode }}"
-                                                   class="btn btn-icon btn-outline-primary"
-                                                   title="Apri pratica">
-                                                    <i class="ti ti-edit"></i>
-                                                </a>
-                                            </td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-
-                    {% else %}
-
-                        <div class="empty">
-                            <div class="empty-icon">
-                                <i class="ti ti-folder"></i>
-                            </div>
-                            <p class="empty-title">Nessuna pratica in essere</p>
-                        </div>
-
-                    {% endif %}
-
-                </div>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <div class="row mt-3">
-
-        <div class="col-lg-6">
-
-            <div class="card">
-
-                <div class="card-header">
-                    <h3 class="card-title">
-                        Contatti
-                    </h3>
-                    <div class="card-actions">
-                        <a href="{% url 'anagrafiche:contatto_create' anagrafica.pk %}" class="btn btn-primary btn-sm">
-                            <i class="ti ti-plus"></i>
-                            Aggiungi
-                        </a>
-                    </div>
-                </div>
-
-                <div class="card-body">
-
-                    {% if contatti %}
-
-                        <div class="list-group list-group-flush">
-
-                            {% for contatto in contatti %}
-
-                                <div class="list-group-item px-0">
-                                    <div class="d-flex justify-content-between align-items-start gap-3">
-                                        <div>
-                                            <div class="fw-bold">
-                                                {{ contatto.get_tipo_display }}
-
-                                                {% if contatto.principale %}
-                                                    <span class="badge bg-primary-lt ms-2">Principale</span>
-                                                {% endif %}
-                                            </div>
-
-                                            <div>{{ contatto.valore }}</div>
-
-                                            {% if contatto.descrizione %}
-                                                <div class="text-secondary small">
-                                                    {{ contatto.descrizione }}
-                                                </div>
+    {% if pratiche_in_essere %}
+        <div class="table-responsive">
+            <table class="table table-vcenter card-table">
+                <thead>
+                    <tr>
+                        <th>Pratica</th>
+                        <th class="d-none d-lg-table-cell">Categorie</th>
+                        <th>Stato</th>
+                        <th class="d-none d-md-table-cell">Scadenza</th>
+                        <th class="text-end">Azioni</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pratica in pratiche_in_essere %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-start gap-3">
+                                    <span class="avatar
+                                        {% if pratica.stato == 'completata' %}bg-success-lt text-success
+                                        {% elif pratica.stato == 'annullata' %}bg-danger-lt text-danger
+                                        {% elif pratica.stato == 'archiviata' %}bg-secondary-lt text-secondary
+                                        {% elif pratica.stato == 'in_lavorazione' %}bg-blue-lt text-blue
+                                        {% elif pratica.stato == 'bozza' %}bg-secondary-lt text-secondary
+                                        {% else %}bg-primary-lt text-primary{% endif %}">
+                                        <i class="ti ti-briefcase"></i>
+                                    </span>
+                                    <div>
+                                        <a href="{% url 'pratiche:pratica_detail' pratica.pk %}?next={{ anagrafica_return_url|urlencode }}" class="fw-semibold text-reset">
+                                            {{ pratica.titolo }}
+                                        </a>
+                                        <div class="text-secondary small">{{ pratica.codice }}</div>
+                                        {% if pratica.responsabile %}
+                                            <div class="text-secondary small">Responsabile: {{ pratica.responsabile }}</div>
+                                        {% endif %}
+                                        <div class="d-lg-none mt-1">
+                                            {% if pratica.tipologia %}
+                                                <span class="badge bg-cyan-lt">{{ pratica.tipologia }}</span>
                                             {% endif %}
                                         </div>
-
-                                        <div class="btn-list flex-nowrap">
-                                            <a href="{% url 'anagrafiche:contatto_update' anagrafica.pk contatto.pk %}"
-                                               class="btn btn-outline-primary btn-sm">
-                                                <i class="ti ti-edit"></i>
-                                                Modifica
-                                            </a>
-
-                                            <form method="post"
-                                                  action="{% url 'anagrafiche:contatto_delete' anagrafica.pk contatto.pk %}">
-                                                {% csrf_token %}
-                                                <button type="submit" class="btn btn-outline-danger btn-sm">
-                                                    <i class="ti ti-trash"></i>
-                                                    Elimina
-                                                </button>
-                                            </form>
-                                        </div>
                                     </div>
                                 </div>
+                            </td>
+                            <td class="d-none d-lg-table-cell">
+                                {% for collegamento in pratica.categorie_attive %}
+                                    <span class="badge bg-secondary-lt">{{ collegamento.categoria.denominazione }}{% if collegamento.versione %} {{ collegamento.versione }}{% endif %}</span>
+                                {% empty %}
+                                    <span class="text-secondary">-</span>
+                                {% endfor %}
+                            </td>
+                            <td>
+                                <span class="badge
+                                    {% if pratica.stato == 'completata' %}bg-success-lt
+                                    {% elif pratica.stato == 'annullata' %}bg-danger-lt
+                                    {% elif pratica.stato == 'archiviata' %}bg-secondary-lt
+                                    {% elif pratica.stato == 'in_lavorazione' %}bg-blue-lt
+                                    {% elif pratica.stato == 'bozza' %}bg-secondary-lt
+                                    {% else %}bg-primary-lt{% endif %}">
+                                    {{ pratica.get_stato_display }}
+                                </span>
+                                {% if pratica.tipologia %}
+                                    <span class="d-none d-lg-inline badge bg-cyan-lt ms-1">{{ pratica.tipologia }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="d-none d-md-table-cell">
+                                {% if pratica.data_scadenza %}
+                                    <span class="{% if pratica.is_scaduta %}text-danger fw-bold{% endif %}">
+                                        {{ pratica.data_scadenza|date:"d/m/Y" }}
+                                    </span>
+                                    {% if pratica.is_scaduta %}
+                                        <span class="badge bg-danger-lt ms-1">Scaduta</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-secondary">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <a href="{% url 'pratiche:pratica_detail' pratica.pk %}?next={{ anagrafica_return_url|urlencode }}"
+                                   class="btn btn-icon btn-outline-primary"
+                                   title="Apri pratica">
+                                    <i class="ti ti-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="st-detail-empty">
+            <i class="ti ti-folder-off"></i>
+            <div class="fw-semibold mb-1">Nessuna pratica in essere</div>
+            <div class="small">Crea una nuova pratica collegata a questo cliente.</div>
+        </div>
+    {% endif %}
+</div>
 
-                            {% endfor %}
-
-                        </div>
-
-                    {% else %}
-
-                        <div class="empty">
-                            <div class="empty-icon">
-                                <i class="ti ti-address-book"></i>
-                            </div>
-                            <p class="empty-title">Nessun contatto registrato</p>
-                        </div>
-
-                    {% endif %}
-
+<div class="row row-cards">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Contatti</h3>
+                <div class="card-actions">
+                    <span class="st-section-count me-2">{{ contatti|length }}</span>
+                    <a href="{% url 'anagrafiche:contatto_create' anagrafica.pk %}" class="btn btn-primary btn-sm">
+                        <i class="ti ti-plus"></i>
+                        Aggiungi
+                    </a>
                 </div>
-
             </div>
 
-        </div>
-
-
-        <div class="col-lg-6">
-
-            <div class="card">
-
-                <div class="card-header">
-                    <h3 class="card-title">
-                        Indirizzi
-                    </h3>
-                    <div class="card-actions">
-                        <a href="{% url 'anagrafiche:indirizzo_create' anagrafica.pk %}" class="btn btn-primary btn-sm">
-                            <i class="ti ti-plus"></i>
-                            Aggiungi
-                        </a>
+            <div class="card-body">
+                {% if contatti %}
+                    {% for contatto in contatti %}
+                        <div class="st-contact-item">
+                            <div class="d-flex justify-content-between align-items-start gap-3">
+                                <div>
+                                    <div class="fw-semibold">
+                                        {{ contatto.get_tipo_display }}
+                                        {% if contatto.principale %}
+                                            <span class="badge bg-primary-lt ms-1">Principale</span>
+                                        {% endif %}
+                                    </div>
+                                    <div>{{ contatto.valore }}</div>
+                                    {% if contatto.descrizione %}
+                                        <div class="text-secondary small">{{ contatto.descrizione }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="btn-list flex-nowrap">
+                                    <a href="{% url 'anagrafiche:contatto_update' anagrafica.pk contatto.pk %}"
+                                       class="btn btn-outline-primary btn-sm">
+                                        <i class="ti ti-edit"></i>
+                                    </a>
+                                    <form method="post"
+                                          action="{% url 'anagrafiche:contatto_delete' anagrafica.pk contatto.pk %}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-outline-danger btn-sm">
+                                            <i class="ti ti-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="st-detail-empty">
+                        <i class="ti ti-address-book"></i>
+                        <div class="fw-semibold mb-1">Nessun contatto registrato</div>
+                        <div class="small">Aggiungi email, telefono o altri recapiti.</div>
                     </div>
-                </div>
-
-                <div class="card-body">
-
-                    {% if indirizzi %}
-
-                        <div class="list-group list-group-flush">
-
-                            {% for indirizzo in indirizzi %}
-
-                                <div class="list-group-item px-0">
-                                    <div class="d-flex justify-content-between align-items-start gap-3">
-                                        <div>
-                                            <div class="fw-bold">
-                                                {{ indirizzo.get_tipo_display }}
-
-                                                {% if indirizzo.principale %}
-                                                    <span class="badge bg-primary-lt ms-2">Principale</span>
-                                                {% endif %}
-                                            </div>
-
-                                            <div>
-                                                {{ indirizzo.indirizzo }}{% if indirizzo.civico %}, {{ indirizzo.civico }}{% endif %}
-                                            </div>
-
-                                            <div class="text-secondary small">
-                                                {% if indirizzo.cap %}{{ indirizzo.cap }}{% endif %}
-                                                {% if indirizzo.comune %} {{ indirizzo.comune }}{% endif %}
-                                                {% if indirizzo.provincia %} ({{ indirizzo.provincia }}){% endif %}
-                                                {% if indirizzo.nazione %} - {{ indirizzo.nazione }}{% endif %}
-                                            </div>
-                                        </div>
-
-                                        <div class="btn-list flex-nowrap">
-                                            <a href="{% url 'anagrafiche:indirizzo_update' anagrafica.pk indirizzo.pk %}"
-                                               class="btn btn-outline-primary btn-sm">
-                                                <i class="ti ti-edit"></i>
-                                                Modifica
-                                            </a>
-
-                                            <form method="post"
-                                                  action="{% url 'anagrafiche:indirizzo_delete' anagrafica.pk indirizzo.pk %}">
-                                                {% csrf_token %}
-                                                <button type="submit" class="btn btn-outline-danger btn-sm">
-                                                    <i class="ti ti-trash"></i>
-                                                    Elimina
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
-
-                            {% endfor %}
-
-                        </div>
-
-                    {% else %}
-
-                        <div class="empty">
-                            <div class="empty-icon">
-                                <i class="ti ti-map-pin"></i>
-                            </div>
-                            <p class="empty-title">Nessun indirizzo registrato</p>
-                        </div>
-
-                    {% endif %}
-
-                </div>
-
+                {% endif %}
             </div>
-
         </div>
-
     </div>
 
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Indirizzi</h3>
+                <div class="card-actions">
+                    <span class="st-section-count me-2">{{ indirizzi|length }}</span>
+                    <a href="{% url 'anagrafiche:indirizzo_create' anagrafica.pk %}" class="btn btn-primary btn-sm">
+                        <i class="ti ti-plus"></i>
+                        Aggiungi
+                    </a>
+                </div>
+            </div>
+
+            <div class="card-body">
+                {% if indirizzi %}
+                    {% for indirizzo in indirizzi %}
+                        <div class="st-contact-item">
+                            <div class="d-flex justify-content-between align-items-start gap-3">
+                                <div>
+                                    <div class="fw-semibold">
+                                        {{ indirizzo.get_tipo_display }}
+                                        {% if indirizzo.principale %}
+                                            <span class="badge bg-primary-lt ms-1">Principale</span>
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        {{ indirizzo.indirizzo }}{% if indirizzo.civico %}, {{ indirizzo.civico }}{% endif %}
+                                    </div>
+                                    <div class="text-secondary small">
+                                        {% if indirizzo.cap %}{{ indirizzo.cap }}{% endif %}
+                                        {% if indirizzo.comune %} {{ indirizzo.comune }}{% endif %}
+                                        {% if indirizzo.provincia %} ({{ indirizzo.provincia }}){% endif %}
+                                        {% if indirizzo.nazione %} - {{ indirizzo.nazione }}{% endif %}
+                                    </div>
+                                </div>
+                                <div class="btn-list flex-nowrap">
+                                    <a href="{% url 'anagrafiche:indirizzo_update' anagrafica.pk indirizzo.pk %}"
+                                       class="btn btn-outline-primary btn-sm">
+                                        <i class="ti ti-edit"></i>
+                                    </a>
+                                    <form method="post"
+                                          action="{% url 'anagrafiche:indirizzo_delete' anagrafica.pk indirizzo.pk %}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-outline-danger btn-sm">
+                                            <i class="ti ti-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="st-detail-empty">
+                        <i class="ti ti-map-pin"></i>
+                        <div class="fw-semibold mb-1">Nessun indirizzo registrato</div>
+                        <div class="small">Aggiungi sede legale, operativa o altre sedi.</div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
 </div>
 
 {% endblock %}

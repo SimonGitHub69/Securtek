@@ -4,24 +4,42 @@
 {% if object %}Modifica anagrafica{% else %}Nuova anagrafica{% endif %}
 {% endblock %}
 
+{% block extra_css %}
+{{ block.super }}
+<style>
+.st-form-panel {
+    background: var(--tblr-bg-surface-secondary, #f8fafc);
+    border: 1px solid var(--tblr-border-color, #e6e8eb);
+    border-radius: 8px;
+    margin-bottom: 1.25rem;
+    padding: 1rem;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 
-<div class="container-xl">
-
-    <div class="page-header d-print-none mb-3">
-        <div class="row align-items-center">
-            <div class="col">
-                <h2 class="page-title">
-                    {% if object %}Modifica anagrafica{% else %}Nuova anagrafica{% endif %}
-                </h2>
-                <div class="text-secondary">
-                    Dati cliente, contatti e indirizzi
-                </div>
+<div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">
+                {% if object %}Modifica anagrafica{% else %}Nuova anagrafica{% endif %}
+            </h2>
+            <div class="text-secondary">
+                Dati cliente, contatti e indirizzi
             </div>
         </div>
+        <div class="col-auto">
+            <a href="{% if object %}{% url 'anagrafiche:anagrafica_detail' object.pk %}{% else %}{% url 'anagrafiche:anagrafica_list' %}{% endif %}"
+               class="btn btn-outline-secondary">
+                <i class="ti ti-arrow-left"></i>
+                {% if object %}Scheda{% else %}Elenco{% endif %}
+            </a>
+        </div>
     </div>
+</div>
 
-    <form method="post">
+<form method="post">
         {% csrf_token %}
 
         <div class="card mb-3">
@@ -118,7 +136,7 @@
 
                 <div id="contattiRows">
                     {% for contatto_form in contatto_formset %}
-                    <div class="border rounded p-3 mb-3 js-formset-row">
+                    <div class="st-form-panel js-formset-row">
                         {% for hidden in contatto_form.hidden_fields %}
                             {{ hidden }}
                         {% endfor %}
@@ -188,7 +206,7 @@
                 </div>
 
                 <template id="contattiEmptyForm">
-                    <div class="border rounded p-3 mb-3 js-formset-row">
+                    <div class="st-form-panel js-formset-row">
                         {% for hidden in contatto_formset.empty_form.hidden_fields %}
                             {{ hidden }}
                         {% endfor %}
@@ -262,7 +280,7 @@
 
                 <div id="indirizziRows">
                     {% for indirizzo_form in indirizzo_formset %}
-                    <div class="border rounded p-3 mb-3 js-formset-row">
+                    <div class="st-form-panel js-formset-row">
                         {% for hidden in indirizzo_form.hidden_fields %}
                             {{ hidden }}
                         {% endfor %}
@@ -380,7 +398,7 @@
                 </div>
 
                 <template id="indirizziEmptyForm">
-                    <div class="border rounded p-3 mb-3 js-formset-row">
+                    <div class="st-form-panel js-formset-row">
                         {% for hidden in indirizzo_formset.empty_form.hidden_fields %}
                             {{ hidden }}
                         {% endfor %}
@@ -482,8 +500,6 @@
             </button>
         </div>
     </form>
-
-</div>
 
 {% endblock %}
 
