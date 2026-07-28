@@ -1,6 +1,7 @@
 from django import forms
 
 from apps.agenda.models import ConfigurazioneNotificaEmail, EventoAgenda
+from apps.agenda.services.notifiche import validate_smtp_security
 from apps.pratiche.models import Pratica, Tecnico
 
 
@@ -33,9 +34,15 @@ class EventoAgendaForm(forms.ModelForm):
             "titolo": forms.TextInput(attrs={"class": "form-control"}),
             "tipo": forms.Select(attrs={"class": "form-select"}),
             "stato": forms.Select(attrs={"class": "form-select"}),
-            "data_inizio": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "data_inizio": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"},
+                format="%Y-%m-%d",
+            ),
             "ora_inizio": forms.TimeInput(attrs={"class": "form-control", "type": "time"}),
-            "data_fine": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "data_fine": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"},
+                format="%Y-%m-%d",
+            ),
             "ora_fine": forms.TimeInput(attrs={"class": "form-control", "type": "time"}),
             "notifica_email": forms.CheckboxInput(attrs={"class": "form-check-input"}),
             "giorni_preavviso": forms.NumberInput(attrs={"class": "form-control", "min": 0}),
@@ -51,11 +58,14 @@ class EventoAgendaForm(forms.ModelForm):
             .select_related("cliente")
             .order_by("-data_apertura", "-id")
         )
+        self.fields["data_inizio"].input_formats = ["%Y-%m-%d"]
         self.fields["data_fine"].required = False
+        self.fields["data_fine"].input_formats = ["%Y-%m-%d"]
         self.fields["ora_inizio"].required = False
         self.fields["ora_fine"].required = False
         self.fields["giorni_preavviso"].help_text = (
-            "Giorni prima della data evento/scadenza in cui inviare la notifica email."
+            "Giorni prima della data evento/scadenza (data fine, oppure data inizio se assente) "
+            "in cui inviare la notifica email. Con 0 l'invio avviene il giorno della scadenza."
         )
 
         if not self.instance.pk and self.fields["giorni_preavviso"].initial in (None, ""):
@@ -111,6 +121,7 @@ class ConfigurazioneNotificaEmailForm(forms.ModelForm):
             "porta",
             "usa_tls",
             "usa_ssl",
+            "verifica_certificato_ssl",
             "username",
             "password",
             "mittente",
@@ -120,29 +131,79 @@ class ConfigurazioneNotificaEmailForm(forms.ModelForm):
         ]
         widgets = {
             "attiva": forms.CheckboxInput(attrs={"class": "form-check-input"}),
-            "host": forms.TextInput(attrs={"class": "form-control", "placeholder": "smtp.dominio.it"}),
-            "porta": forms.NumberInput(attrs={"class": "form-control"}),
+            "host": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "smtp.dominio.it",
+                    "autocomplete": "off",
+                }
+            ),
+            "porta": forms.NumberInput(attrs={"class": "form-control", "autocomplete": "off"}),
             "usa_tls": forms.CheckboxInput(attrs={"class": "form-check-input"}),
             "usa_ssl": forms.CheckboxInput(attrs={"class": "form-check-input"}),
-            "username": forms.TextInput(attrs={"class": "form-control"}),
-            "password": forms.PasswordInput(attrs={"class": "form-control", "render_value": True}),
-            "mittente": forms.EmailInput(attrs={"class": "form-control"}),
+            "verifica_certificato_ssl": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "username": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "autocomplete": "off",
+                }
+            ),
+            "password": forms.PasswordInput(
+                render_value=True,
+                attrs={
+                    "class": "form-control",
+                    "autocomplete": "new-password",
+                },
+            ),
+            "mittente": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "inputmode": "email",
+                    "autocomplete": "off",
+                }
+            ),
             "destinatari_default": forms.Textarea(
                 attrs={
                     "class": "form-control",
                     "rows": 4,
                     "placeholder": "Una email per riga oppure separate da virgola",
+                    "autocomplete": "off",
                 }
             ),
-            "giorni_preavviso": forms.NumberInput(attrs={"class": "form-control"}),
-            "note": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "giorni_preavviso": forms.NumberInput(attrs={"class": "form-control", "autocomplete": "off"}),
+            "note": forms.Textarea(attrs={"class": "form-control", "rows": 3, "autocomplete": "off"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["giorni_preavviso"].help_text = (
+            "Valore predefinito per i nuovi eventi agenda. Ogni evento puo' avere un preavviso diverso."
+        )
+        self.fields["password"].help_text = (
+            "Lascia vuoto per mantenere la password gia' salvata."
+        )
+        self.fields["verifica_certificato_ssl"].help_text = (
+            "Disattiva solo se il certificato del server non corrisponde al nome host SMTP."
+        )
+
+    def clean_password(self):
+        password = self.cleaned_data.get("password", "")
+        if password:
+            return password
+        if self.instance and self.instance.pk and self.instance.password:
+            return self.instance.password
+        return password
 
     def clean(self):
         cleaned_data = super().clean()
 
-        if cleaned_data.get("usa_tls") and cleaned_data.get("usa_ssl"):
-            self.add_error("usa_ssl", "TLS e SSL non possono essere attivi insieme.")
+        security_error = validate_smtp_security(
+            cleaned_data.get("porta"),
+            cleaned_data.get("usa_tls"),
+            cleaned_data.get("usa_ssl"),
+        )
+        if security_error:
+            self.add_error("usa_ssl", security_error)
 
         if cleaned_data.get("attiva"):
             required_fields = ["host", "porta", "mittente"]

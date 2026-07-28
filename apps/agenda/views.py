@@ -3,6 +3,8 @@ from datetime import date, time, timedelta
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -10,12 +12,19 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.generic import CreateView, TemplateView, UpdateView, View
 
+from apps.anagrafiche.models import Anagrafica
 from apps.agenda.forms import ConfigurazioneNotificaEmailForm, EventoAgendaForm
 from apps.agenda.models import ConfigurazioneNotificaEmail, EventoAgenda
+from apps.agenda.services.notifiche import send_test_email
 from apps.pratiche.models import Pratica, Tecnico, TipologiaPratica
 
 
 class PraticaScadenzaAgendaItem:
+    """Voce virtuale in calendario: la scadenza pratica non genera email.
+
+    Le notifiche email riguardano solo EventoAgenda con notifica_email attiva.
+    Per avvisare una scadenza pratica serve creare un evento agenda collegato.
+    """
     tipo = EventoAgenda.Tipo.SCADENZA
     stato = EventoAgenda.Stato.PROGRAMMATO
     ora_inizio = None
@@ -27,6 +36,7 @@ class PraticaScadenzaAgendaItem:
     def __init__(self, pratica):
         self.pk = None
         self.pratica = pratica
+        self.pratica_id = pratica.pk
         self.titolo = f"Scadenza {pratica.codice}"
         self.data_inizio = pratica.data_scadenza
         self.data_termine = pratica.data_scadenza
@@ -42,41 +52,48 @@ def get_agenda_filters(request):
     return {
         "pratica_id": request.GET.get("pratica") or "",
         "tipologia_id": request.GET.get("tipologia") or "",
+        "cliente_id": request.GET.get("cliente") or "",
     }
 
 
-def build_agenda_query_prefix(pratica_id="", tipologia_id=""):
+def build_agenda_query_prefix(pratica_id="", tipologia_id="", cliente_id=""):
     params = []
     if pratica_id:
         params.append(f"pratica={pratica_id}")
     if tipologia_id:
         params.append(f"tipologia={tipologia_id}")
+    if cliente_id:
+        params.append(f"cliente={cliente_id}")
     return f"?{'&'.join(params)}" if params else ""
 
 
-def build_agenda_query_suffix(pratica_id="", tipologia_id=""):
-    prefix = build_agenda_query_prefix(pratica_id, tipologia_id)
+def build_agenda_query_suffix(pratica_id="", tipologia_id="", cliente_id=""):
+    prefix = build_agenda_query_prefix(pratica_id, tipologia_id, cliente_id)
     return prefix.replace("?", "&", 1) if prefix else ""
 
 
 def get_agenda_filter_context(filters):
     return {
         "tipologie": TipologiaPratica.objects.filter(is_active=True).order_by("denominazione"),
+        "clienti": Anagrafica.objects.filter(is_active=True).order_by("ragione_sociale"),
         "selected_pratica": filters["pratica_id"],
         "selected_tipologia": filters["tipologia_id"],
+        "selected_cliente": filters["cliente_id"],
         "selected_pratica_obj": get_selected_pratica(filters["pratica_id"]),
         "agenda_query_prefix": build_agenda_query_prefix(
             filters["pratica_id"],
             filters["tipologia_id"],
+            filters["cliente_id"],
         ),
         "agenda_query_suffix": build_agenda_query_suffix(
             filters["pratica_id"],
             filters["tipologia_id"],
+            filters["cliente_id"],
         ),
     }
 
 
-def get_pratica_deadline_items(start_date, end_date, pratica_id="", tipologia_id=""):
+def get_pratica_deadline_items(start_date, end_date, pratica_id="", tipologia_id="", cliente_id=""):
     stati_finali = [
         Pratica.Stato.COMPLETATA,
         Pratica.Stato.ANNULLATA,
@@ -98,6 +115,9 @@ def get_pratica_deadline_items(start_date, end_date, pratica_id="", tipologia_id
 
     if tipologia_id:
         pratiche = pratiche.filter(tipologia_id=tipologia_id)
+
+    if cliente_id:
+        pratiche = pratiche.filter(cliente_id=cliente_id)
 
     return [PraticaScadenzaAgendaItem(pratica) for pratica in pratiche]
 
@@ -140,6 +160,9 @@ class AgendaCalendarView(LoginRequiredMixin, TemplateView):
         if filters["tipologia_id"]:
             queryset = queryset.filter(pratica__tipologia_id=filters["tipologia_id"])
 
+        if filters["cliente_id"]:
+            queryset = queryset.filter(pratica__cliente_id=filters["cliente_id"])
+
         return queryset.order_by("data_inizio", "ora_inizio", "titolo")
 
     def get_context_data(self, **kwargs):
@@ -157,6 +180,7 @@ class AgendaCalendarView(LoginRequiredMixin, TemplateView):
                 month_end,
                 filters["pratica_id"],
                 filters["tipologia_id"],
+                filters["cliente_id"],
             )
         )
         events.sort(key=lambda event: (event.data_inizio, event.ora_inizio or time.min, event.tipo, event.titolo))
@@ -239,12 +263,20 @@ class AgendaDayView(LoginRequiredMixin, TemplateView):
                 if str(event.pratica.tipologia_id) == str(filters["tipologia_id"])
             ]
 
+        if filters["cliente_id"]:
+            events = [
+                event
+                for event in events
+                if str(event.pratica.cliente_id) == str(filters["cliente_id"])
+            ]
+
         events.extend(
             get_pratica_deadline_items(
                 selected_date,
                 selected_date,
                 filters["pratica_id"],
                 filters["tipologia_id"],
+                filters["cliente_id"],
             )
         )
         events.sort(key=lambda event: (event.ora_inizio or time.min, event.tipo, event.titolo))
@@ -388,3 +420,27 @@ class ConfigurazioneNotificaEmailUpdateView(LoginRequiredMixin, UpdateView):
 
     def get_success_url(self):
         return reverse("agenda:configurazione_email")
+
+
+class ConfigurazioneNotificaEmailTestView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        destinatario = (request.POST.get("destinatario") or "").strip()
+        if not destinatario:
+            messages.error(request, "Indica un indirizzo email di destinazione.")
+            return redirect("agenda:configurazione_email")
+
+        try:
+            validate_email(destinatario)
+        except ValidationError:
+            messages.error(request, "L'indirizzo email di destinazione non e' valido.")
+            return redirect("agenda:configurazione_email")
+
+        result = send_test_email(recipients=[destinatario])
+        if result["ok"]:
+            messages.success(
+                request,
+                f"Email di test inviata correttamente a: {destinatario}.",
+            )
+        else:
+            messages.error(request, f"Invio email di test fallito: {result['error']}")
+        return redirect("agenda:configurazione_email")

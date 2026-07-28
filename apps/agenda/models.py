@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.db import models
 from django.utils import timezone
 
@@ -54,6 +56,11 @@ class EventoAgenda(BaseModel):
         return self.data_fine or self.data_inizio
 
     @property
+    def data_notifica(self):
+        """Data in cui inviare l'email di preavviso (data_termine - giorni_preavviso)."""
+        return self.data_termine - timedelta(days=self.giorni_preavviso)
+
+    @property
     def is_scaduto(self):
         return (
             self.tipo == self.Tipo.SCADENZA
@@ -68,6 +75,13 @@ class ConfigurazioneNotificaEmail(BaseModel):
     porta = models.PositiveIntegerField("Porta", default=587)
     usa_tls = models.BooleanField("Usa TLS", default=True)
     usa_ssl = models.BooleanField("Usa SSL", default=False)
+    verifica_certificato_ssl = models.BooleanField(
+        "Verifica certificato SSL",
+        default=True,
+        help_text=(
+            "Disattiva solo se il certificato del server non corrisponde al nome host SMTP."
+        ),
+    )
     username = models.CharField("Username", max_length=200, blank=True)
     password = models.CharField("Password", max_length=200, blank=True)
     mittente = models.EmailField("Mittente", blank=True)

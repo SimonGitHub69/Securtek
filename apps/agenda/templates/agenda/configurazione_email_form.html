@@ -4,6 +4,62 @@
 Parametri mail
 {% endblock %}
 
+{% block extra_css %}
+{{ block.super }}
+<style>
+.st-confirm {
+    background: rgba(15, 23, 42, 0.45);
+    bottom: 0;
+    display: flex;
+    left: 0;
+    padding: 1rem;
+    position: fixed;
+    right: 0;
+    top: 0;
+    z-index: 1080;
+}
+
+.st-confirm[hidden] {
+    display: none;
+}
+
+.st-confirm-dialog {
+    background: var(--tblr-bg-surface, #fff);
+    border-radius: 8px;
+    box-shadow: 0 1rem 3rem rgba(15, 23, 42, 0.2);
+    margin: auto;
+    max-width: 480px;
+    overflow: hidden;
+    width: 100%;
+}
+
+.st-confirm-body {
+    padding: 1.25rem;
+}
+
+.st-confirm-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+}
+
+.st-confirm-text {
+    color: var(--tblr-secondary, #6c7a91);
+    margin-bottom: 1rem;
+}
+
+.st-confirm-footer {
+    align-items: center;
+    background: var(--tblr-bg-surface-secondary, #f8fafc);
+    border-top: 1px solid var(--tblr-border-color, #e6e8eb);
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    padding: 0.75rem 1.25rem;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 
 <div class="page-header d-print-none mb-3">
@@ -22,7 +78,7 @@ Parametri mail
 </div>
 
 <div class="card">
-    <form method="post">
+    <form method="post" id="configurazione-email-form" autocomplete="off">
         {% csrf_token %}
 
         <div class="card-body">
@@ -45,6 +101,9 @@ Parametri mail
                     <div class="mb-3">
                         <label class="form-label" for="{{ form.giorni_preavviso.id_for_label }}">{{ form.giorni_preavviso.label }}</label>
                         {{ form.giorni_preavviso }}
+                        {% if form.giorni_preavviso.help_text %}
+                            <div class="form-text">{{ form.giorni_preavviso.help_text }}</div>
+                        {% endif %}
                         {% if form.giorni_preavviso.errors %}
                             <div class="invalid-feedback d-block">{{ form.giorni_preavviso.errors|join:", " }}</div>
                         {% endif %}
@@ -101,6 +160,19 @@ Parametri mail
                     {% endif %}
                 </div>
 
+                <div class="col-md-2">
+                    <label class="form-check mt-4">
+                        {{ form.verifica_certificato_ssl }}
+                        <span class="form-check-label">{{ form.verifica_certificato_ssl.label }}</span>
+                    </label>
+                    {% if form.verifica_certificato_ssl.help_text %}
+                        <div class="form-text">{{ form.verifica_certificato_ssl.help_text }}</div>
+                    {% endif %}
+                    {% if form.verifica_certificato_ssl.errors %}
+                        <div class="invalid-feedback d-block">{{ form.verifica_certificato_ssl.errors|join:", " }}</div>
+                    {% endif %}
+                </div>
+
                 <div class="col-md-6">
                     <div class="mb-3">
                         <label class="form-label" for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
@@ -115,6 +187,9 @@ Parametri mail
                     <div class="mb-3">
                         <label class="form-label" for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
                         {{ form.password }}
+                        {% if form.password.help_text %}
+                            <div class="form-text">{{ form.password.help_text }}</div>
+                        {% endif %}
                         {% if form.password.errors %}
                             <div class="invalid-feedback d-block">{{ form.password.errors|join:", " }}</div>
                         {% endif %}
@@ -142,14 +217,94 @@ Parametri mail
                 </div>
             </div>
         </div>
-
-        <div class="card-footer text-end">
-            <button type="submit" class="btn btn-primary">
-                <i class="ti ti-device-floppy"></i>
-                Salva parametri
-            </button>
-        </div>
     </form>
+
+    <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <button type="button" class="btn btn-outline-primary" id="openTestMailModal">
+            <i class="ti ti-mail-forward"></i>
+            Test mail
+        </button>
+        <button type="submit" form="configurazione-email-form" class="btn btn-primary">
+            <i class="ti ti-device-floppy"></i>
+            Salva parametri
+        </button>
+    </div>
 </div>
 
+<div class="st-confirm" id="testMailModal" hidden>
+    <div class="st-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="testMailTitle">
+        <form method="post" action="{% url 'agenda:configurazione_email_test' %}" id="testMailForm" autocomplete="off">
+            {% csrf_token %}
+            <div class="st-confirm-body">
+                <div class="st-confirm-title" id="testMailTitle">Test mail</div>
+                <div class="st-confirm-text">
+                    Inserisci l'indirizzo a cui inviare l'email di prova con i parametri SMTP salvati.
+                </div>
+                <label class="form-label" for="id_destinatario_test">Email di destinazione</label>
+                <input
+                    type="email"
+                    name="destinatario"
+                    id="id_destinatario_test"
+                    class="form-control"
+                    required
+                    placeholder="nome@dominio.it"
+                    autocomplete="off"
+                >
+            </div>
+            <div class="st-confirm-footer">
+                <button type="button" class="btn btn-outline-secondary" id="cancelTestMailModal">
+                    Annulla
+                </button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="ti ti-send"></i>
+                    Invia test
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+(function () {
+    const modal = document.getElementById("testMailModal");
+    const openButton = document.getElementById("openTestMailModal");
+    const cancelButton = document.getElementById("cancelTestMailModal");
+    const emailInput = document.getElementById("id_destinatario_test");
+
+    if (!modal || !openButton || !cancelButton || !emailInput) {
+        return;
+    }
+
+    function openModal() {
+        modal.hidden = false;
+        window.setTimeout(function () {
+            emailInput.focus();
+            emailInput.select();
+        }, 0);
+    }
+
+    function closeModal() {
+        modal.hidden = true;
+    }
+
+    openButton.addEventListener("click", openModal);
+    cancelButton.addEventListener("click", closeModal);
+
+    modal.addEventListener("click", function (event) {
+        if (event.target === modal) {
+            closeModal();
+        }
+    });
+
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && !modal.hidden) {
+            closeModal();
+        }
+    });
+})();
+</script>
 {% endblock %}
