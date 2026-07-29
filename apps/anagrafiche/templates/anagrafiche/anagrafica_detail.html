@@ -118,6 +118,18 @@
         grid-template-columns: 1fr;
     }
 }
+
+.st-collapse-toggle .ti {
+    transition: transform 0.15s ease;
+}
+
+.st-collapse-toggle.is-collapsed .ti {
+    transform: rotate(-90deg);
+}
+
+.st-collapsible-section[hidden] {
+    display: none !important;
+}
 </style>
 {% endblock %}
 
@@ -152,6 +164,7 @@
                         {% if indirizzi %}
                             <span class="badge bg-green-lt">{{ indirizzi|length }} indirizz{% if indirizzi|length == 1 %}o{% else %}i{% endif %}</span>
                         {% endif %}
+                        <span class="badge bg-purple-lt">{{ personale|length }} personal{% if personale|length == 1 %}e{% else %}i{% endif %}</span>
                         {% if pratiche_in_essere %}
                             <span class="badge bg-orange-lt">{{ pratiche_in_essere|length }} pratic{% if pratiche_in_essere|length == 1 %}a{% else %}he{% endif %} attive</span>
                         {% endif %}
@@ -161,6 +174,10 @@
         </div>
         <div class="col-auto">
             <div class="btn-list">
+                <a href="{% url 'anagrafiche:personale_create' anagrafica.pk %}" class="btn btn-outline-primary">
+                    <i class="ti ti-users"></i>
+                    Aggiungi personale
+                </a>
                 <a href="{% url 'anagrafiche:anagrafica_update' anagrafica.pk %}" class="btn btn-primary">
                     <i class="ti ti-edit"></i>
                     Modifica
@@ -283,6 +300,11 @@
                         <span class="badge bg-green-lt">{{ indirizzi|length }}</span>
                     </dd>
 
+                    <dt class="col-sm-5">Personale</dt>
+                    <dd class="col-sm-7">
+                        <span class="badge bg-purple-lt">{{ personale|length }}</span>
+                    </dd>
+
                     <dt class="col-sm-5">Pratiche in essere</dt>
                     <dd class="col-sm-7">
                         <span class="badge bg-orange-lt">{{ pratiche_in_essere|length }}</span>
@@ -303,9 +325,19 @@
                 <i class="ti ti-plus"></i>
                 Nuova pratica
             </a>
+            <button type="button"
+                    class="btn btn-icon btn-sm btn-outline-secondary st-collapse-toggle"
+                    data-collapse-target="anagrafica-detail-pratiche-section"
+                    data-collapse-key="pratiche"
+                    aria-controls="anagrafica-detail-pratiche-section"
+                    aria-expanded="true"
+                    title="Comprimi sezione">
+                <i class="ti ti-chevron-down"></i>
+            </button>
         </div>
     </div>
 
+    <div class="st-collapsible-section" id="anagrafica-detail-pratiche-section">
     {% if pratiche_in_essere %}
         <div class="table-responsive">
             <table class="table table-vcenter card-table">
@@ -400,6 +432,93 @@
             <div class="small">Crea una nuova pratica collegata a questo cliente.</div>
         </div>
     {% endif %}
+    </div>
+</div>
+
+<div class="card mb-3" id="personale">
+    <div class="card-header">
+        <h3 class="card-title">
+            <i class="ti ti-users me-1"></i>
+            Personale
+        </h3>
+        <div class="card-actions">
+            <span class="st-section-count me-2">{{ personale|length }}</span>
+            <a href="{% url 'anagrafiche:personale_create' anagrafica.pk %}" class="btn btn-primary btn-sm">
+                <i class="ti ti-plus"></i>
+                Aggiungi personale
+            </a>
+            <button type="button"
+                    class="btn btn-icon btn-sm btn-outline-secondary st-collapse-toggle"
+                    data-collapse-target="anagrafica-detail-personale-section"
+                    data-collapse-key="personale"
+                    aria-controls="anagrafica-detail-personale-section"
+                    aria-expanded="true"
+                    title="Comprimi sezione">
+                <i class="ti ti-chevron-down"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="card-body st-collapsible-section" id="anagrafica-detail-personale-section">
+        {% if personale %}
+            <div class="table-responsive">
+                <table class="table table-vcenter card-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>Esterno</th>
+                            <th>Incarico</th>
+                            <th>Email</th>
+                            <th>Telefono</th>
+                            <th class="text-end">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tecnico in personale %}
+                            <tr>
+                                <td class="fw-semibold">{{ tecnico.cognome }} {{ tecnico.nome }}</td>
+                                <td>{{ tecnico.studio_appartenenza|default:"-" }}</td>
+                                <td>{{ tecnico.incarico|default:"-" }}</td>
+                                <td>
+                                    {% if tecnico.email %}
+                                        <a href="mailto:{{ tecnico.email }}">{{ tecnico.email }}</a>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>{{ tecnico.telefono|default:"-" }}</td>
+                                <td class="text-end">
+                                    <div class="btn-list flex-nowrap justify-content-end">
+                                        <a href="{% url 'anagrafiche:personale_update' anagrafica.pk tecnico.pk %}"
+                                           class="btn btn-outline-primary btn-sm">
+                                            <i class="ti ti-edit"></i>
+                                        </a>
+                                        <form method="post"
+                                              action="{% url 'anagrafiche:personale_delete' anagrafica.pk tecnico.pk %}">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-outline-danger btn-sm">
+                                                <i class="ti ti-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="st-detail-empty">
+                <i class="ti ti-users"></i>
+                <div class="fw-semibold mb-1">Nessun personale registrato</div>
+                <div class="small mb-3">Aggiungi i nominativi del cliente: verranno proposti in automatico nelle pratiche e in agenda.</div>
+                <a href="{% url 'anagrafiche:personale_create' anagrafica.pk %}" class="btn btn-primary btn-sm">
+                    <i class="ti ti-plus"></i>
+                    Aggiungi il primo nominativo
+                </a>
+            </div>
+        {% endif %}
+    </div>
 </div>
 
 <div class="row row-cards">
@@ -413,10 +532,19 @@
                         <i class="ti ti-plus"></i>
                         Aggiungi
                     </a>
+                    <button type="button"
+                            class="btn btn-icon btn-sm btn-outline-secondary st-collapse-toggle"
+                            data-collapse-target="anagrafica-detail-contatti-section"
+                            data-collapse-key="contatti"
+                            aria-controls="anagrafica-detail-contatti-section"
+                            aria-expanded="true"
+                            title="Comprimi sezione">
+                        <i class="ti ti-chevron-down"></i>
+                    </button>
                 </div>
             </div>
 
-            <div class="card-body">
+            <div class="card-body st-collapsible-section" id="anagrafica-detail-contatti-section">
                 {% if contatti %}
                     {% for contatto in contatti %}
                         <div class="st-contact-item">
@@ -470,10 +598,19 @@
                         <i class="ti ti-plus"></i>
                         Aggiungi
                     </a>
+                    <button type="button"
+                            class="btn btn-icon btn-sm btn-outline-secondary st-collapse-toggle"
+                            data-collapse-target="anagrafica-detail-indirizzi-section"
+                            data-collapse-key="indirizzi"
+                            aria-controls="anagrafica-detail-indirizzi-section"
+                            aria-expanded="true"
+                            title="Comprimi sezione">
+                        <i class="ti ti-chevron-down"></i>
+                    </button>
                 </div>
             </div>
 
-            <div class="card-body">
+            <div class="card-body st-collapsible-section" id="anagrafica-detail-indirizzi-section">
                 {% if indirizzi %}
                     {% for indirizzo in indirizzi %}
                         <div class="st-contact-item">
@@ -523,4 +660,67 @@
     </div>
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    function setSectionCollapsed(button, section, collapsed, persist) {
+        section.hidden = collapsed;
+        button.classList.toggle("is-collapsed", collapsed);
+        button.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        button.title = collapsed ? "Espandi sezione" : "Comprimi sezione";
+
+        if (persist) {
+            localStorage.setItem(button.dataset.storageKey, collapsed ? "1" : "0");
+        }
+    }
+
+    function ensureCollapseStorageKey(button) {
+        if (!button.dataset.storageKey) {
+            button.dataset.storageKey = [
+                "securtek",
+                "anagrafica-detail",
+                window.location.pathname,
+                button.dataset.collapseKey
+            ].join(":");
+        }
+
+        return button.dataset.storageKey;
+    }
+
+    document.querySelectorAll(".st-collapse-toggle").forEach(function (button) {
+        const section = document.getElementById(button.dataset.collapseTarget);
+
+        if (!section) {
+            return;
+        }
+
+        setSectionCollapsed(
+            button,
+            section,
+            localStorage.getItem(ensureCollapseStorageKey(button)) === "1",
+            false
+        );
+    });
+
+    document.addEventListener("click", function (event) {
+        const collapseButton = event.target.closest(".st-collapse-toggle");
+
+        if (!collapseButton) {
+            return;
+        }
+
+        const section = document.getElementById(collapseButton.dataset.collapseTarget);
+
+        if (!section) {
+            return;
+        }
+
+        ensureCollapseStorageKey(collapseButton);
+        setSectionCollapsed(collapseButton, section, !section.hidden, true);
+    });
+});
+</script>
 {% endblock %}

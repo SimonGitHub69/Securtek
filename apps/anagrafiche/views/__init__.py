@@ -15,3 +15,8 @@ from .indirizzo import (
     IndirizzoUpdateView,
     IndirizzoDeleteView,
 )
+from .personale import (
+    PersonaleAnagraficaCreateView,
+    PersonaleAnagraficaUpdateView,
+    PersonaleAnagraficaDeleteView,
+)

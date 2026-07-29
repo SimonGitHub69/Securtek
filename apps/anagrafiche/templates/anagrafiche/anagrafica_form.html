@@ -14,6 +14,18 @@
     margin-bottom: 1.25rem;
     padding: 1rem;
 }
+
+.st-collapse-toggle .ti {
+    transition: transform 0.15s ease;
+}
+
+.st-collapse-toggle.is-collapsed .ti {
+    transform: rotate(-90deg);
+}
+
+.st-collapsible-section[hidden] {
+    display: none !important;
+}
 </style>
 {% endblock %}
 
@@ -26,7 +38,7 @@
                 {% if object %}Modifica anagrafica{% else %}Nuova anagrafica{% endif %}
             </h2>
             <div class="text-secondary">
-                Dati cliente, contatti e indirizzi
+                Dati cliente, contatti, indirizzi e personale
             </div>
         </div>
         <div class="col-auto">
@@ -39,7 +51,7 @@
     </div>
 </div>
 
-<form method="post">
+<form method="post" autocomplete="off">
         {% csrf_token %}
 
         <div class="card mb-3">
@@ -124,10 +136,19 @@
                         <i class="ti ti-plus"></i>
                         Aggiungi contatto
                     </button>
+                    <button type="button"
+                            class="btn btn-icon btn-sm btn-outline-secondary st-collapse-toggle"
+                            data-collapse-target="anagrafica-contatti-section"
+                            data-collapse-key="contatti"
+                            aria-controls="anagrafica-contatti-section"
+                            aria-expanded="true"
+                            title="Comprimi sezione">
+                        <i class="ti ti-chevron-down"></i>
+                    </button>
                 </div>
             </div>
 
-            <div class="card-body">
+            <div class="card-body st-collapsible-section" id="anagrafica-contatti-section">
                 {{ contatto_formset.management_form }}
 
                 {% if contatto_formset.non_form_errors %}
@@ -268,10 +289,19 @@
                         <i class="ti ti-plus"></i>
                         Aggiungi indirizzo
                     </button>
+                    <button type="button"
+                            class="btn btn-icon btn-sm btn-outline-secondary st-collapse-toggle"
+                            data-collapse-target="anagrafica-indirizzi-section"
+                            data-collapse-key="indirizzi"
+                            aria-controls="anagrafica-indirizzi-section"
+                            aria-expanded="true"
+                            title="Comprimi sezione">
+                        <i class="ti ti-chevron-down"></i>
+                    </button>
                 </div>
             </div>
 
-            <div class="card-body">
+            <div class="card-body st-collapsible-section" id="anagrafica-indirizzi-section">
                 {{ indirizzo_formset.management_form }}
 
                 {% if indirizzo_formset.non_form_errors %}
@@ -488,6 +518,211 @@
             </div>
         </div>
 
+        <div class="card mb-3" id="personale">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i class="ti ti-users me-1"></i>
+                    Personale
+                </h3>
+                <div class="card-actions">
+                    <button type="button" class="btn btn-outline-primary btn-sm" data-formset-add="personale">
+                        <i class="ti ti-plus"></i>
+                        Aggiungi personale
+                    </button>
+                    <button type="button"
+                            class="btn btn-icon btn-sm btn-outline-secondary st-collapse-toggle"
+                            data-collapse-target="anagrafica-personale-section"
+                            data-collapse-key="personale"
+                            aria-controls="anagrafica-personale-section"
+                            aria-expanded="true"
+                            title="Comprimi sezione">
+                        <i class="ti ti-chevron-down"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="card-body st-collapsible-section" id="anagrafica-personale-section">
+                {{ personale_formset.management_form }}
+
+                {% if personale_formset.non_form_errors %}
+                    <div class="alert alert-danger">{{ personale_formset.non_form_errors }}</div>
+                {% endif %}
+
+                <div id="personaleRows">
+                    {% for personale_form in personale_formset %}
+                    <div class="st-form-panel js-formset-row">
+                        {% for hidden in personale_form.hidden_fields %}
+                            {{ hidden }}
+                        {% endfor %}
+
+                        {% if personale_form.non_field_errors %}
+                            <div class="alert alert-danger">{{ personale_form.non_field_errors }}</div>
+                        {% endif %}
+
+                        <div class="row align-items-end">
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label" for="{{ personale_form.cognome.id_for_label }}">
+                                        {{ personale_form.cognome.label }}
+                                    </label>
+                                    {{ personale_form.cognome }}
+                                    {% if personale_form.cognome.errors %}
+                                        <div class="invalid-feedback d-block">{{ personale_form.cognome.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label" for="{{ personale_form.nome.id_for_label }}">
+                                        {{ personale_form.nome.label }}
+                                    </label>
+                                    {{ personale_form.nome }}
+                                    {% if personale_form.nome.errors %}
+                                        <div class="invalid-feedback d-block">{{ personale_form.nome.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label" for="{{ personale_form.studio_appartenenza.id_for_label }}">
+                                        {{ personale_form.studio_appartenenza.label }}
+                                    </label>
+                                    {{ personale_form.studio_appartenenza }}
+                                    {% if personale_form.studio_appartenenza.errors %}
+                                        <div class="invalid-feedback d-block">{{ personale_form.studio_appartenenza.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label" for="{{ personale_form.incarico.id_for_label }}">
+                                        {{ personale_form.incarico.label }}
+                                    </label>
+                                    {{ personale_form.incarico }}
+                                    {% if personale_form.incarico.errors %}
+                                        <div class="invalid-feedback d-block">{{ personale_form.incarico.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label" for="{{ personale_form.email.id_for_label }}">
+                                        {{ personale_form.email.label }}
+                                    </label>
+                                    {{ personale_form.email }}
+                                    {% if personale_form.email.errors %}
+                                        <div class="invalid-feedback d-block">{{ personale_form.email.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label" for="{{ personale_form.telefono.id_for_label }}">
+                                        {{ personale_form.telefono.label }}
+                                    </label>
+                                    {{ personale_form.telefono }}
+                                    {% if personale_form.telefono.errors %}
+                                        <div class="invalid-feedback d-block">{{ personale_form.telefono.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label" for="{{ personale_form.note.id_for_label }}">
+                                        {{ personale_form.note.label }}
+                                    </label>
+                                    {{ personale_form.note }}
+                                    {% if personale_form.note.errors %}
+                                        <div class="invalid-feedback d-block">{{ personale_form.note.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <template id="personaleEmptyForm">
+                    <div class="st-form-panel js-formset-row">
+                        {% for hidden in personale_formset.empty_form.hidden_fields %}
+                            {{ hidden }}
+                        {% endfor %}
+
+                        <div class="row align-items-end">
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label" for="{{ personale_formset.empty_form.cognome.id_for_label }}">
+                                        {{ personale_formset.empty_form.cognome.label }}
+                                    </label>
+                                    {{ personale_formset.empty_form.cognome }}
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label" for="{{ personale_formset.empty_form.nome.id_for_label }}">
+                                        {{ personale_formset.empty_form.nome.label }}
+                                    </label>
+                                    {{ personale_formset.empty_form.nome }}
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label" for="{{ personale_formset.empty_form.studio_appartenenza.id_for_label }}">
+                                        {{ personale_formset.empty_form.studio_appartenenza.label }}
+                                    </label>
+                                    {{ personale_formset.empty_form.studio_appartenenza }}
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label" for="{{ personale_formset.empty_form.incarico.id_for_label }}">
+                                        {{ personale_formset.empty_form.incarico.label }}
+                                    </label>
+                                    {{ personale_formset.empty_form.incarico }}
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label" for="{{ personale_formset.empty_form.email.id_for_label }}">
+                                        {{ personale_formset.empty_form.email.label }}
+                                    </label>
+                                    {{ personale_formset.empty_form.email }}
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label" for="{{ personale_formset.empty_form.telefono.id_for_label }}">
+                                        {{ personale_formset.empty_form.telefono.label }}
+                                    </label>
+                                    {{ personale_formset.empty_form.telefono }}
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label" for="{{ personale_formset.empty_form.note.id_for_label }}">
+                                        {{ personale_formset.empty_form.note.label }}
+                                    </label>
+                                    {{ personale_formset.empty_form.note }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
         <div class="d-flex justify-content-end gap-2 mb-4">
             <a href="{% if object %}{% url 'anagrafiche:anagrafica_detail' object.pk %}{% else %}{% url 'anagrafiche:anagrafica_list' %}{% endif %}"
                class="btn btn-outline-secondary">
@@ -507,6 +742,62 @@
 {{ block.super }}
 <script>
 document.addEventListener("DOMContentLoaded", function () {
+    function setSectionCollapsed(button, section, collapsed, persist) {
+        section.hidden = collapsed;
+        button.classList.toggle("is-collapsed", collapsed);
+        button.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        button.title = collapsed ? "Espandi sezione" : "Comprimi sezione";
+
+        if (persist) {
+            localStorage.setItem(button.dataset.storageKey, collapsed ? "1" : "0");
+        }
+    }
+
+    function ensureCollapseStorageKey(button) {
+        if (!button.dataset.storageKey) {
+            button.dataset.storageKey = [
+                "securtek",
+                "anagrafica-form",
+                window.location.pathname,
+                button.dataset.collapseKey
+            ].join(":");
+        }
+
+        return button.dataset.storageKey;
+    }
+
+    document.querySelectorAll(".st-collapse-toggle").forEach(function (button) {
+        const section = document.getElementById(button.dataset.collapseTarget);
+
+        if (!section) {
+            return;
+        }
+
+        setSectionCollapsed(
+            button,
+            section,
+            localStorage.getItem(ensureCollapseStorageKey(button)) === "1",
+            false
+        );
+    });
+
+    document.addEventListener("click", function (event) {
+        const collapseButton = event.target.closest(".st-collapse-toggle");
+
+        if (!collapseButton) {
+            return;
+        }
+
+        const section = document.getElementById(collapseButton.dataset.collapseTarget);
+
+        if (!section) {
+            return;
+        }
+
+        ensureCollapseStorageKey(collapseButton);
+        setSectionCollapsed(collapseButton, section, !section.hidden, true);
+    });
+
     function addFormsetRow(prefix) {
         const totalForms = document.getElementById("id_" + prefix + "-TOTAL_FORMS");
         const rows = document.getElementById(prefix + "Rows");
@@ -521,6 +812,24 @@ document.addEventListener("DOMContentLoaded", function () {
 
         rows.insertAdjacentHTML("beforeend", html);
         totalForms.value = index + 1;
+
+        const newRow = rows.lastElementChild;
+
+        if (newRow && window.SecurtekDisableAutocomplete) {
+            window.SecurtekDisableAutocomplete(newRow);
+        }
+
+        // Se la sezione e' compatta, espandila quando si aggiunge una riga.
+        const collapseButton = document.querySelector(
+            '.st-collapse-toggle[data-collapse-key="' + prefix + '"]'
+        );
+        if (collapseButton) {
+            const section = document.getElementById(collapseButton.dataset.collapseTarget);
+            if (section && section.hidden) {
+                ensureCollapseStorageKey(collapseButton);
+                setSectionCollapsed(collapseButton, section, false, true);
+            }
+        }
     }
 
     document.querySelectorAll("[data-formset-add]").forEach(function (button) {

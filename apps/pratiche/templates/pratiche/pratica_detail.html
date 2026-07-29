@@ -1,4 +1,5 @@
 {% extends "base/layout.html" %}
+{% load static %}
 
 {% block page_title %}
 {{ pratica.codice }}
@@ -102,7 +103,7 @@
 }
 
 .st-category-detail[hidden] {
-    display: none;
+    display: none !important;
 }
 
 .st-category-toggle .ti {
@@ -121,8 +122,19 @@
     transform: rotate(-90deg);
 }
 
+.st-section-count-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    min-width: 1.5rem;
+}
+
+.st-section-header.is-collapsed .st-section-count-badge {
+    background: var(--tblr-primary, #206bc4) !important;
+    color: #fff !important;
+}
+
 .st-collapsible-section[hidden] {
-    display: none;
+    display: none !important;
 }
 
 .st-category-note {
@@ -270,6 +282,134 @@
 
 {% block content %}
 
+<script>
+(function () {
+    const praticaDetailUi = window.SecurtekPraticaDetail || {};
+
+    function setSectionCollapsed(button, section, collapsed, persist) {
+        section.hidden = collapsed;
+        button.classList.toggle("is-collapsed", collapsed);
+        button.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        button.title = collapsed ? "Espandi sezione" : "Comprimi sezione";
+
+        document.querySelectorAll('.st-section-header[data-collapse-target="' + section.id + '"]').forEach(function (header) {
+            header.classList.toggle("is-collapsed", collapsed);
+        });
+
+        if (persist) {
+            localStorage.setItem(button.dataset.storageKey, collapsed ? "1" : "0");
+        }
+    }
+
+    function ensureCollapseStorageKey(button) {
+        if (!button.dataset.storageKey) {
+            button.dataset.storageKey = [
+                "securtek",
+                "pratica-detail",
+                window.location.pathname,
+                button.dataset.collapseKey
+            ].join(":");
+        }
+
+        return button.dataset.storageKey;
+    }
+
+    function restoreCollapsedSections() {
+        document.querySelectorAll(".st-collapse-toggle").forEach(function (button) {
+            const section = document.getElementById(button.dataset.collapseTarget);
+
+            if (!section) {
+                return;
+            }
+
+            setSectionCollapsed(
+                button,
+                section,
+                localStorage.getItem(ensureCollapseStorageKey(button)) === "1",
+                false
+            );
+        });
+    }
+
+    async function flushDirtyDescriptions(root) {
+        const flush = praticaDetailUi.flushDirtyFileDescriptions;
+
+        if (typeof flush !== "function") {
+            return;
+        }
+
+        try {
+            await flush(root);
+        } catch (error) {
+            console.error("[Securtek pratica-detail] flush descriptions failed", error);
+        }
+    }
+
+    document.addEventListener("click", function (event) {
+        const collapseButton = event.target.closest(".st-collapse-toggle");
+
+        if (collapseButton) {
+            const section = document.getElementById(collapseButton.dataset.collapseTarget);
+
+            if (!section) {
+                return;
+            }
+
+            ensureCollapseStorageKey(collapseButton);
+
+            const willCollapse = !section.hidden;
+
+            if (willCollapse) {
+                void flushDirtyDescriptions(section);
+            }
+
+            setSectionCollapsed(collapseButton, section, willCollapse, true);
+            return;
+        }
+
+        const categoryButton = event.target.closest(".st-category-toggle");
+
+        if (!categoryButton) {
+            return;
+        }
+
+        const detailRow = document.getElementById(categoryButton.dataset.target);
+
+        if (!detailRow) {
+            return;
+        }
+
+        const isHidden = detailRow.hidden;
+
+        if (!isHidden) {
+            void flushDirtyDescriptions(detailRow);
+        }
+
+        detailRow.hidden = !isHidden;
+        categoryButton.classList.toggle("is-open", isHidden);
+        categoryButton.title = isHidden ? "Nascondi cartella e file" : "Mostra cartella e file";
+    });
+
+    praticaDetailUi.setSectionCollapsed = setSectionCollapsed;
+    praticaDetailUi.openCategoryDetail = function (button, detailRow) {
+        detailRow.hidden = false;
+        button.classList.add("is-open");
+        button.title = "Nascondi cartella e file";
+    };
+    praticaDetailUi.flushDirtyFileDescriptions = praticaDetailUi.flushDirtyFileDescriptions || function () {
+        return Promise.resolve();
+    };
+
+    window.SecurtekPraticaDetail = praticaDetailUi;
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", restoreCollapsedSections);
+    } else {
+        restoreCollapsedSections();
+    }
+})();
+</script>
+
 <div class="page-header d-print-none mb-3">
     <div class="row align-items-center">
         <div class="col">
@@ -384,8 +524,19 @@
         <div class="card">
             <div class="card-header">
                 <h3 class="card-title">Dati pratica</h3>
+                <div class="card-actions">
+                    <button type="button"
+                            class="btn btn-icon btn-sm btn-outline-secondary st-collapse-toggle"
+                            data-collapse-target="practice-data-section"
+                            data-collapse-key="data"
+                            aria-controls="practice-data-section"
+                            aria-expanded="true"
+                            title="Comprimi sezione">
+                        <i class="ti ti-chevron-down"></i>
+                    </button>
+                </div>
             </div>
-            <div class="card-body">
+            <div class="card-body st-collapsible-section" id="practice-data-section">
                 <dl class="row st-detail-dl mb-0">
                     <dt class="col-sm-4">Cliente</dt>
                     <dd class="col-sm-8">
@@ -420,8 +571,19 @@
         <div class="card">
             <div class="card-header">
                 <h3 class="card-title">Stato e date</h3>
+                <div class="card-actions">
+                    <button type="button"
+                            class="btn btn-icon btn-sm btn-outline-secondary st-collapse-toggle"
+                            data-collapse-target="practice-status-section"
+                            data-collapse-key="status"
+                            aria-controls="practice-status-section"
+                            aria-expanded="true"
+                            title="Comprimi sezione">
+                        <i class="ti ti-chevron-down"></i>
+                    </button>
+                </div>
             </div>
-            <div class="card-body">
+            <div class="card-body st-collapsible-section" id="practice-status-section">
                 <dl class="row st-detail-dl mb-0">
                     <dt class="col-sm-5">Stato</dt>
                     <dd class="col-sm-7">
@@ -619,6 +781,7 @@
                                     <th>Titolo</th>
                                     <th>Personale</th>
                                     <th>Stato</th>
+                                    <th>Invio email</th>
                                     <th class="text-end">Azioni</th>
                                 </tr>
                             </thead>
@@ -643,7 +806,9 @@
                                             {% endif %}
                                         </td>
                                         <td>
-                                            {% if evento.tipo == "scadenza" %}
+                                            {% if evento.is_pratica_scadenza %}
+                                                <span class="text-secondary">-</span>
+                                            {% elif evento.tipo == "scadenza" %}
                                                 {% for tecnico in evento.tecnici.all %}
                                                     {% if tecnico.is_active %}
                                                         <span class="badge bg-blue-lt me-1 mb-1">
@@ -660,12 +825,35 @@
                                         <td>
                                             <span class="badge bg-secondary-lt">{{ evento.get_stato_display }}</span>
                                         </td>
+                                        <td class="text-nowrap">
+                                            {% if evento.is_pratica_scadenza %}
+                                                <span class="text-secondary">-</span>
+                                            {% elif evento.notifica_email %}
+                                                {% if evento.notificato_il %}
+                                                    <span class="badge bg-green-lt">
+                                                        {{ evento.notificato_il|date:"d/m/Y H:i" }}
+                                                    </span>
+                                                {% else %}
+                                                    <span class="text-secondary small">Da inviare</span>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="text-secondary">-</span>
+                                            {% endif %}
+                                        </td>
                                         <td class="text-end">
-                                            <a href="{% url 'agenda:evento_update' evento.pk %}"
-                                               class="btn btn-icon btn-outline-primary"
-                                               title="Modifica">
-                                                <i class="ti ti-edit"></i>
-                                            </a>
+                                            {% if evento.is_pratica_scadenza %}
+                                                <a href="{% url 'agenda:evento_create' %}?pratica={{ pratica.pk }}&data={{ evento.data_inizio|date:'Y-m-d' }}"
+                                                   class="btn btn-icon btn-outline-primary"
+                                                   title="Crea evento collegato">
+                                                    <i class="ti ti-plus"></i>
+                                                </a>
+                                            {% else %}
+                                                <a href="{% url 'agenda:evento_update' evento.pk %}"
+                                                   class="btn btn-icon btn-outline-primary"
+                                                   title="Modifica">
+                                                    <i class="ti ti-edit"></i>
+                                                </a>
+                                            {% endif %}
                                         </td>
                                     </tr>
                                 {% endfor %}
@@ -876,12 +1064,25 @@
                                                                     <td><span class="badge bg-secondary-lt">{{ allegato.extension }}</span></td>
                                                                     <td>{{ allegato.size_kb }} KB</td>
                                                                     <td class="text-end st-file-actions">
-                                                                        <a href="{% if allegato.open_app_url %}{{ allegato.open_app_url }}?next={{ request.get_full_path|urlencode }}%23category-detail-{{ collegamento.pk }}{% else %}{{ allegato.open_url }}{% endif %}"
-                                                                           {% if not allegato.open_app_url %}target="_blank"{% endif %}
-                                                                           class="btn btn-icon btn-outline-primary"
-                                                                           title="{% if allegato.open_app_url %}Apri con applicazione originale{% else %}Apri anteprima{% endif %}">
-                                                                            <i class="ti ti-eye"></i>
-                                                                        </a>
+                                                                        <button type="button"
+                                                                                class="btn btn-icon btn-outline-primary js-open-pratica-file"
+                                                                                data-open-url="{% if allegato.open_app_url %}{{ allegato.open_app_url }}{% else %}{{ allegato.open_url }}{% endif %}"
+                                                                                data-native-open="{% if allegato.open_app_url %}1{% else %}0{% endif %}"
+                                                                                title="{% if allegato.open_app_url %}Apri con applicazione originale{% else %}Apri anteprima{% endif %}">
+                                                                            {% if allegato.open_app_url %}
+                                                                                {% with ext=allegato.extension|lower %}
+                                                                                    {% if ext == "doc" or ext == "docx" %}
+                                                                                        <i class="ti ti-file-type-doc text-blue"></i>
+                                                                                    {% elif ext == "xls" or ext == "xlsx" or ext == "xlsm" %}
+                                                                                        <i class="ti ti-file-type-xls text-green"></i>
+                                                                                    {% else %}
+                                                                                        <i class="ti ti-launch"></i>
+                                                                                    {% endif %}
+                                                                                {% endwith %}
+                                                                            {% else %}
+                                                                                <i class="ti ti-eye"></i>
+                                                                            {% endif %}
+                                                                        </button>
                                                                         <button type="button"
                                                                                 class="btn btn-icon btn-outline-secondary js-delete-file"
                                                                                 title="Scollega file"
@@ -890,11 +1091,12 @@
                                                                                 data-delete-mode="unlink">
                                                                             <i class="ti ti-unlink"></i>
                                                                         </button>
-                                                                        <a href="{{ allegato.open_folder_url }}?next={{ request.get_full_path|urlencode }}%23category-detail-{{ collegamento.pk }}"
-                                                                           class="btn btn-icon btn-outline-secondary"
-                                                                           title="Apri cartella di origine">
+                                                                        <button type="button"
+                                                                                class="btn btn-icon btn-outline-secondary js-open-pratica-folder"
+                                                                                data-open-url="{{ allegato.open_folder_url }}"
+                                                                                title="Apri cartella di origine">
                                                                             <i class="ti ti-folder-open"></i>
-                                                                        </a>
+                                                                        </button>
                                                                     </td>
                                                                 </tr>
                                                             {% endfor %}
@@ -977,12 +1179,25 @@
                                                                     </td>
                                                                     <td>{{ file.size_kb }} KB</td>
                                                                     <td class="text-end st-file-actions">
-                                                                        <a href="{% if file.open_app_url %}{{ file.open_app_url }}&next={{ request.get_full_path|urlencode }}%23category-detail-{{ collegamento.pk }}{% else %}{{ file.url }}{% endif %}"
-                                                                           {% if not file.open_app_url %}target="_blank"{% endif %}
-                                                                           class="btn btn-icon btn-outline-primary"
-                                                                           title="{% if file.open_app_url %}Apri con applicazione originale{% else %}Apri anteprima{% endif %}">
-                                                                            <i class="ti ti-eye"></i>
-                                                                        </a>
+                                                                        <button type="button"
+                                                                                class="btn btn-icon btn-outline-primary js-open-pratica-file"
+                                                                                data-open-url="{% if file.open_app_url %}{{ file.open_app_url }}{% else %}{{ file.url }}{% endif %}"
+                                                                                data-native-open="{% if file.open_app_url %}1{% else %}0{% endif %}"
+                                                                                title="{% if file.open_app_url %}Apri con applicazione originale{% else %}Apri anteprima{% endif %}">
+                                                                            {% if file.open_app_url %}
+                                                                                {% with ext=file.extension|lower %}
+                                                                                    {% if ext == "doc" or ext == "docx" %}
+                                                                                        <i class="ti ti-file-type-doc text-blue"></i>
+                                                                                    {% elif ext == "xls" or ext == "xlsx" or ext == "xlsm" %}
+                                                                                        <i class="ti ti-file-type-xls text-green"></i>
+                                                                                    {% else %}
+                                                                                        <i class="ti ti-launch"></i>
+                                                                                    {% endif %}
+                                                                                {% endwith %}
+                                                                            {% else %}
+                                                                                <i class="ti ti-eye"></i>
+                                                                            {% endif %}
+                                                                        </button>
                                                                         <button type="button"
                                                                                 class="btn btn-icon btn-outline-secondary js-delete-file"
                                                                                 title="Scollega file dalla pratica"
@@ -991,11 +1206,12 @@
                                                                                 data-delete-mode="unlink">
                                                                             <i class="ti ti-unlink"></i>
                                                                         </button>
-                                                                        <a href="{{ file.open_folder_url }}&next={{ request.get_full_path|urlencode }}%23category-detail-{{ collegamento.pk }}"
-                                                                           class="btn btn-icon btn-outline-secondary"
-                                                                           title="Apri cartella di origine">
+                                                                        <button type="button"
+                                                                                class="btn btn-icon btn-outline-secondary js-open-pratica-folder"
+                                                                                data-open-url="{{ file.open_folder_url }}"
+                                                                                title="Apri cartella di origine">
                                                                             <i class="ti ti-folder-open"></i>
-                                                                        </a>
+                                                                        </button>
                                                                     </td>
                                                                 </tr>
                                                             {% endfor %}
@@ -1004,7 +1220,7 @@
                                                 </div>
                                             {% elif collegamento.cartella_is_folder %}
                                                 <div class="text-secondary small mt-2">
-                                                    Nessun file supportato nella cartella.
+                                                    Nessun file nella cartella.
                                                 </div>
                                             {% elif collegamento.cartella_is_link %}
                                                 <a href="{{ collegamento.cartella }}" target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm">
@@ -1039,10 +1255,17 @@
 <div class="row mb-3">
     <div class="col-12">
         <div class="card">
-            <div class="card-header">
-                <h3 class="card-title">Personale</h3>
+            <div class="card-header st-section-header" data-collapse-target="practice-technicians-section">
+                <h3 class="card-title d-flex align-items-center gap-2">
+                    Personale
+                    <span class="badge bg-blue-lt st-section-count-badge">{{ tecnici|length }}</span>
+                </h3>
                 <div class="card-actions">
                     <span class="st-section-count">{{ tecnici|length }} registrat{% if tecnici|length == 1 %}o{% else %}i{% endif %}</span>
+                    <a href="{% url 'anagrafiche:personale_create' pratica.cliente_id %}" class="btn btn-outline-primary btn-sm">
+                        <i class="ti ti-building"></i>
+                        In anagrafica
+                    </a>
                     <a href="{% url 'pratiche:tecnico_create' pratica.pk %}" class="btn btn-primary btn-sm">
                         <i class="ti ti-plus"></i>
                         Aggiungi
@@ -1065,7 +1288,7 @@
                             <thead>
                                 <tr>
                                     <th>Nome</th>
-                                    <th>Studio</th>
+                                    <th>Esterno</th>
                                     <th>Incarico</th>
                                     <th>Email</th>
                                     <th>Telefono</th>
@@ -1094,18 +1317,36 @@
                                         </td>
                                         <td>{{ tecnico.telefono|default:"-" }}</td>
                                         <td class="text-end">
-                                            <a href="{% url 'pratiche:tecnico_update' pratica.pk tecnico.pk %}"
-                                               class="btn btn-icon btn-outline-primary"
-                                               title="Modifica">
-                                                <i class="ti ti-edit"></i>
-                                            </a>
-                                            <button type="button"
-                                                    class="btn btn-icon btn-outline-danger js-delete-tecnico"
-                                                    title="Elimina"
-                                                    data-delete-action="{% url 'pratiche:tecnico_delete' pratica.pk tecnico.pk %}"
-                                                    data-delete-name="{{ tecnico.nome }} {{ tecnico.cognome }}">
-                                                <i class="ti ti-trash"></i>
-                                            </button>
+                                            {% if tecnico.pratica_id == pratica.pk %}
+                                                <a href="{% url 'pratiche:tecnico_update' pratica.pk tecnico.pk %}"
+                                                   class="btn btn-icon btn-outline-primary"
+                                                   title="Modifica">
+                                                    <i class="ti ti-edit"></i>
+                                                </a>
+                                                <button type="button"
+                                                        class="btn btn-icon btn-outline-danger js-delete-tecnico"
+                                                        title="Elimina"
+                                                        data-delete-action="{% url 'pratiche:tecnico_delete' pratica.pk tecnico.pk %}"
+                                                        data-delete-name="{{ tecnico.nome }} {{ tecnico.cognome }}">
+                                                    <i class="ti ti-trash"></i>
+                                                </button>
+                                            {% elif tecnico.anagrafica_id %}
+                                                <a href="{% url 'anagrafiche:personale_update' tecnico.anagrafica_id tecnico.pk %}"
+                                                   class="btn btn-icon btn-outline-primary"
+                                                   title="Modifica in anagrafica">
+                                                    <i class="ti ti-edit"></i>
+                                                </a>
+                                                <form method="post"
+                                                      action="{% url 'anagrafiche:personale_delete' tecnico.anagrafica_id tecnico.pk %}"
+                                                      class="d-inline">
+                                                    {% csrf_token %}
+                                                    <button type="submit"
+                                                            class="btn btn-icon btn-outline-danger"
+                                                            title="Elimina">
+                                                        <i class="ti ti-trash"></i>
+                                                    </button>
+                                                </form>
+                                            {% endif %}
                                         </td>
                                     </tr>
                                 {% endfor %}
@@ -1230,6 +1471,7 @@
 
 {% block extra_js %}
 {{ block.super }}
+<script src="{% static 'securtek/js/desktop-open.js' %}?v=20260711" defer></script>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     const modalElement = document.getElementById("deleteTecnicoModal");
@@ -1245,58 +1487,29 @@ document.addEventListener("DOMContentLoaded", function () {
     const fileSubmitElement = document.getElementById("deleteFileSubmit");
     const fileSubmitTextElement = document.getElementById("deleteFileSubmitText");
     const fileCancelButton = fileModalElement ? fileModalElement.querySelector(".js-delete-cancel") : null;
+    let pendingUnlinkFileButton = null;
+    let pendingFileDeleteMode = "delete";
+    let pendingFileUnlinkRequest = null;
     const categoryModalElement = document.getElementById("deleteCategoryModal");
     const categoryForm = document.getElementById("deleteCategoryForm");
     const categoryNameElement = document.getElementById("deleteCategoryName");
     const categoryCancelButton = categoryModalElement ? categoryModalElement.querySelector(".js-delete-cancel") : null;
+    const categorySubmitButton = categoryForm ? categoryForm.querySelector('button[type="submit"]') : null;
+    let pendingCategoryDeleteRequest = null;
+    let pendingDeleteCategoryButton = null;
     const communicationDropZone = document.getElementById("communicationDropZone");
     const communicationFileInput = communicationDropZone ? communicationDropZone.querySelector("input[type='file']") : null;
     const communicationFileName = document.getElementById("communicationFileName");
-
-    function setSectionCollapsed(button, section, collapsed, persist) {
-        section.hidden = collapsed;
-        button.classList.toggle("is-collapsed", collapsed);
-        button.setAttribute("aria-expanded", collapsed ? "false" : "true");
-        button.title = collapsed ? "Espandi sezione" : "Comprimi sezione";
-
-        if (persist) {
-            localStorage.setItem(button.dataset.storageKey, collapsed ? "1" : "0");
-        }
-    }
-
-    document.querySelectorAll(".st-collapse-toggle").forEach(function (button) {
-        const section = document.getElementById(button.dataset.collapseTarget);
-
-        if (!section) {
-            return;
-        }
-
-        button.dataset.storageKey = [
-            "securtek",
-            "pratica-detail",
-            window.location.pathname,
-            button.dataset.collapseKey
-        ].join(":");
-
-        setSectionCollapsed(button, section, localStorage.getItem(button.dataset.storageKey) === "1", false);
-
-        button.addEventListener("click", function () {
-            const willCollapse = !section.hidden;
-
-            if (willCollapse) {
-                flushDirtyFileDescriptions(section);
-            }
-
-            setSectionCollapsed(button, section, willCollapse, true);
-        });
-    });
+    const praticaDetailUi = window.SecurtekPraticaDetail || {};
+    const setSectionCollapsed = praticaDetailUi.setSectionCollapsed;
+    const openCategoryDetail = praticaDetailUi.openCategoryDetail;
 
     const communicationFormPanel = document.getElementById("practice-communication-form");
     const communicationSection = document.getElementById("practice-communications-section");
     const communicationToggle = document.querySelector('[data-collapse-target="practice-communications-section"]');
     const addCommunicationButton = document.querySelector(".js-add-communication");
 
-    if (addCommunicationButton && communicationFormPanel) {
+    if (addCommunicationButton && communicationFormPanel && setSectionCollapsed) {
         addCommunicationButton.addEventListener("click", function () {
             if (communicationSection && communicationToggle && communicationSection.hidden) {
                 setSectionCollapsed(communicationToggle, communicationSection, false, true);
@@ -1347,33 +1560,7 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    function openCategoryDetail(button, detailRow) {
-        detailRow.hidden = false;
-        button.classList.add("is-open");
-        button.title = "Nascondi cartella e file";
-    }
-
-    document.querySelectorAll(".st-category-toggle").forEach(function (button) {
-        const detailRow = document.getElementById(button.dataset.target);
-
-        if (!detailRow) {
-            return;
-        }
-
-        button.addEventListener("click", function () {
-            const isHidden = detailRow.hidden;
-
-            if (!isHidden) {
-                flushDirtyFileDescriptions(detailRow);
-            }
-
-            detailRow.hidden = !isHidden;
-            button.classList.toggle("is-open", isHidden);
-            button.title = isHidden ? "Nascondi cartella e file" : "Mostra cartella e file";
-        });
-    });
-
-    if (window.location.hash && window.location.hash.startsWith("#category-detail-")) {
+    if (window.location.hash && window.location.hash.startsWith("#category-detail-") && openCategoryDetail && setSectionCollapsed) {
         const detailRow = document.querySelector(window.location.hash);
         const toggleButton = detailRow
             ? document.querySelector(`.st-category-toggle[data-target="${detailRow.id}"]`)
@@ -1398,21 +1585,89 @@ document.addEventListener("DOMContentLoaded", function () {
         form.removeAttribute("action");
     }
 
-    function closeFileModal() {
+    function closeFileModal(force) {
         if (!fileModalElement || !fileForm || !fileInput) {
             return;
         }
+
+        if (pendingFileUnlinkRequest && !force) {
+            return;
+        }
+
         fileModalElement.hidden = true;
         fileForm.removeAttribute("action");
         fileInput.value = "";
+        pendingUnlinkFileButton = null;
+        pendingFileDeleteMode = "delete";
     }
 
-    function closeCategoryModal() {
+    function showActionToast(message, type) {
+        if (window.SecurtekUI && typeof window.SecurtekUI.showToast === "function") {
+            window.SecurtekUI.showToast(message, type);
+            return;
+        }
+
+        window.alert(message);
+    }
+
+    function setFileModalSubmitting(submitting) {
+        if (!fileSubmitElement || !fileCancelButton) {
+            return;
+        }
+
+        fileSubmitElement.disabled = submitting;
+        fileCancelButton.disabled = submitting;
+        fileSubmitElement.setAttribute("aria-busy", submitting ? "true" : "false");
+    }
+
+    function removeUnlinkedFileRow(button) {
+        const row = button ? button.closest("tr") : null;
+
+        if (!row) {
+            return;
+        }
+
+        row.remove();
+    }
+
+    function closeCategoryModal(force) {
         if (!categoryModalElement || !categoryForm) {
             return;
         }
+
+        if (pendingCategoryDeleteRequest && !force) {
+            return;
+        }
+
         categoryModalElement.hidden = true;
         categoryForm.removeAttribute("action");
+        pendingDeleteCategoryButton = null;
+    }
+
+    function setCategoryModalSubmitting(submitting) {
+        if (!categorySubmitButton || !categoryCancelButton) {
+            return;
+        }
+
+        categorySubmitButton.disabled = submitting;
+        categoryCancelButton.disabled = submitting;
+        categorySubmitButton.setAttribute("aria-busy", submitting ? "true" : "false");
+    }
+
+    function removeCategoryRows(button) {
+        const row = button ? button.closest("tr") : null;
+
+        if (!row) {
+            return;
+        }
+
+        const detailRow = row.nextElementSibling;
+
+        if (detailRow && detailRow.classList.contains("st-category-detail")) {
+            detailRow.remove();
+        }
+
+        row.remove();
     }
 
     if (modalElement && form && nameElement && cancelButton) {
@@ -1441,6 +1696,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 fileForm.action = button.dataset.deleteAction;
                 fileInput.value = fileName;
                 fileNameElement.textContent = fileName;
+                pendingUnlinkFileButton = button;
+                pendingFileDeleteMode = mode;
 
                 if (mode === "unlink") {
                     fileTitleElement.textContent = "Scollegare questo file?";
@@ -1460,6 +1717,57 @@ document.addEventListener("DOMContentLoaded", function () {
             });
         });
 
+        fileForm.addEventListener("submit", function (event) {
+            if (pendingFileDeleteMode !== "unlink") {
+                return;
+            }
+
+            event.preventDefault();
+
+            if (pendingFileUnlinkRequest || !fileForm.action) {
+                return;
+            }
+
+            const unlinkButton = pendingUnlinkFileButton;
+            const formData = new FormData(fileForm);
+
+            setFileModalSubmitting(true);
+
+            pendingFileUnlinkRequest = fetch(fileForm.action, {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": getCsrfToken(),
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Accept": "application/json",
+                },
+                body: formData,
+                credentials: "same-origin",
+            })
+                .then(function (response) {
+                    return response.json().catch(function () {
+                        return {};
+                    }).then(function (data) {
+                        if (!response.ok || !data.success) {
+                            throw new Error(data.error || data.message || "Impossibile scollegare il file.");
+                        }
+
+                        return data;
+                    });
+                })
+                .then(function (data) {
+                    removeUnlinkedFileRow(unlinkButton);
+                    closeFileModal(true);
+                    showActionToast(data.message || "File scollegato dalla pratica.", "success");
+                })
+                .catch(function (error) {
+                    showActionToast(error.message || "Impossibile scollegare il file.", "error");
+                })
+                .finally(function () {
+                    pendingFileUnlinkRequest = null;
+                    setFileModalSubmitting(false);
+                });
+        });
+
         fileCancelButton.addEventListener("click", closeFileModal);
 
         fileModalElement.addEventListener("click", function (event) {
@@ -1474,8 +1782,56 @@ document.addEventListener("DOMContentLoaded", function () {
             button.addEventListener("click", function () {
                 categoryForm.action = button.dataset.deleteAction;
                 categoryNameElement.textContent = button.dataset.deleteName || "Categoria selezionata";
+                pendingDeleteCategoryButton = button;
                 categoryModalElement.hidden = false;
             });
+        });
+
+        categoryForm.addEventListener("submit", function (event) {
+            event.preventDefault();
+
+            if (pendingCategoryDeleteRequest || !categoryForm.action) {
+                return;
+            }
+
+            const deleteButton = pendingDeleteCategoryButton;
+            const formData = new FormData(categoryForm);
+
+            setCategoryModalSubmitting(true);
+
+            pendingCategoryDeleteRequest = fetch(categoryForm.action, {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": getCsrfToken(),
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Accept": "application/json",
+                },
+                body: formData,
+                credentials: "same-origin",
+            })
+                .then(function (response) {
+                    return response.json().catch(function () {
+                        return {};
+                    }).then(function (data) {
+                        if (!response.ok || !data.success) {
+                            throw new Error(data.error || data.message || "Impossibile rimuovere la categoria.");
+                        }
+
+                        return data;
+                    });
+                })
+                .then(function (data) {
+                    removeCategoryRows(deleteButton);
+                    closeCategoryModal(true);
+                    showActionToast(data.message || "Categoria rimossa dalla pratica.", "success");
+                })
+                .catch(function (error) {
+                    showActionToast(error.message || "Impossibile rimuovere la categoria.", "error");
+                })
+                .finally(function () {
+                    pendingCategoryDeleteRequest = null;
+                    setCategoryModalSubmitting(false);
+                });
         });
 
         categoryCancelButton.addEventListener("click", closeCategoryModal);
@@ -1534,6 +1890,9 @@ document.addEventListener("DOMContentLoaded", function () {
         return Promise.all(tasks);
     }
 
+    praticaDetailUi.flushDirtyFileDescriptions = flushDirtyFileDescriptions;
+    window.SecurtekPraticaDetail = praticaDetailUi;
+
     function buildFileDescriptionFormData(form, input) {
         const formData = new FormData(form);
         formData.set("descrizione", input.value);
@@ -1590,7 +1949,8 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    document.querySelectorAll(".st-file-description-form").forEach(function (form) {
+    function initFileDescriptionForms() {
+        document.querySelectorAll(".st-file-description-form").forEach(function (form) {
         const input = form.querySelector(".js-file-description-input");
 
         if (!input) {
@@ -1677,7 +2037,14 @@ document.addEventListener("DOMContentLoaded", function () {
                 saveIfChanged();
             }
         });
-    });
+        });
+    }
+
+    const scheduleFileDescriptionInit = window.requestIdleCallback || function (callback) {
+        window.setTimeout(callback, 0);
+    };
+
+    scheduleFileDescriptionInit(initFileDescriptionForms);
 
     document.addEventListener("visibilitychange", function () {
         if (document.visibilityState === "hidden") {

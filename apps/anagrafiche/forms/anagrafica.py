@@ -4,6 +4,7 @@ from django.forms import inlineformset_factory
 from apps.anagrafiche.models import Anagrafica, Contatto, Indirizzo
 from apps.anagrafiche.forms.contatto import ContattoForm
 from apps.anagrafiche.forms.indirizzo import IndirizzoForm
+from apps.anagrafiche.forms.personale import PersonaleFormSet  # noqa: F401
 
 
 class AnagraficaForm(forms.ModelForm):
@@ -19,11 +20,41 @@ class AnagraficaForm(forms.ModelForm):
         ]
 
         widgets = {
-            "ragione_sociale": forms.TextInput(attrs={"class": "form-control"}),
-            "partita_iva": forms.TextInput(attrs={"class": "form-control"}),
-            "codice_fiscale": forms.TextInput(attrs={"class": "form-control"}),
-            "email": forms.EmailInput(attrs={"class": "form-control"}),
-            "telefono": forms.TextInput(attrs={"class": "form-control"}),
+            "ragione_sociale": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "autocomplete": "off",
+                }
+            ),
+            "partita_iva": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "inputmode": "numeric",
+                    "autocomplete": "off",
+                }
+            ),
+            "codice_fiscale": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "autocomplete": "off",
+                    "spellcheck": "false",
+                    "autocapitalize": "characters",
+                }
+            ),
+            "email": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "inputmode": "email",
+                    "autocomplete": "off",
+                }
+            ),
+            "telefono": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "inputmode": "tel",
+                    "autocomplete": "off",
+                }
+            ),
         }
 
 

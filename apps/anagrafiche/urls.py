@@ -12,6 +12,9 @@ from .views import (
     IndirizzoCreateView,
     IndirizzoUpdateView,
     IndirizzoDeleteView,
+    PersonaleAnagraficaCreateView,
+    PersonaleAnagraficaUpdateView,
+    PersonaleAnagraficaDeleteView,
 )
 
 app_name = "anagrafiche"
@@ -27,5 +30,16 @@ urlpatterns = [
     path("<int:anagrafica_pk>/indirizzi/nuovo/", IndirizzoCreateView.as_view(), name="indirizzo_create"),
     path("<int:anagrafica_pk>/indirizzi/<int:pk>/modifica/", IndirizzoUpdateView.as_view(), name="indirizzo_update"),
     path("<int:anagrafica_pk>/indirizzi/<int:pk>/elimina/", IndirizzoDeleteView.as_view(), name="indirizzo_delete"),
+    path("<int:anagrafica_pk>/personale/nuovo/", PersonaleAnagraficaCreateView.as_view(), name="personale_create"),
+    path(
+        "<int:anagrafica_pk>/personale/<int:pk>/modifica/",
+        PersonaleAnagraficaUpdateView.as_view(),
+        name="personale_update",
+    ),
+    path(
+        "<int:anagrafica_pk>/personale/<int:pk>/elimina/",
+        PersonaleAnagraficaDeleteView.as_view(),
+        name="personale_delete",
+    ),
     path("<int:pk>/", AnagraficaDetailView.as_view(), name="anagrafica_detail"),
 ]

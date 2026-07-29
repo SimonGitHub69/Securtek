@@ -8,8 +8,8 @@ from django.db.models import Count, Prefetch, Q
 from django.contrib.messages.views import SuccessMessageMixin
 
 from apps.anagrafiche.models import Anagrafica, Contatto, Indirizzo
-from apps.anagrafiche.forms import AnagraficaForm, ContattoFormSet, IndirizzoFormSet
-from apps.pratiche.models import Pratica, PraticaCategoria
+from apps.anagrafiche.forms import AnagraficaForm, ContattoFormSet, IndirizzoFormSet, PersonaleFormSet
+from apps.pratiche.models import Pratica, PraticaCategoria, Tecnico
 
 
 class AnagraficaListView(LoginRequiredMixin, ListView):
@@ -72,6 +72,11 @@ class AnagraficaDetailView(LoginRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
         context["contatti"] = self.object.contatti.filter(is_active=True)
         context["indirizzi"] = self.object.indirizzi.filter(is_active=True)
+        context["personale"] = (
+            self.object.personale.filter(is_active=True)
+            .select_related("studio_appartenenza", "incarico")
+            .order_by("cognome", "nome")
+        )
         context["pratiche_in_essere"] = (
             self.object.pratiche.filter(is_active=True)
             .exclude(
@@ -96,6 +101,7 @@ class AnagraficaDetailView(LoginRequiredMixin, DetailView):
 class AnagraficaFormsetMixin:
     contatto_prefix = "contatti"
     indirizzo_prefix = "indirizzi"
+    personale_prefix = "personale"
 
     def get_contatto_queryset(self):
         if self.object:
@@ -108,6 +114,12 @@ class AnagraficaFormsetMixin:
             return self.object.indirizzi.filter(is_active=True)
 
         return Indirizzo.objects.none()
+
+    def get_personale_queryset(self):
+        if self.object:
+            return self.object.personale.filter(is_active=True)
+
+        return Tecnico.objects.none()
 
     def get_contatto_formset(self):
         return ContattoFormSet(
@@ -125,6 +137,14 @@ class AnagraficaFormsetMixin:
             queryset=self.get_indirizzo_queryset(),
         )
 
+    def get_personale_formset(self):
+        return PersonaleFormSet(
+            self.request.POST or None,
+            instance=self.object,
+            prefix=self.personale_prefix,
+            queryset=self.get_personale_queryset(),
+        )
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
@@ -134,14 +154,27 @@ class AnagraficaFormsetMixin:
         if "indirizzo_formset" not in context:
             context["indirizzo_formset"] = self.get_indirizzo_formset()
 
+        if "personale_formset" not in context:
+            context["personale_formset"] = self.get_personale_formset()
+
         return context
 
     def form_valid(self, form):
         contatto_formset = self.get_contatto_formset()
         indirizzo_formset = self.get_indirizzo_formset()
+        personale_formset = self.get_personale_formset()
 
-        if not contatto_formset.is_valid() or not indirizzo_formset.is_valid():
-            return self.form_invalid_with_formsets(form, contatto_formset, indirizzo_formset)
+        if (
+            not contatto_formset.is_valid()
+            or not indirizzo_formset.is_valid()
+            or not personale_formset.is_valid()
+        ):
+            return self.form_invalid_with_formsets(
+                form,
+                contatto_formset,
+                indirizzo_formset,
+                personale_formset,
+            )
 
         with transaction.atomic():
             self.object = form.save(commit=False)
@@ -152,16 +185,24 @@ class AnagraficaFormsetMixin:
 
             self.save_formset(contatto_formset)
             self.save_formset(indirizzo_formset)
+            self.save_personale_formset(personale_formset)
 
         messages.success(self.request, self.success_message)
         return redirect(self.get_success_url())
 
-    def form_invalid_with_formsets(self, form, contatto_formset, indirizzo_formset):
+    def form_invalid_with_formsets(
+        self,
+        form,
+        contatto_formset,
+        indirizzo_formset,
+        personale_formset,
+    ):
         return self.render_to_response(
             self.get_context_data(
                 form=form,
                 contatto_formset=contatto_formset,
                 indirizzo_formset=indirizzo_formset,
+                personale_formset=personale_formset,
             )
         )
 
@@ -176,6 +217,21 @@ class AnagraficaFormsetMixin:
             if hasattr(instance, "indirizzo") and not instance.indirizzo:
                 continue
 
+            instance.updated_by = self.request.user
+            if not instance.pk:
+                instance.created_by = self.request.user
+            instance.save()
+
+    def save_personale_formset(self, formset):
+        formset.instance = self.object
+        instances = formset.save(commit=False)
+
+        for instance in instances:
+            if not (instance.nome or "").strip() and not (instance.cognome or "").strip():
+                continue
+
+            instance.anagrafica = self.object
+            instance.pratica = None
             instance.updated_by = self.request.user
             if not instance.pk:
                 instance.created_by = self.request.user

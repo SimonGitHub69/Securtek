@@ -356,8 +356,8 @@ class StudioTecnico(BaseModel):
     telefono = models.CharField("Telefono", max_length=30, blank=True)
 
     class Meta:
-        verbose_name = "Studio tecnico"
-        verbose_name_plural = "Studi tecnici"
+        verbose_name = "Esterno"
+        verbose_name_plural = "Esterni"
         ordering = ["denominazione"]
 
     def __str__(self):
@@ -378,11 +378,21 @@ class IncaricoTecnico(BaseModel):
 
 
 class Tecnico(BaseModel):
+    anagrafica = models.ForeignKey(
+        "anagrafiche.Anagrafica",
+        on_delete=models.CASCADE,
+        related_name="personale",
+        verbose_name="Anagrafica",
+        null=True,
+        blank=True,
+    )
     pratica = models.ForeignKey(
         Pratica,
         on_delete=models.CASCADE,
         related_name="tecnici",
         verbose_name="Pratica",
+        null=True,
+        blank=True,
     )
     nome = models.CharField("Nome", max_length=100)
     cognome = models.CharField("Cognome", max_length=100)
@@ -390,7 +400,7 @@ class Tecnico(BaseModel):
         StudioTecnico,
         on_delete=models.PROTECT,
         related_name="tecnici",
-        verbose_name="Studio di appartenenza",
+        verbose_name="Esterno",
         null=True,
         blank=True,
     )
@@ -412,3 +422,9 @@ class Tecnico(BaseModel):
 
     def __str__(self):
         return f"{self.nome} {self.cognome}".strip()
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        if self.pratica_id and self.anagrafica_id and self.pratica.cliente_id != self.anagrafica_id:
+            raise ValidationError("L'anagrafica del personale deve coincidere con il cliente della pratica.")

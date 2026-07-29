@@ -1,7 +1,7 @@
 {% extends "base/layout.html" %}
 
 {% block page_title %}
-Studi tecnici
+Esterni
 {% endblock %}
 
 {% block extra_css %}
@@ -169,13 +169,13 @@ Studi tecnici
 <div class="page-header d-print-none mb-3">
     <div class="row align-items-center">
         <div class="col">
-            <h2 class="page-title">Studi tecnici</h2>
-            <div class="text-secondary">Studi e società di riferimento per il personale tecnico delle pratiche.</div>
+            <h2 class="page-title">Esterni</h2>
+            <div class="text-secondary">Società e professionisti esterni di riferimento per il personale delle pratiche.</div>
         </div>
         <div class="col-auto">
             <a href="{% url 'pratiche:studio_tecnico_create' %}" class="btn btn-primary">
                 <i class="ti ti-plus"></i>
-                Nuovo studio
+                Nuovo esterno
             </a>
         </div>
     </div>
@@ -186,7 +186,7 @@ Studi tecnici
         <div class="st-kpi-accent bg-primary"></div>
         <div class="st-kpi-content">
             <div>
-                <div class="st-kpi-label">Totale studi</div>
+                <div class="st-kpi-label">Totale esterni</div>
                 <div class="st-kpi-value">{{ studio_counts.totale }}</div>
             </div>
             <div class="st-kpi-icon bg-primary-lt text-primary">
@@ -225,7 +225,7 @@ Studi tecnici
         <form method="get">
             <div class="row g-2 align-items-end">
                 <div class="col-md-8 col-lg-6">
-                    <label class="form-label" for="studio-search">Cerca studi</label>
+                    <label class="form-label" for="studio-search">Cerca esterni</label>
                     <input type="search"
                            id="studio-search"
                            name="q"
@@ -251,14 +251,14 @@ Studi tecnici
 
 <div class="card">
     <div class="card-header">
-        <h3 class="card-title">Elenco studi tecnici</h3>
+        <h3 class="card-title">Elenco esterni</h3>
         <div class="card-actions">
             <span class="text-secondary small">
                 {% if studi_tecnici %}
                     {% if is_paginated %}
                         {{ page_obj.paginator.count }} stud{% if page_obj.paginator.count == 1 %}io{% else %}i{% endif %}{% if has_filters %} trovat{% if page_obj.paginator.count == 1 %}o{% else %}i{% endif %}{% endif %}
                     {% else %}
-                        {{ studi_tecnici|length }} stud{% if studi_tecnici|length == 1 %}io{% else %}i{% endif %}{% if has_filters %} trovat{% if studi_tecnici|length == 1 %}o{% else %}i{% endif %}{% endif %}
+                        {{ studi_tecnici|length }} estern{% if studi_tecnici|length == 1 %}o{% else %}i{% endif %}{% if has_filters %} trovat{% if studi_tecnici|length == 1 %}o{% else %}i{% endif %}{% endif %}
                     {% endif %}
                 {% else %}
                     Nessun risultato
@@ -272,7 +272,7 @@ Studi tecnici
             <table class="table table-vcenter card-table">
                 <thead>
                     <tr>
-                        <th>Studio</th>
+                        <th>Esterno</th>
                         <th class="d-none d-md-table-cell">Email</th>
                         <th class="d-none d-lg-table-cell">Telefono</th>
                         <th>Personale</th>
@@ -381,11 +381,11 @@ Studi tecnici
         <div class="st-config-empty">
             <i class="ti ti-building-off"></i>
             {% if has_filters %}
-                <div class="fw-semibold mb-1">Nessuno studio trovato</div>
-                <div class="small">Prova a modificare la ricerca o <a href="{% url 'pratiche:studio_tecnico_list' %}">mostra tutti gli studi</a>.</div>
+                <div class="fw-semibold mb-1">Nessun esterno trovato</div>
+                <div class="small">Prova a modificare la ricerca o <a href="{% url 'pratiche:studio_tecnico_list' %}">mostra tutti gli esterni</a>.</div>
             {% else %}
-                <div class="fw-semibold mb-1">Nessuno studio tecnico presente</div>
-                <div class="small">Crea il primo studio con il pulsante <strong>Nuovo studio</strong> in alto a destra.</div>
+                <div class="fw-semibold mb-1">Nessun esterno presente</div>
+                <div class="small">Crea il primo esterno con il pulsante <strong>Nuovo esterno</strong> in alto a destra.</div>
             {% endif %}
         </div>
     {% endif %}
@@ -401,10 +401,10 @@ Studi tecnici
                 </div>
                 <div>
                     <div class="st-confirm-title" id="deleteStudioTitle">
-                        Eliminare questo studio tecnico?
+                        Eliminare questo esterno?
                     </div>
                     <div class="st-confirm-text">
-                        <span class="st-confirm-name" id="deleteStudioName">Studio selezionato</span>
+                        <span class="st-confirm-name" id="deleteStudioName">Esterno selezionato</span>
                         non sarà più disponibile nella lista.
                     </div>
                 </div>
@@ -443,7 +443,7 @@ document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll(".js-delete-studio").forEach(function (button) {
         button.addEventListener("click", function () {
             form.action = button.dataset.deleteAction;
-            nameElement.textContent = button.dataset.deleteName || "Studio selezionato";
+            nameElement.textContent = button.dataset.deleteName || "Esterno selezionato";
             modalElement.hidden = false;
         });
     });

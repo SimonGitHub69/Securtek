@@ -83,7 +83,13 @@ class TecnicoForm(forms.ModelForm):
             "cognome": forms.TextInput(attrs={"class": "form-control"}),
             "studio_appartenenza": forms.Select(attrs={"class": "form-select"}),
             "incarico": forms.Select(attrs={"class": "form-select"}),
-            "email": forms.EmailInput(attrs={"class": "form-control"}),
+            "email": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "inputmode": "email",
+                    "autocomplete": "off",
+                }
+            ),
             "telefono": forms.TextInput(attrs={"class": "form-control"}),
             "note": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
         }
@@ -106,9 +112,26 @@ class StudioTecnicoForm(forms.ModelForm):
             "note",
         ]
         widgets = {
-            "denominazione": forms.TextInput(attrs={"class": "form-control"}),
-            "email": forms.EmailInput(attrs={"class": "form-control"}),
-            "telefono": forms.TextInput(attrs={"class": "form-control"}),
+            "denominazione": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "autocomplete": "off",
+                }
+            ),
+            "email": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "inputmode": "email",
+                    "autocomplete": "off",
+                }
+            ),
+            "telefono": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "inputmode": "tel",
+                    "autocomplete": "off",
+                }
+            ),
             "note": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
         }
 

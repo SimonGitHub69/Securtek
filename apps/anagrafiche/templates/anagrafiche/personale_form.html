@@ -1,7 +1,7 @@
 {% extends "base/layout.html" %}
 
 {% block page_title %}
-{% if object %}Modifica esterno{% else %}Nuovo esterno{% endif %}
+{{ page_title }}
 {% endblock %}
 
 {% block content %}
@@ -9,16 +9,14 @@
 <div class="page-header d-print-none mb-3">
     <div class="row align-items-center">
         <div class="col">
-            <h2 class="page-title">
-                {% if object %}Modifica esterno{% else %}Nuovo esterno{% endif %}
-            </h2>
-            <div class="text-secondary">Dati dell'esterno da associare al personale</div>
+            <h2 class="page-title">{{ page_title }}</h2>
+            <div class="text-secondary">{{ anagrafica }}</div>
         </div>
     </div>
 </div>
 
 <div class="card">
-    <form method="post">
+    <form method="post" autocomplete="off">
         {% csrf_token %}
 
         <div class="card-body">
@@ -28,7 +26,7 @@
 
             <div class="row">
                 {% for field in form %}
-                    <div class="{% if field.name == 'note' %}col-12{% elif field.name == 'denominazione' %}col-md-6{% else %}col-md-3{% endif %}">
+                    <div class="{% if field.name == 'note' %}col-12{% else %}col-md-6{% endif %}">
                         <div class="mb-3">
                             <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
                             {{ field }}
@@ -42,7 +40,7 @@
         </div>
 
         <div class="card-footer text-end">
-            <a href="{% url 'pratiche:studio_tecnico_list' %}" class="btn btn-secondary">
+            <a href="{% url 'anagrafiche:anagrafica_detail' anagrafica.pk %}" class="btn btn-secondary">
                 Annulla
             </a>
             <button type="submit" class="btn btn-primary">
