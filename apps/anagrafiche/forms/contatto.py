@@ -15,10 +15,26 @@ class ContattoForm(forms.ModelForm):
         ]
         widgets = {
             "tipo": forms.Select(attrs={"class": "form-select"}),
-            "valore": forms.TextInput(attrs={"class": "form-control"}),
-            "descrizione": forms.TextInput(attrs={"class": "form-control"}),
+            "valore": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "autocomplete": "off",
+                }
+            ),
+            "descrizione": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "autocomplete": "off",
+                }
+            ),
             "principale": forms.CheckboxInput(attrs={"class": "form-check-input"}),
-            "note": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "note": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 3,
+                    "autocomplete": "off",
+                }
+            ),
         }
 
     def __init__(self, *args, **kwargs):

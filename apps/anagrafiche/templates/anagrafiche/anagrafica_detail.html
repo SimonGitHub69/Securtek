@@ -232,13 +232,11 @@
         <div class="st-kpi-accent bg-primary"></div>
         <div class="st-kpi-content">
             <div>
-                <div class="st-kpi-label">Dati fiscali</div>
-                <div class="st-kpi-value" style="font-size: 1.25rem; line-height: 1.3;">
-                    {% if anagrafica.partita_iva or anagrafica.codice_fiscale %}OK{% else %}-{% endif %}
-                </div>
+                <div class="st-kpi-label">Eventi agenda</div>
+                <div class="st-kpi-value">{{ eventi_agenda|length }}</div>
             </div>
             <div class="st-kpi-icon bg-primary-lt text-primary">
-                <i class="ti ti-id"></i>
+                <i class="ti ti-calendar"></i>
             </div>
         </div>
     </div>
@@ -308,6 +306,11 @@
                     <dt class="col-sm-5">Pratiche in essere</dt>
                     <dd class="col-sm-7">
                         <span class="badge bg-orange-lt">{{ pratiche_in_essere|length }}</span>
+                    </dd>
+
+                    <dt class="col-sm-5">Eventi agenda</dt>
+                    <dd class="col-sm-7">
+                        <span class="badge bg-primary-lt">{{ eventi_agenda|length }}</span>
                     </dd>
                 </dl>
             </div>
@@ -432,6 +435,99 @@
             <div class="small">Crea una nuova pratica collegata a questo cliente.</div>
         </div>
     {% endif %}
+    </div>
+</div>
+
+<div class="card mb-3" id="agenda">
+    <div class="card-header">
+        <h3 class="card-title">
+            <i class="ti ti-calendar me-1"></i>
+            Agenda
+        </h3>
+        <div class="card-actions">
+            <span class="st-section-count me-2">{{ eventi_agenda|length }} event{% if eventi_agenda|length == 1 %}o{% else %}i{% endif %}</span>
+            <a href="{% url 'agenda:calendar' %}?cliente={{ anagrafica.pk }}" class="btn btn-outline-secondary btn-sm">
+                <i class="ti ti-calendar"></i>
+                Calendario
+            </a>
+            <a href="{% url 'agenda:evento_create' %}?cliente={{ anagrafica.pk }}" class="btn btn-primary btn-sm">
+                <i class="ti ti-plus"></i>
+                Nuovo evento
+            </a>
+            <button type="button"
+                    class="btn btn-icon btn-sm btn-outline-secondary st-collapse-toggle"
+                    data-collapse-target="anagrafica-detail-agenda-section"
+                    data-collapse-key="agenda"
+                    aria-controls="anagrafica-detail-agenda-section"
+                    aria-expanded="true"
+                    title="Comprimi sezione">
+                <i class="ti ti-chevron-down"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="st-collapsible-section" id="anagrafica-detail-agenda-section">
+        {% if eventi_agenda %}
+            <div class="table-responsive">
+                <table class="table table-vcenter card-table">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Tipo</th>
+                            <th>Titolo</th>
+                            <th class="d-none d-md-table-cell">Pratica</th>
+                            <th>Stato</th>
+                            <th class="text-end">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for evento in eventi_agenda %}
+                            <tr>
+                                <td class="text-nowrap">
+                                    <div class="fw-semibold">{{ evento.data_inizio|date:"d/m/Y" }}</div>
+                                    {% if evento.ora_inizio %}
+                                        <div class="text-secondary small">{{ evento.ora_inizio|time:"H:i" }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge {% if evento.tipo == 'scadenza' %}bg-red-lt{% elif evento.tipo == 'lavoro' %}bg-green-lt{% else %}bg-blue-lt{% endif %}">
+                                        {{ evento.get_tipo_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="fw-semibold">{{ evento.titolo }}</div>
+                                    {% if evento.descrizione %}
+                                        <div class="text-secondary small">{{ evento.descrizione|truncatechars:80 }}</div>
+                                    {% endif %}
+                                </td>
+                                <td class="d-none d-md-table-cell">
+                                    <a href="{% url 'pratiche:pratica_detail' evento.pratica_id %}" class="text-reset">
+                                        <div class="fw-semibold">{{ evento.pratica.titolo }}</div>
+                                        <div class="text-secondary small">{{ evento.pratica.codice }}</div>
+                                    </a>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary-lt">{{ evento.get_stato_display }}</span>
+                                </td>
+                                <td class="text-end">
+                                    <a href="{% url 'agenda:evento_update' evento.pk %}"
+                                       class="btn btn-icon btn-outline-primary"
+                                       title="Modifica">
+                                        <i class="ti ti-edit"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="st-detail-empty">
+                <i class="ti ti-calendar-off"></i>
+                <div class="fw-semibold mb-1">Nessun evento collegato</div>
+                <div class="small">Crea un evento agenda sulle pratiche di questa anagrafica.</div>
+            </div>
+        {% endif %}
     </div>
 </div>
 
@@ -627,8 +723,8 @@
                                     </div>
                                     <div class="text-secondary small">
                                         {% if indirizzo.cap %}{{ indirizzo.cap }}{% endif %}
-                                        {% if indirizzo.comune %} {{ indirizzo.comune }}{% endif %}
-                                        {% if indirizzo.provincia %} ({{ indirizzo.provincia }}){% endif %}
+                                        {% if indirizzo.comune %} {{ indirizzo.comune.denominazione }}{% endif %}
+                                        {% if indirizzo.provincia %} ({{ indirizzo.provincia.sigla }}){% endif %}
                                         {% if indirizzo.nazione %} - {{ indirizzo.nazione }}{% endif %}
                                     </div>
                                 </div>

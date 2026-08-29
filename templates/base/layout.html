@@ -6,6 +6,7 @@
 
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="format-detection" content="telephone=no, email=no, address=no">
 
     <title>{% block title %}SECURTEK{% endblock %}</title>
 
@@ -18,6 +19,14 @@
                 document.documentElement.setAttribute("data-bs-theme", theme);
             } catch (error) {
                 document.documentElement.setAttribute("data-bs-theme", "light");
+            }
+
+            try {
+                if (localStorage.getItem("securtek-sidebar") === "collapsed") {
+                    document.documentElement.classList.add("st-sidebar-collapsed");
+                }
+            } catch (error) {
+                // ignore storage errors
             }
         })();
     </script>
@@ -62,7 +71,11 @@
 
 </head>
 
-<body>
+<body
+    {% if user.is_authenticated and request.session.securtek_app %}
+    data-logout-on-close="1"
+    data-logout-url="{% url 'logout' %}"
+    {% endif %}>
 
 <div class="page">
 
@@ -97,7 +110,11 @@
 
 <script src="{% static 'htmx.org/dist/htmx.min.js' %}"></script>
 
+<script src="{% static 'securtek/js/disable-autocomplete.js' %}"></script>
 <script src="{% static 'securtek/js/app.js' %}"></script>
+{% if user.is_authenticated and request.session.securtek_app %}
+<script src="{% static 'securtek/js/logout-on-close.js' %}?v=20260722d"></script>
+{% endif %}
 
 {% block extra_js %}{% endblock %}
 

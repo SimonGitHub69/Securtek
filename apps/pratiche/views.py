@@ -97,6 +97,12 @@ from apps.pratiche.forms import (
 )
 from apps.agenda.models import EventoAgenda
 from apps.agenda.views import get_pratica_deadline_items
+from apps.pratiche.services.folder_picker import (
+    FolderPickerError,
+    normalize_selected_path,
+    pick_file,
+    pick_folder,
+)
 from apps.pratiche.services.desktop_open import (
     DesktopOpenError,
     folder_open_success_message,
@@ -1808,34 +1814,24 @@ class PraticaCategoriaAllegatoPickView(LoginRequiredMixin, View):
         pratica_categoria = get_pratica_categoria_or_404(kwargs["pratica_pk"], kwargs["categoria_pk"])
 
         try:
-            import tkinter as tk
-            from tkinter import filedialog
-        except Exception as exc:
+            selected_path = pick_file(
+                title="Seleziona file da collegare",
+                filetypes=[
+                    (
+                        "File supportati",
+                        "*.doc *.docx *.xls *.xlsx *.xlsm *.pdf *.png *.jpg *.jpeg *.txt *.html *.htm",
+                    ),
+                    ("Tutti i file", "*.*"),
+                ],
+            )
+        except FolderPickerError as exc:
             messages.error(request, f"Selettore file non disponibile: {exc}")
             return redirect(
                 reverse("pratiche:pratica_detail", kwargs={"pk": kwargs["pratica_pk"]})
                 + f"#category-detail-{pratica_categoria.pk}"
             )
 
-        try:
-            root = tk.Tk()
-            root.withdraw()
-            root.attributes("-topmost", True)
-            selected_path = filedialog.askopenfilename(
-                title="Seleziona file da collegare",
-                filetypes=[
-                    ("File supportati", "*.doc *.docx *.xls *.xlsx *.xlsm *.pdf *.png *.jpg *.jpeg *.txt *.html *.htm"),
-                    ("Tutti i file", "*.*"),
-                ],
-            )
-            root.destroy()
-        except Exception as exc:
-            messages.error(request, f"Impossibile aprire il selettore file: {exc}")
-            return redirect(
-                reverse("pratiche:pratica_detail", kwargs={"pk": kwargs["pratica_pk"]})
-                + f"#category-detail-{pratica_categoria.pk}"
-            )
-
+        selected_path = normalize_selected_path(selected_path)
         if selected_path:
             try:
                 create_category_attachment_from_path(pratica_categoria, selected_path, request.user)
@@ -1990,24 +1986,11 @@ class PraticaCategoriaAllegatoDestroyView(LoginRequiredMixin, View):
 class FolderPickerView(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
         try:
-            import tkinter as tk
-            from tkinter import filedialog
-        except Exception as exc:
+            selected_path = pick_folder(title="Seleziona cartella pratica")
+        except FolderPickerError as exc:
             return JsonResponse({"error": f"Selettore cartella non disponibile: {exc}"}, status=500)
 
-        try:
-            root = tk.Tk()
-            root.withdraw()
-            root.attributes("-topmost", True)
-            selected_path = filedialog.askdirectory(title="Seleziona cartella pratica")
-            root.destroy()
-        except Exception as exc:
-            return JsonResponse({"error": f"Impossibile aprire il selettore cartella: {exc}"}, status=500)
-
-        if not selected_path:
-            return JsonResponse({"path": ""})
-
-        return JsonResponse({"path": selected_path})
+        return JsonResponse({"path": normalize_selected_path(selected_path)})
 
 
 class FolderPreviewView(LoginRequiredMixin, View):

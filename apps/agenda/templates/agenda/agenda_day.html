@@ -39,6 +39,11 @@ Agenda giornaliera
                     <i class="ti ti-arrow-left"></i>
                     Torna alla pratica
                 </a>
+            {% elif selected_cliente_obj %}
+                <a href="{% url 'anagrafiche:anagrafica_detail' selected_cliente_obj.pk %}" class="btn btn-outline-secondary">
+                    <i class="ti ti-arrow-left"></i>
+                    Torna all'anagrafica
+                </a>
             {% endif %}
             <a href="{% url 'agenda:evento_create' %}?data={{ selected_date|date:'Y-m-d' }}{{ agenda_query_suffix }}" class="btn btn-primary">
                 <i class="ti ti-plus"></i>
@@ -56,13 +61,24 @@ Agenda giornaliera
     <div class="card-body">
         <form method="get" class="row g-2 align-items-end">
             <input type="hidden" name="data" value="{{ selected_date|date:'Y-m-d' }}">
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <label class="form-label">Pratica</label>
                 <select name="pratica" class="form-select">
                     <option value="">Tutte le pratiche</option>
                     {% for pratica in pratiche %}
                         <option value="{{ pratica.pk }}" {% if selected_pratica|stringformat:"s" == pratica.pk|stringformat:"s" %}selected{% endif %}>
                             {{ pratica.codice }} - {{ pratica.titolo }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Cliente</label>
+                <select name="cliente" class="form-select">
+                    <option value="">Tutti i clienti</option>
+                    {% for cliente in clienti %}
+                        <option value="{{ cliente.pk }}" {% if selected_cliente|stringformat:"s" == cliente.pk|stringformat:"s" %}selected{% endif %}>
+                            {{ cliente.ragione_sociale }}
                         </option>
                     {% endfor %}
                 </select>
@@ -129,6 +145,17 @@ Agenda giornaliera
                                         <div class="text-secondary small">
                                             {{ event.get_tipo_display }} · {{ event.get_stato_display }} · {{ event.pratica.codice }}
                                         </div>
+                                        {% if not event.is_pratica_scadenza and event.notifica_email %}
+                                            <div class="text-secondary small mt-1">
+                                                {% if event.notificato_il %}
+                                                    <i class="ti ti-mail-check"></i>
+                                                    Notifica inviata il {{ event.notificato_il|date:"d/m/Y H:i" }}
+                                                {% else %}
+                                                    <i class="ti ti-mail"></i>
+                                                    Email da inviare
+                                                {% endif %}
+                                            </div>
+                                        {% endif %}
                                         <div class="text-secondary small">{{ event.pratica.titolo }}</div>
                                         {% if event.descrizione %}
                                             <div class="mt-2">{{ event.descrizione|linebreaksbr }}</div>

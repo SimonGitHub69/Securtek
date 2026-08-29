@@ -21,19 +21,25 @@ class Command(BaseCommand):
             return
 
         self.stdout.write(
-            f"Eventi in scadenza oggi: {result['due']} | inviati: {result['sent']} | errori: {result['errors']}"
+            f"Eventi con preavviso da inviare oggi: {result['due']} | inviati: {result['sent']} | errori: {result['errors']}"
         )
 
         for detail in result["details"]:
+            notify_info = ""
+            if detail.get("data_notifica"):
+                notify_info = (
+                    f" (scadenza {detail['data_termine']:%d/%m/%Y}, "
+                    f"preavviso {detail['giorni_preavviso']} gg, invio previsto {detail['data_notifica']:%d/%m/%Y})"
+                )
             if detail["status"] == "ok":
                 self.stdout.write(
                     self.style.SUCCESS(
-                        f"Evento {detail['evento_id']}: inviato a {', '.join(detail['recipients'])}"
+                        f"Evento {detail['evento_id']}{notify_info}: inviato a {', '.join(detail['recipients'])}"
                     )
                 )
             elif detail["status"] == "dry_run":
                 self.stdout.write(
-                    f"Evento {detail['evento_id']}: dry-run -> {', '.join(detail['recipients'])}"
+                    f"Evento {detail['evento_id']}{notify_info}: dry-run -> {', '.join(detail['recipients'])}"
                 )
             elif detail["status"] == "nessun_destinatario":
                 self.stdout.write(

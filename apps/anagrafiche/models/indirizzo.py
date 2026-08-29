@@ -37,14 +37,20 @@ class Indirizzo(BaseModel):
         max_length=10,
         blank=True,
     )
-    comune = models.CharField(
-        "Comune",
-        max_length=100,
+    provincia = models.ForeignKey(
+        "anagrafiche.Provincia",
+        on_delete=models.PROTECT,
+        related_name="indirizzi",
+        verbose_name="Provincia",
+        null=True,
         blank=True,
     )
-    provincia = models.CharField(
-        "Provincia",
-        max_length=2,
+    comune = models.ForeignKey(
+        "anagrafiche.Comune",
+        on_delete=models.PROTECT,
+        related_name="indirizzi",
+        verbose_name="Comune",
+        null=True,
         blank=True,
     )
     nazione = models.CharField(
@@ -67,7 +73,22 @@ class Indirizzo(BaseModel):
         if self.civico:
             parts.append(self.civico)
         location = " ".join(parts)
-        city_parts = [value for value in [self.cap, self.comune, self.provincia] if value]
+        city_parts = []
+        if self.cap:
+            city_parts.append(self.cap)
+        if self.comune_id:
+            city_parts.append(self.comune.denominazione)
+        if self.provincia_id:
+            city_parts.append(self.provincia.sigla)
         if city_parts:
             location = f"{location}, {' '.join(city_parts)}"
         return location
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        if self.comune_id and self.provincia_id and self.comune.provincia_id != self.provincia_id:
+            raise ValidationError({"comune": "Il comune non appartiene alla provincia selezionata."})
+
+        if self.comune_id and not self.provincia_id:
+            self.provincia_id = self.comune.provincia_id

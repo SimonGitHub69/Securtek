@@ -40,3 +40,10 @@ node_modules/
 # Coverage
 .coverage
 htmlcov/
+
+# Pacchetti aggiornamento e dump locali
+*.zip
+tmp/
+struttura.txt
+struttura_full.txt
+deploy/macos - Copia/

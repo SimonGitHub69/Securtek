@@ -3,6 +3,7 @@ from django import forms
 from apps.agenda.models import ConfigurazioneNotificaEmail, EventoAgenda
 from apps.agenda.services.notifiche import validate_smtp_security
 from apps.pratiche.models import Pratica, Tecnico
+from apps.pratiche.services.personale import tecnici_per_cliente
 
 
 class EventoAgendaForm(forms.ModelForm):
@@ -51,13 +52,17 @@ class EventoAgendaForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.cliente_id = kwargs.pop("cliente_id", None) or None
         super().__init__(*args, **kwargs)
-        self.fields["pratica"].queryset = (
+        pratiche = (
             Pratica.objects.filter(is_active=True)
             .exclude(stato=Pratica.Stato.ARCHIVIATA)
             .select_related("cliente")
             .order_by("-data_apertura", "-id")
         )
+        if self.cliente_id:
+            pratiche = pratiche.filter(cliente_id=self.cliente_id)
+        self.fields["pratica"].queryset = pratiche
         self.fields["data_inizio"].input_formats = ["%Y-%m-%d"]
         self.fields["data_fine"].required = False
         self.fields["data_fine"].input_formats = ["%Y-%m-%d"]
@@ -78,10 +83,23 @@ class EventoAgendaForm(forms.ModelForm):
             pratica_id = self.initial.get("pratica")
 
         if pratica_id:
-            self.fields["tecnici"].queryset = Tecnico.objects.filter(
-                pratica_id=pratica_id,
-                is_active=True,
-            ).select_related("studio_appartenenza", "incarico")
+            pratica = (
+                Pratica.objects.filter(pk=pratica_id)
+                .only("id", "cliente_id")
+                .first()
+            )
+            if pratica and pratica.cliente_id:
+                self.fields["tecnici"].queryset = tecnici_per_cliente(
+                    pratica.cliente_id,
+                    pratica_id=pratica.pk,
+                )
+            else:
+                self.fields["tecnici"].queryset = Tecnico.objects.filter(
+                    pratica_id=pratica_id,
+                    is_active=True,
+                ).select_related("studio_appartenenza", "incarico", "pratica", "anagrafica")
+        elif self.cliente_id:
+            self.fields["tecnici"].queryset = tecnici_per_cliente(self.cliente_id)
 
         if self.instance.pk:
             self.fields["tecnici"].initial = self.instance.tecnici.filter(is_active=True)
@@ -97,9 +115,21 @@ class EventoAgendaForm(forms.ModelForm):
             self.add_error("data_fine", "La data fine non puo' precedere la data inizio.")
 
         if pratica and tecnici:
-            invalid_tecnici = [tecnico for tecnico in tecnici if tecnico.pratica_id != pratica.pk]
+            cliente_id = pratica.cliente_id
+            invalid_tecnici = [
+                tecnico
+                for tecnico in tecnici
+                if tecnico.anagrafica_id != cliente_id
+                and (
+                    not tecnico.pratica_id
+                    or getattr(tecnico.pratica, "cliente_id", None) != cliente_id
+                )
+            ]
             if invalid_tecnici:
-                self.add_error("tecnici", "Il personale selezionato deve appartenere alla pratica scelta.")
+                self.add_error(
+                    "tecnici",
+                    "Il personale selezionato deve appartenere al cliente della pratica scelta.",
+                )
 
         return cleaned_data
 

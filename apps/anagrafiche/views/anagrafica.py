@@ -71,7 +71,10 @@ class AnagraficaDetailView(LoginRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["contatti"] = self.object.contatti.filter(is_active=True)
-        context["indirizzi"] = self.object.indirizzi.filter(is_active=True)
+        context["indirizzi"] = (
+            self.object.indirizzi.filter(is_active=True)
+            .select_related("provincia", "comune")
+        )
         context["personale"] = (
             self.object.personale.filter(is_active=True)
             .select_related("studio_appartenenza", "incarico")
@@ -95,6 +98,18 @@ class AnagraficaDetailView(LoginRequiredMixin, DetailView):
                 )
             )
         )
+        from apps.agenda.models import EventoAgenda
+
+        context["eventi_agenda"] = list(
+            EventoAgenda.objects.filter(
+                is_active=True,
+                pratica__cliente_id=self.object.pk,
+                pratica__is_active=True,
+            )
+            .select_related("pratica", "pratica__tipologia")
+            .prefetch_related("tecnici")
+            .order_by("-data_inizio", "-ora_inizio", "-id")[:12]
+        )
         return context
 
 
@@ -111,7 +126,7 @@ class AnagraficaFormsetMixin:
 
     def get_indirizzo_queryset(self):
         if self.object:
-            return self.object.indirizzi.filter(is_active=True)
+            return self.object.indirizzi.filter(is_active=True).select_related("provincia", "comune")
 
         return Indirizzo.objects.none()
 

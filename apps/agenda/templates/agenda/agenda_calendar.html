@@ -165,6 +165,11 @@ Agenda
                     <i class="ti ti-arrow-left"></i>
                     Torna alla pratica
                 </a>
+            {% elif selected_cliente_obj %}
+                <a href="{% url 'anagrafiche:anagrafica_detail' selected_cliente_obj.pk %}" class="btn btn-outline-secondary">
+                    <i class="ti ti-arrow-left"></i>
+                    Torna all'anagrafica
+                </a>
             {% endif %}
             <a href="{% url 'agenda:evento_create' %}{{ agenda_query_prefix }}" class="btn btn-primary">
                 <i class="ti ti-plus"></i>
@@ -177,13 +182,24 @@ Agenda
 <div class="card mb-3">
     <div class="card-body">
         <form method="get" class="row g-2 align-items-end">
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <label class="form-label">Pratica</label>
                 <select name="pratica" class="form-select">
                     <option value="">Tutte le pratiche</option>
                     {% for pratica in pratiche %}
                         <option value="{{ pratica.pk }}" {% if selected_pratica|stringformat:"s" == pratica.pk|stringformat:"s" %}selected{% endif %}>
                             {{ pratica.codice }} - {{ pratica.titolo }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Cliente</label>
+                <select name="cliente" class="form-select">
+                    <option value="">Tutti i clienti</option>
+                    {% for cliente in clienti %}
+                        <option value="{{ cliente.pk }}" {% if selected_cliente|stringformat:"s" == cliente.pk|stringformat:"s" %}selected{% endif %}>
+                            {{ cliente.ragione_sociale }}
                         </option>
                     {% endfor %}
                 </select>
@@ -255,8 +271,11 @@ Agenda
                                 {% for event in day.events %}
                                     <a href="{% if event.is_pratica_scadenza %}{% url 'pratiche:pratica_detail' event.pratica.pk %}{% else %}{% url 'agenda:evento_update' event.pk %}{% endif %}"
                                        class="st-calendar-event {{ event.tipo }}"
-                                       title="{{ event.pratica }}">
+                                       title="{{ event.pratica }}{% if not event.is_pratica_scadenza and event.notificato_il %} · Notifica inviata il {{ event.notificato_il|date:'d/m/Y H:i' }}{% endif %}">
                                         <span class="fw-bold">{{ event.get_tipo_display }}</span>
+                                        {% if not event.is_pratica_scadenza and event.notificato_il %}
+                                            <i class="ti ti-mail-check float-end" title="Notifica inviata il {{ event.notificato_il|date:'d/m/Y H:i' }}"></i>
+                                        {% endif %}
                                         <div>{{ event.titolo }}</div>
                                     </a>
                                 {% endfor %}
@@ -283,6 +302,17 @@ Agenda
                                     {{ event.get_tipo_display }} · {{ event.data_inizio|date:"d/m/Y" }}
                                     {% if event.ora_inizio %} {{ event.ora_inizio|time:"H:i" }}{% endif %}
                                 </div>
+                                {% if not event.is_pratica_scadenza and event.notifica_email %}
+                                    <div class="text-secondary small">
+                                        {% if event.notificato_il %}
+                                            <i class="ti ti-mail-check"></i>
+                                            Notifica inviata il {{ event.notificato_il|date:"d/m/Y H:i" }}
+                                        {% else %}
+                                            <i class="ti ti-mail"></i>
+                                            Email da inviare
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
                                 <div class="text-secondary small">{{ event.pratica.codice }}</div>
                             </div>
                             <div class="btn-list flex-nowrap">

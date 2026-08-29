@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from apps.anagrafiche.models import Anagrafica, Contatto, Indirizzo
+from apps.anagrafiche.models import Anagrafica, Comune, Contatto, Indirizzo, Provincia
 
 
 class ContattoInline(admin.TabularInline):
@@ -16,13 +16,14 @@ class IndirizzoInline(admin.TabularInline):
         "tipo",
         "indirizzo",
         "civico",
-        "cap",
-        "comune",
         "provincia",
+        "comune",
+        "cap",
         "nazione",
         "principale",
         "is_active",
     )
+    autocomplete_fields = ("provincia", "comune")
 
 
 @admin.register(Anagrafica)
@@ -43,5 +44,28 @@ class ContattoAdmin(admin.ModelAdmin):
 @admin.register(Indirizzo)
 class IndirizzoAdmin(admin.ModelAdmin):
     list_display = ("anagrafica", "tipo", "indirizzo", "comune", "provincia", "principale", "is_active")
-    search_fields = ("anagrafica__ragione_sociale", "indirizzo", "comune", "provincia", "cap")
+    search_fields = (
+        "anagrafica__ragione_sociale",
+        "indirizzo",
+        "comune__denominazione",
+        "provincia__sigla",
+        "provincia__denominazione",
+        "cap",
+    )
     list_filter = ("tipo", "principale", "is_active", "provincia")
+    autocomplete_fields = ("anagrafica", "provincia", "comune")
+
+
+@admin.register(Provincia)
+class ProvinciaAdmin(admin.ModelAdmin):
+    list_display = ("denominazione", "sigla", "regione", "codice", "is_active")
+    search_fields = ("denominazione", "sigla", "regione", "codice")
+    list_filter = ("regione", "is_active")
+
+
+@admin.register(Comune)
+class ComuneAdmin(admin.ModelAdmin):
+    list_display = ("denominazione", "provincia", "cap", "codice_istat", "is_active")
+    search_fields = ("denominazione", "cap", "codice_istat", "codice_catastale", "provincia__sigla")
+    list_filter = ("provincia", "is_active")
+    autocomplete_fields = ("provincia",)

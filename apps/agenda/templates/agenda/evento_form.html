@@ -81,6 +81,9 @@
 <div class="card">
     <form method="post" id="eventoAgendaForm">
         {% csrf_token %}
+        {% if cliente_id %}
+            <input type="hidden" name="cliente" value="{{ cliente_id }}">
+        {% endif %}
 
         <div class="card-body">
             {% if form.non_field_errors %}
@@ -110,6 +113,30 @@
                 {% endfor %}
             </div>
 
+            {% if object.pk and object.notifica_email %}
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Invio email</label>
+                            <div class="form-control-plaintext">
+                                {% if object.notificato_il %}
+                                    <span class="badge bg-green-lt">
+                                        <i class="ti ti-mail-check"></i>
+                                        Notificato il {{ object.notificato_il|date:"d/m/Y" }} alle {{ object.notificato_il|time:"H:i" }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-secondary">
+                                        <i class="ti ti-mail"></i>
+                                        Invio previsto il {{ object.data_notifica|date:"d/m/Y" }}
+                                        ({{ object.giorni_preavviso }} gg prima della scadenza)
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
             <div class="mb-3" id="personaleSection">
                 <label class="form-label">Personale assegnato</label>
                 <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
@@ -118,7 +145,7 @@
                         Seleziona personale
                     </button>
                     <span class="text-secondary small" id="personaleHint">
-                        Seleziona uno o più nominativi del personale collegato alla pratica.
+                        Alla selezione della pratica viene proposto il personale del cliente collegato; puoi modificarlo.
                     </span>
                 </div>
                 <div class="st-tecnici-badges" id="selectedTecniciBadges"></div>
@@ -146,7 +173,7 @@
         <div class="st-confirm-body">
             <h3 class="mb-1" id="tecniciModalTitle">Seleziona personale</h3>
             <div class="text-secondary small mb-3">
-                Personale registrato nella pratica selezionata.
+                Personale del cliente collegato alla pratica selezionata (preselezionato; puoi modificare).
             </div>
             <div id="tecniciModalMessage" class="alert alert-warning" hidden></div>
             <div id="tecniciModalRows"></div>
@@ -247,7 +274,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 <div>
                     <div class="fw-bold">${tecnico.cognome} ${tecnico.nome}</div>
                     <div class="text-secondary small">
-                        ${tecnico.studio || "Studio non indicato"}
+                        ${tecnico.studio || "Esterno non indicato"}
                         ${tecnico.incarico ? " · " + tecnico.incarico : ""}
                     </div>
                 </div>
@@ -272,7 +299,11 @@ document.addEventListener("DOMContentLoaded", function () {
         availableTecnici = data.tecnici || [];
 
         if (!preserveSelection) {
-            draftSelectedIds = new Set();
+            draftSelectedIds = new Set(
+                availableTecnici.map(function (tecnico) {
+                    return String(tecnico.id);
+                })
+            );
             syncHiddenInputs(draftSelectedIds);
         } else {
             const validIds = new Set(availableTecnici.map(function (tecnico) {
@@ -342,7 +373,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     syncHiddenInputs(initialSelectedIds);
     if (praticaField && praticaField.value) {
-        loadTecniciForPratica(praticaField.value, true);
+        // In modifica preserva la selezione; in creazione propone tutto il personale del cliente.
+        loadTecniciForPratica(praticaField.value, initialSelectedIds.size > 0);
     } else {
         renderSelectedBadges(initialSelectedIds);
     }

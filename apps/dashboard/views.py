@@ -378,11 +378,13 @@ class SistemaView(TemplateView):
             },
         ]
         context["registry_counts"] = [
+            {"label": "Anagrafiche", "value": Anagrafica.objects.filter(is_active=True).count()},
+            {"label": "Pratiche", "value": Pratica.objects.filter(is_active=True).count()},
             {"label": "Tipologie pratiche", "value": TipologiaPratica.objects.filter(is_active=True).count()},
             {"label": "Categorie", "value": CategoriaPratica.objects.filter(is_active=True).count()},
             {"label": "Macro-categorie", "value": MacroCategoriaPratica.objects.filter(is_active=True).count()},
             {"label": "Template pratiche", "value": TemplatePratica.objects.filter(is_active=True).count()},
-            {"label": "Studi tecnici", "value": StudioTecnico.objects.filter(is_active=True).count()},
+            {"label": "Esterni", "value": StudioTecnico.objects.filter(is_active=True).count()},
             {"label": "Incarichi", "value": IncaricoTecnico.objects.filter(is_active=True).count()},
         ]
         context["system_links"] = [

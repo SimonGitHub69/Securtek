@@ -72,6 +72,12 @@ def build_agenda_query_suffix(pratica_id="", tipologia_id="", cliente_id=""):
     return prefix.replace("?", "&", 1) if prefix else ""
 
 
+def get_selected_cliente(cliente_id):
+    if not cliente_id:
+        return None
+    return Anagrafica.objects.filter(pk=cliente_id, is_active=True).first()
+
+
 def get_agenda_filter_context(filters):
     return {
         "tipologie": TipologiaPratica.objects.filter(is_active=True).order_by("denominazione"),
@@ -80,6 +86,7 @@ def get_agenda_filter_context(filters):
         "selected_tipologia": filters["tipologia_id"],
         "selected_cliente": filters["cliente_id"],
         "selected_pratica_obj": get_selected_pratica(filters["pratica_id"]),
+        "selected_cliente_obj": get_selected_cliente(filters["cliente_id"]),
         "agenda_query_prefix": build_agenda_query_prefix(
             filters["pratica_id"],
             filters["tipologia_id"],
@@ -303,11 +310,28 @@ class EventoAgendaTecniciView(LoginRequiredMixin, View):
         if not pratica_id:
             return JsonResponse({"tecnici": []})
 
-        tecnici = (
-            Tecnico.objects.filter(pratica_id=pratica_id, is_active=True)
-            .select_related("studio_appartenenza", "incarico")
-            .order_by("cognome", "nome")
+        pratica = (
+            Pratica.objects.filter(pk=pratica_id, is_active=True)
+            .select_related("cliente")
+            .first()
         )
+        if not pratica:
+            return JsonResponse({"tecnici": []})
+
+        # Personale dell'anagrafica cliente (e delle sue pratiche), deduplicato.
+        from apps.pratiche.services.personale import deduplica_tecnici, tecnici_per_cliente
+
+        if pratica.cliente_id:
+            tecnici = deduplica_tecnici(
+                tecnici_per_cliente(pratica.cliente_id, pratica_id=pratica.pk),
+                prefer_pratica_id=pratica.pk,
+            )
+        else:
+            tecnici = list(
+                Tecnico.objects.filter(pratica_id=pratica.pk, is_active=True)
+                .select_related("studio_appartenenza", "incarico")
+                .order_by("cognome", "nome")
+            )
 
         return JsonResponse(
             {
@@ -320,6 +344,7 @@ class EventoAgendaTecniciView(LoginRequiredMixin, View):
                         "incarico": tecnico.incarico.denominazione if tecnico.incarico else "",
                         "email": tecnico.email or "",
                         "telefono": tecnico.telefono or "",
+                        "pratica_id": tecnico.pratica_id,
                     }
                     for tecnico in tecnici
                 ]
@@ -332,18 +357,35 @@ class EventoAgendaCreateView(LoginRequiredMixin, CreateView):
     form_class = EventoAgendaForm
     template_name = "agenda/evento_form.html"
 
+    def get_cliente_id(self):
+        return (self.request.GET.get("cliente") or self.request.POST.get("cliente") or "").strip()
+
     def get_initial(self):
         initial = super().get_initial()
         pratica_id = self.request.GET.get("pratica") or ""
         data = self.request.GET.get("data") or ""
+        cliente_id = self.get_cliente_id()
 
         if pratica_id:
             initial["pratica"] = pratica_id
+        elif cliente_id:
+            pratiche = list(
+                Pratica.objects.filter(is_active=True, cliente_id=cliente_id)
+                .exclude(stato=Pratica.Stato.ARCHIVIATA)
+                .order_by("-data_apertura", "-id")[:2]
+            )
+            if len(pratiche) == 1:
+                initial["pratica"] = pratiche[0].pk
 
         if data:
             initial["data_inizio"] = data
 
         return initial
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["cliente_id"] = self.get_cliente_id() or None
+        return kwargs
 
     def form_valid(self, form):
         form.instance.created_by = self.request.user
@@ -356,14 +398,18 @@ class EventoAgendaCreateView(LoginRequiredMixin, CreateView):
         context["page_title"] = "Nuovo evento"
         context["cancel_url"] = self.get_success_url()
         context["selected_tecnici_ids"] = []
+        context["cliente_id"] = self.get_cliente_id()
         return context
 
     def get_success_url(self):
         pratica_id = self.request.GET.get("pratica") or self.request.POST.get("pratica") or ""
+        cliente_id = self.get_cliente_id()
         url = reverse("agenda:calendar")
 
         if pratica_id:
             return f"{url}?pratica={pratica_id}"
+        if cliente_id:
+            return f"{url}?cliente={cliente_id}"
 
         return url
 

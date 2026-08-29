@@ -20,3 +20,14 @@ from .personale import (
     PersonaleAnagraficaUpdateView,
     PersonaleAnagraficaDeleteView,
 )
+from .territorio import (
+    ComuneCreateView,
+    ComuneDeleteView,
+    ComuneJsonView,
+    ComuneListView,
+    ComuneUpdateView,
+    ProvinciaCreateView,
+    ProvinciaDeleteView,
+    ProvinciaListView,
+    ProvinciaUpdateView,
+)

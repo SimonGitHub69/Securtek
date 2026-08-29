@@ -8,6 +8,11 @@ body {
 
 .page-wrapper {
     margin-left: 260px;
+    transition: margin-left .2s ease;
+}
+
+html.st-sidebar-collapsed .page-wrapper {
+    margin-left: 72px;
 }
 
 .table.table-vcenter:not(.st-no-zebra) > tbody > tr:nth-of-type(even) > * {

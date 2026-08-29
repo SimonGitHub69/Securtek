@@ -1,6 +1,6 @@
 {% load static %}
 
-<aside class="st-sidebar">
+<aside class="st-sidebar" id="stSidebar" aria-label="Menu principale">
 
     <div class="st-sidebar-brand">
         <img class="st-logo" src="{% static 'securtek/img/securtek-logo.png' %}" alt="Securtek">
@@ -9,86 +9,140 @@
 
     <nav class="st-sidebar-nav">
 
-        <a class="st-nav-link {% if request.path == '/' %}active{% endif %}" href="/">
+        <a class="st-nav-link {% if request.path == '/' %}active{% endif %}" href="/" title="Dashboard">
             <span class="st-nav-icon"><i class="ti ti-home"></i></span>
             <span class="st-nav-label">Dashboard</span>
         </a>
 
-        <div class="st-nav-section">Gestione</div>
+        <div class="st-nav-submenu" data-submenu="gestione">
+            <button type="button"
+                    class="st-nav-section st-nav-submenu-toggle"
+                    data-submenu-toggle="gestione"
+                    aria-expanded="true"
+                    aria-controls="submenu-gestione"
+                    title="Gestione">
+                <span class="st-nav-submenu-title">Gestione</span>
+                <i class="ti ti-chevron-down st-nav-submenu-chevron"></i>
+            </button>
+            <div class="st-nav-group" id="submenu-gestione" data-submenu-panel="gestione">
+                <a class="st-nav-link {% if request.path|slice:':10' == '/pratiche/' and '/pratiche/categorie/' not in request.path and '/pratiche/macro-categorie/' not in request.path and '/pratiche/tipologie/' not in request.path and '/pratiche/template-pratiche/' not in request.path and '/pratiche/studi-tecnici/' not in request.path and '/pratiche/incarichi/' not in request.path %}active{% endif %}" href="/pratiche/" title="Pratiche">
+                    <span class="st-nav-icon"><i class="ti ti-folder"></i></span>
+                    <span class="st-nav-label">Pratiche</span>
+                </a>
 
-        <a class="st-nav-link {% if request.path|slice:':10' == '/pratiche/' and '/pratiche/categorie/' not in request.path and '/pratiche/macro-categorie/' not in request.path and '/pratiche/tipologie/' not in request.path and '/pratiche/template-pratiche/' not in request.path and '/pratiche/studi-tecnici/' not in request.path and '/pratiche/incarichi/' not in request.path %}active{% endif %}" href="/pratiche/">
-            <span class="st-nav-icon"><i class="ti ti-folder"></i></span>
-            <span class="st-nav-label">Pratiche</span>
-        </a>
+                <a class="st-nav-link {% if request.path|slice:':13' == '/anagrafiche/' and '/anagrafiche/province/' not in request.path and '/anagrafiche/comuni/' not in request.path and '/anagrafiche/api/' not in request.path %}active{% endif %}" href="/anagrafiche/" title="Anagrafiche">
+                    <span class="st-nav-icon"><i class="ti ti-building"></i></span>
+                    <span class="st-nav-label">Anagrafiche</span>
+                </a>
 
-        <a class="st-nav-link {% if request.path|slice:':13' == '/anagrafiche/' %}active{% endif %}" href="/anagrafiche/">
-            <span class="st-nav-icon"><i class="ti ti-building"></i></span>
-            <span class="st-nav-label">Anagrafiche</span>
-        </a>
+                <a class="st-nav-link {% if request.path|slice:':24' == '/pratiche/studi-tecnici/' %}active{% endif %}" href="/pratiche/studi-tecnici/" title="Esterni">
+                    <span class="st-nav-icon"><i class="ti ti-briefcase"></i></span>
+                    <span class="st-nav-label">Esterni</span>
+                </a>
 
-        <a class="st-nav-link {% if request.path|slice:':24' == '/pratiche/studi-tecnici/' %}active{% endif %}" href="/pratiche/studi-tecnici/">
-            <span class="st-nav-icon"><i class="ti ti-briefcase"></i></span>
-            <span class="st-nav-label">Studi Tecnici</span>
-        </a>
+                <a class="st-nav-link {% if request.path|slice:':8' == '/agenda/' and request.path != '/agenda/parametri-mail/' %}active{% endif %}" href="/agenda/" title="Agenda">
+                    <span class="st-nav-icon"><i class="ti ti-calendar"></i></span>
+                    <span class="st-nav-label">Agenda</span>
+                </a>
 
-        <a class="st-nav-link {% if request.path|slice:':8' == '/agenda/' and request.path != '/agenda/parametri-mail/' %}active{% endif %}" href="/agenda/">
-            <span class="st-nav-icon"><i class="ti ti-calendar"></i></span>
-            <span class="st-nav-label">Agenda</span>
-        </a>
+                <a class="st-nav-link {% if request.path == '/documenti/' %}active{% endif %}" href="/documenti/" title="Documenti">
+                    <span class="st-nav-icon"><i class="ti ti-file-text"></i></span>
+                    <span class="st-nav-label">Documenti</span>
+                </a>
+            </div>
+        </div>
 
-        <a class="st-nav-link {% if request.path == '/documenti/' %}active{% endif %}" href="/documenti/">
-            <span class="st-nav-icon"><i class="ti ti-file-text"></i></span>
-            <span class="st-nav-label">Documenti</span>
-        </a>
+        <div class="st-nav-submenu" data-submenu="analisi">
+            <button type="button"
+                    class="st-nav-section st-nav-submenu-toggle"
+                    data-submenu-toggle="analisi"
+                    aria-expanded="true"
+                    aria-controls="submenu-analisi"
+                    title="Analisi">
+                <span class="st-nav-submenu-title">Analisi</span>
+                <i class="ti ti-chevron-down st-nav-submenu-chevron"></i>
+            </button>
+            <div class="st-nav-group" id="submenu-analisi" data-submenu-panel="analisi">
+                <a class="st-nav-link" href="#" title="Report">
+                    <span class="st-nav-icon"><i class="ti ti-chart-bar"></i></span>
+                    <span class="st-nav-label">Report</span>
+                </a>
+            </div>
+        </div>
 
-        <div class="st-nav-section">Analisi</div>
+        <div class="st-nav-submenu" data-submenu="parametri">
+            <button type="button"
+                    class="st-nav-section st-nav-submenu-toggle"
+                    data-submenu-toggle="parametri"
+                    aria-expanded="true"
+                    aria-controls="submenu-parametri"
+                    title="Parametri">
+                <span class="st-nav-submenu-title">Parametri</span>
+                <i class="ti ti-chevron-down st-nav-submenu-chevron"></i>
+            </button>
+            <div class="st-nav-group" id="submenu-parametri" data-submenu-panel="parametri">
+                <a class="st-nav-link {% if request.path|slice:':20' == '/pratiche/tipologie/' %}active{% endif %}" href="/pratiche/tipologie/" title="Tipologie pratiche">
+                    <span class="st-nav-icon"><i class="ti ti-list-details"></i></span>
+                    <span class="st-nav-label">Tipologie pratiche</span>
+                </a>
 
-        <a class="st-nav-link" href="#">
-            <span class="st-nav-icon"><i class="ti ti-chart-bar"></i></span>
-            <span class="st-nav-label">Report</span>
-        </a>
+                <a class="st-nav-link {% if request.path|slice:':20' == '/pratiche/categorie/' %}active{% endif %}" href="/pratiche/categorie/" title="Categorie">
+                    <span class="st-nav-icon"><i class="ti ti-tags"></i></span>
+                    <span class="st-nav-label">Categorie</span>
+                </a>
 
-        <div class="st-nav-section">Parametri</div>
+                <a class="st-nav-link {% if request.path|slice:':26' == '/pratiche/macro-categorie/' %}active{% endif %}" href="/pratiche/macro-categorie/" title="Macro-categorie">
+                    <span class="st-nav-icon"><i class="ti ti-category"></i></span>
+                    <span class="st-nav-label">Macro-categorie</span>
+                </a>
 
-        <div class="st-nav-group">
-            <a class="st-nav-link {% if request.path|slice:':20' == '/pratiche/tipologie/' %}active{% endif %}" href="/pratiche/tipologie/">
-                <span class="st-nav-icon"><i class="ti ti-list-details"></i></span>
-                <span class="st-nav-label">Tipologie pratiche</span>
-            </a>
+                <a class="st-nav-link {% if request.path|slice:':28' == '/pratiche/template-pratiche/' %}active{% endif %}" href="/pratiche/template-pratiche/" title="Template pratiche">
+                    <span class="st-nav-icon"><i class="ti ti-template"></i></span>
+                    <span class="st-nav-label">Template pratiche</span>
+                </a>
 
-            <a class="st-nav-link {% if request.path|slice:':20' == '/pratiche/categorie/' %}active{% endif %}" href="/pratiche/categorie/">
-                <span class="st-nav-icon"><i class="ti ti-tags"></i></span>
-                <span class="st-nav-label">Categorie</span>
-            </a>
+                <a class="st-nav-link {% if request.path|slice:':20' == '/pratiche/incarichi/' %}active{% endif %}" href="/pratiche/incarichi/" title="Incarichi">
+                    <span class="st-nav-icon"><i class="ti ti-id-badge-2"></i></span>
+                    <span class="st-nav-label">Incarichi</span>
+                </a>
 
-            <a class="st-nav-link {% if request.path|slice:':26' == '/pratiche/macro-categorie/' %}active{% endif %}" href="/pratiche/macro-categorie/">
-                <span class="st-nav-icon"><i class="ti ti-category"></i></span>
-                <span class="st-nav-label">Macro-categorie</span>
-            </a>
+                <a class="st-nav-link {% if request.path|slice:':21' == '/anagrafiche/province/' %}active{% endif %}" href="/anagrafiche/province/" title="Province">
+                    <span class="st-nav-icon"><i class="ti ti-map-2"></i></span>
+                    <span class="st-nav-label">Province</span>
+                </a>
 
-            <a class="st-nav-link {% if request.path|slice:':28' == '/pratiche/template-pratiche/' %}active{% endif %}" href="/pratiche/template-pratiche/">
-                <span class="st-nav-icon"><i class="ti ti-template"></i></span>
-                <span class="st-nav-label">Template pratiche</span>
-            </a>
+                <a class="st-nav-link {% if '/anagrafiche/comuni' in request.path %}active{% endif %}" href="/anagrafiche/comuni/" title="Comuni">
+                    <span class="st-nav-icon"><i class="ti ti-building-community"></i></span>
+                    <span class="st-nav-label">Comuni</span>
+                </a>
 
-            <a class="st-nav-link {% if request.path|slice:':20' == '/pratiche/incarichi/' %}active{% endif %}" href="/pratiche/incarichi/">
-                <span class="st-nav-icon"><i class="ti ti-id-badge-2"></i></span>
-                <span class="st-nav-label">Incarichi</span>
-            </a>
-
-            <a class="st-nav-link {% if request.path == '/agenda/parametri-mail/' %}active{% endif %}" href="/agenda/parametri-mail/">
-                <span class="st-nav-icon"><i class="ti ti-mail-cog"></i></span>
-                <span class="st-nav-label">Parametri Mail</span>
-            </a>
+                <a class="st-nav-link {% if request.path == '/agenda/parametri-mail/' %}active{% endif %}" href="/agenda/parametri-mail/" title="Parametri Mail">
+                    <span class="st-nav-icon"><i class="ti ti-mail-cog"></i></span>
+                    <span class="st-nav-label">Parametri Mail</span>
+                </a>
+            </div>
         </div>
 
         <div class="st-nav-section">Sistema</div>
 
-        <a class="st-nav-link {% if request.path == '/sistema/' %}active{% endif %}" href="/sistema/">
+        <a class="st-nav-link {% if request.path == '/sistema/' %}active{% endif %}" href="/sistema/" title="Sistema">
             <span class="st-nav-icon"><i class="ti ti-settings"></i></span>
             <span class="st-nav-label">Sistema</span>
         </a>
 
     </nav>
+
+    <div class="st-sidebar-footer">
+        <button type="button"
+                class="st-sidebar-toggle"
+                data-sidebar-toggle
+                aria-controls="stSidebar"
+                aria-expanded="true"
+                title="Comprimi menu"
+                aria-label="Comprimi menu">
+            <i class="ti ti-layout-sidebar-left-collapse" data-sidebar-toggle-icon></i>
+            <span class="st-sidebar-toggle-label">Comprimi</span>
+        </button>
+    </div>
 
 </aside>

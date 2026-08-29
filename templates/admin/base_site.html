@@ -1,0 +1,24 @@
+{% extends "admin/base.html" %}
+{% load i18n static %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block branding %}
+<h1 id="site-name"><a href="{% url 'admin:index' %}">{{ site_header|default:_('Django administration') }}</a></h1>
+{% endblock %}
+
+{% block nav-global %}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<script src="{% static 'securtek/js/disable-autocomplete.js' %}"></script>
+{% if user.is_authenticated and request.session.securtek_app %}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        document.body.dataset.logoutOnClose = "1";
+        document.body.dataset.logoutUrl = "{% url 'logout' %}";
+    });
+</script>
+<script src="{% static 'securtek/js/logout-on-close.js' %}?v=20260722d"></script>
+{% endif %}
+{% endblock %}

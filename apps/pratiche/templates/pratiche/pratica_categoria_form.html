@@ -115,6 +115,17 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
     }
 
+    function nativeOpenIconClass(extension) {
+        const ext = (extension || "").toLowerCase();
+        if (ext === "doc" || ext === "docx") {
+            return "ti-file-type-doc text-blue";
+        }
+        if (ext === "xls" || ext === "xlsx" || ext === "xlsm") {
+            return "ti-file-type-xls text-green";
+        }
+        return "ti-launch";
+    }
+
     function setMessage(text, isWarning = true) {
         message.textContent = text;
         message.hidden = !text;
@@ -146,12 +157,13 @@ document.addEventListener("DOMContentLoaded", function () {
             actionsCell.className = "text-end";
 
             if (file.preview_open_url) {
+                const nativeOpen = ["DOC", "DOCX", "XLS", "XLSX", "XLSM"].includes(file.extension);
                 openButton.type = "button";
                 openButton.className = "btn btn-icon btn-outline-primary btn-sm";
-                openButton.title = "Apri file";
+                openButton.title = nativeOpen ? "Apri con applicazione originale" : "Apri anteprima";
                 openButton.dataset.openUrl = file.preview_open_url;
-                openButton.dataset.nativeOpen = ["DOC", "DOCX", "XLS", "XLSX", "XLSM"].includes(file.extension) ? "1" : "0";
-                openButton.innerHTML = '<i class="ti ti-eye"></i>';
+                openButton.dataset.nativeOpen = nativeOpen ? "1" : "0";
+                openButton.innerHTML = `<i class="ti ${nativeOpen ? nativeOpenIconClass(file.extension) : "ti-eye"}"></i>`;
                 actionsCell.appendChild(openButton);
             } else {
                 actionsCell.textContent = "-";
@@ -183,7 +195,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 });
                 const data = await response.json();
 
-                if (!response.ok || data.error) {
+                if (!response.ok || data.success === false || data.opened === false || data.error) {
                     setMessage(data.error || "Impossibile aprire il file.");
                     return;
                 }
@@ -226,7 +238,7 @@ document.addEventListener("DOMContentLoaded", function () {
             renderFiles(data.files || []);
 
             if (!data.files || data.files.length === 0) {
-                setMessage("Nessun file supportato trovato nella cartella.", false);
+                setMessage("Nessun file trovato nella cartella.", false);
             }
         } catch (error) {
             setMessage("Impossibile leggere l'anteprima della cartella.");

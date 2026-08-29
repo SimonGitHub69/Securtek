@@ -310,7 +310,19 @@
                                    class="btn btn-icon btn-outline-primary"
                                    {% if not document.open_app_url %}target="_blank"{% endif %}
                                    title="{% if document.open_app_url %}Apri con applicazione originale{% else %}Apri documento{% endif %}">
-                                    <i class="ti ti-eye"></i>
+                                    {% if document.open_app_url %}
+                                        {% with ext=document.type|lower %}
+                                            {% if ext == "doc" or ext == "docx" %}
+                                                <i class="ti ti-file-type-doc text-blue"></i>
+                                            {% elif ext == "xls" or ext == "xlsx" or ext == "xlsm" %}
+                                                <i class="ti ti-file-type-xls text-green"></i>
+                                            {% else %}
+                                                <i class="ti ti-launch"></i>
+                                            {% endif %}
+                                        {% endwith %}
+                                    {% else %}
+                                        <i class="ti ti-eye"></i>
+                                    {% endif %}
                                 </a>
                             </td>
                         </tr>

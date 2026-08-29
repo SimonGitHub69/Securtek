@@ -1,0 +1,177 @@
+{% extends "base/layout.html" %}
+
+{% block page_title %}
+Comuni
+{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+.st-kpi-grid { display: grid; gap: 1rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.st-kpi-card { align-items: stretch; background: var(--tblr-bg-surface, #fff); border: 1px solid var(--tblr-border-color, #e6e8eb); border-radius: 8px; box-shadow: 0 0.125rem 0.25rem rgba(15, 23, 42, 0.04); display: flex; min-height: 96px; overflow: hidden; }
+.st-kpi-accent { flex: 0 0 4px; }
+.st-kpi-content { display: flex; flex: 1; justify-content: space-between; padding: 1rem; }
+.st-kpi-label { color: var(--tblr-secondary, #667085); font-size: 0.875rem; margin-bottom: 0.35rem; }
+.st-kpi-value { font-size: 1.75rem; font-weight: 700; line-height: 1; }
+.st-kpi-icon { align-items: center; border-radius: 8px; display: flex; height: 42px; justify-content: center; width: 42px; }
+.st-kpi-icon .ti { font-size: 1.35rem; }
+.st-config-empty { color: var(--tblr-secondary, #667085); padding: 3rem 1.5rem; text-align: center; }
+.st-config-empty .ti { display: block; font-size: 2.5rem; margin-bottom: 0.75rem; opacity: 0.45; }
+@media (max-width: 992px) { .st-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 576px) { .st-kpi-grid { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">Comuni</h2>
+            <div class="text-secondary">Elenco dei comuni italiani usati negli indirizzi.</div>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'anagrafiche:provincia_list' %}" class="btn btn-outline-secondary me-1">
+                <i class="ti ti-map-2"></i>
+                Province
+            </a>
+            <a href="{% url 'anagrafiche:comune_create' %}" class="btn btn-primary">
+                <i class="ti ti-plus"></i>
+                Nuovo comune
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="st-kpi-grid mb-4">
+    <div class="st-kpi-card">
+        <div class="st-kpi-accent bg-primary"></div>
+        <div class="st-kpi-content">
+            <div>
+                <div class="st-kpi-label">Totale comuni</div>
+                <div class="st-kpi-value">{{ comune_counts.totale }}</div>
+            </div>
+            <div class="st-kpi-icon bg-primary-lt text-primary"><i class="ti ti-building-community"></i></div>
+        </div>
+    </div>
+    <div class="st-kpi-card">
+        <div class="st-kpi-accent bg-blue"></div>
+        <div class="st-kpi-content">
+            <div>
+                <div class="st-kpi-label">Con CAP</div>
+                <div class="st-kpi-value">{{ comune_counts.con_cap }}</div>
+            </div>
+            <div class="st-kpi-icon bg-blue-lt text-blue"><i class="ti ti-mail"></i></div>
+        </div>
+    </div>
+    <div class="st-kpi-card">
+        <div class="st-kpi-accent bg-green"></div>
+        <div class="st-kpi-content">
+            <div>
+                <div class="st-kpi-label">Province coperte</div>
+                <div class="st-kpi-value">{{ comune_counts.province }}</div>
+            </div>
+            <div class="st-kpi-icon bg-green-lt text-green"><i class="ti ti-map-2"></i></div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-5 col-lg-4">
+                    <label class="form-label" for="comune-search">Cerca comuni</label>
+                    <input type="search" id="comune-search" name="q" value="{{ q }}" class="form-control"
+                           placeholder="Nome, CAP o codice">
+                </div>
+                <div class="col-md-4 col-lg-3">
+                    <label class="form-label" for="comune-provincia">Provincia</label>
+                    <select id="comune-provincia" name="provincia" class="form-select">
+                        <option value="">Tutte</option>
+                        {% for provincia in province %}
+                            <option value="{{ provincia.sigla }}" {% if provincia_filter == provincia.sigla %}selected{% endif %}>
+                                {{ provincia.denominazione }} ({{ provincia.sigla }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-primary"><i class="ti ti-search"></i> Cerca</button>
+                </div>
+                {% if has_filters %}
+                    <div class="col-auto">
+                        <a href="{% url 'anagrafiche:comune_list' %}" class="btn btn-outline-secondary">Pulisci</a>
+                    </div>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Elenco comuni</h3>
+    </div>
+    {% if comuni %}
+        <div class="table-responsive">
+            <table class="table table-vcenter card-table">
+                <thead>
+                    <tr>
+                        <th>Comune</th>
+                        <th>Provincia</th>
+                        <th>CAP</th>
+                        <th class="d-none d-lg-table-cell">Codice ISTAT</th>
+                        <th class="text-end">Azioni</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for comune in comuni %}
+                        <tr>
+                            <td class="fw-semibold">{{ comune.denominazione }}</td>
+                            <td>
+                                <span class="badge bg-blue-lt">{{ comune.provincia.sigla }}</span>
+                                <span class="text-secondary small ms-1 d-none d-md-inline">{{ comune.provincia.denominazione }}</span>
+                            </td>
+                            <td>{{ comune.cap|default:"-" }}</td>
+                            <td class="d-none d-lg-table-cell">{{ comune.codice_istat }}</td>
+                            <td class="text-end">
+                                <a href="{% url 'anagrafiche:comune_update' comune.pk %}"
+                                   class="btn btn-icon btn-outline-primary" title="Modifica">
+                                    <i class="ti ti-edit"></i>
+                                </a>
+                                <form method="post" action="{% url 'anagrafiche:comune_delete' comune.pk %}" class="d-inline"
+                                      onsubmit="return confirm('Eliminare il comune {{ comune.denominazione }}?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-icon btn-outline-danger" title="Elimina">
+                                        <i class="ti ti-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if is_paginated %}
+            <div class="card-footer d-flex justify-content-end">
+                {% if page_obj.has_previous %}
+                    <a class="btn btn-outline-secondary btn-sm me-1" href="?page={{ page_obj.previous_page_number }}{% if filter_query %}&{{ filter_query }}{% endif %}">Precedente</a>
+                {% endif %}
+                <span class="align-self-center small text-secondary mx-2">Pagina {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                {% if page_obj.has_next %}
+                    <a class="btn btn-outline-secondary btn-sm" href="?page={{ page_obj.next_page_number }}{% if filter_query %}&{{ filter_query }}{% endif %}">Successiva</a>
+                {% endif %}
+            </div>
+        {% endif %}
+    {% else %}
+        <div class="st-config-empty">
+            <i class="ti ti-building-off"></i>
+            <div class="fw-semibold mb-1">Nessun comune</div>
+            <div class="small mb-3">Carica l'elenco italiano con il comando <code>carica_province_comuni</code>.</div>
+            <a href="{% url 'anagrafiche:comune_create' %}" class="btn btn-primary btn-sm">Nuovo comune</a>
+        </div>
+    {% endif %}
+</div>
+
+{% endblock %}

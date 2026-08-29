@@ -5,7 +5,19 @@ from apps.agenda.models import ConfigurazioneNotificaEmail, EventoAgenda
 
 @admin.register(EventoAgenda)
 class EventoAgendaAdmin(admin.ModelAdmin):
-    list_display = ("titolo", "tipo", "pratica", "data_inizio", "data_fine", "giorni_preavviso", "stato", "notifica_email", "is_active")
+    list_display = (
+        "titolo",
+        "tipo",
+        "pratica",
+        "data_inizio",
+        "data_fine",
+        "giorni_preavviso",
+        "stato",
+        "notifica_email",
+        "notificato_il",
+        "is_active",
+    )
+    readonly_fields = ("notificato_il",)
     search_fields = ("titolo", "pratica__codice", "pratica__titolo", "descrizione", "tecnici__nome", "tecnici__cognome")
     list_filter = ("tipo", "stato", "is_active", "data_inizio")
     autocomplete_fields = ("pratica",)

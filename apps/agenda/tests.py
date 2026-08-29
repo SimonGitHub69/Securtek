@@ -10,7 +10,7 @@ from apps.agenda.forms import ConfigurazioneNotificaEmailForm
 from apps.agenda.models import ConfigurazioneNotificaEmail, EventoAgenda
 from apps.agenda.services.notifiche import get_due_events
 from apps.anagrafiche.models import Anagrafica
-from apps.pratiche.models import Pratica, TipologiaPratica
+from apps.pratiche.models import Pratica, Tecnico, TipologiaPratica
 
 
 class GiorniPreavvisoTests(TestCase):
@@ -216,3 +216,101 @@ class ConfigurazioneNotificaEmailViewTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, ["prova@example.com"])
         self.assertIn("[Securtek] Email di test", mail.outbox[0].subject)
+
+
+class EventoAgendaPersonaleClienteTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(username="agenda", password="secret")
+        self.client.force_login(self.user)
+
+        self.cliente = Anagrafica.objects.create(ragione_sociale="Cliente Personale")
+        tipologia = TipologiaPratica.objects.create(denominazione="Tipologia Personale")
+        self.pratica_a = Pratica.objects.create(
+            titolo="Pratica A",
+            cliente=self.cliente,
+            tipologia=tipologia,
+        )
+        self.pratica_b = Pratica.objects.create(
+            titolo="Pratica B",
+            cliente=self.cliente,
+            tipologia=tipologia,
+        )
+        from apps.pratiche.models import Tecnico
+
+        self.tecnico_a = Tecnico.objects.create(
+            pratica=self.pratica_a,
+            anagrafica=self.cliente,
+            nome="Mario",
+            cognome="Rossi",
+            email="mario@example.com",
+        )
+        self.tecnico_b = Tecnico.objects.create(
+            pratica=self.pratica_b,
+            anagrafica=self.cliente,
+            nome="Luigi",
+            cognome="Bianchi",
+            email="luigi@example.com",
+        )
+        self.tecnico_anagrafica = Tecnico.objects.create(
+            anagrafica=self.cliente,
+            pratica=None,
+            nome="Anna",
+            cognome="Verdi",
+            email="anna@example.com",
+        )
+
+    def test_tecnici_endpoint_returns_cliente_personale(self):
+        response = self.client.get(
+            reverse("agenda:evento_tecnici"),
+            {"pratica": self.pratica_b.pk},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        ids = {item["id"] for item in response.json()["tecnici"]}
+        self.assertIn(self.tecnico_a.pk, ids)
+        self.assertIn(self.tecnico_b.pk, ids)
+        self.assertIn(self.tecnico_anagrafica.pk, ids)
+
+    def test_form_accepts_tecnico_from_anagrafica(self):
+        from apps.agenda.forms import EventoAgendaForm
+
+        form = EventoAgendaForm(
+            data={
+                "pratica": self.pratica_b.pk,
+                "titolo": "Sopralluogo",
+                "tipo": EventoAgenda.Tipo.LAVORO,
+                "stato": EventoAgenda.Stato.PROGRAMMATO,
+                "data_inizio": "2026-07-29",
+                "tecnici": [self.tecnico_anagrafica.pk],
+                "giorni_preavviso": 7,
+            }
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        evento = form.save()
+        self.assertEqual(
+            list(evento.tecnici.values_list("pk", flat=True)),
+            [self.tecnico_anagrafica.pk],
+        )
+
+    def test_anagrafica_personale_create(self):
+        response = self.client.post(
+            reverse("anagrafiche:personale_create", kwargs={"anagrafica_pk": self.cliente.pk}),
+            {
+                "nome": "Paolo",
+                "cognome": "Neri",
+                "email": "paolo@example.com",
+                "telefono": "",
+                "note": "",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            Tecnico.objects.filter(
+                anagrafica=self.cliente,
+                pratica__isnull=True,
+                cognome="Neri",
+                is_active=True,
+            ).exists()
+        )

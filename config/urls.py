@@ -18,8 +18,15 @@ from django.contrib import admin
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import include, path
+from config.views import LogoutView, app_login_entry
+
+admin.site.site_header = "SECURTEK"
+admin.site.site_title = "SECURTEK"
+admin.site.index_title = "Amministrazione"
 
 urlpatterns = [
+    path("login/", app_login_entry, name="app_login"),
+    path("logout/", LogoutView.as_view(), name="logout"),
     path("admin/", admin.site.urls),
     path("anagrafiche/", include("apps.anagrafiche.urls")),
     path("agenda/", include("apps.agenda.urls")),
@@ -27,6 +34,6 @@ urlpatterns = [
     path("", include("apps.dashboard.urls")),
 ]
 
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Media: in studio/LAN li serve Django anche con Gunicorn (senza Nginx).
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

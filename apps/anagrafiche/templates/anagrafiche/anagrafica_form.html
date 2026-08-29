@@ -1,4 +1,5 @@
 {% extends "base/layout.html" %}
+{% load static %}
 
 {% block page_title %}
 {% if object %}Modifica anagrafica{% else %}Nuova anagrafica{% endif %}
@@ -310,7 +311,7 @@
 
                 <div id="indirizziRows">
                     {% for indirizzo_form in indirizzo_formset %}
-                    <div class="st-form-panel js-formset-row">
+                    <div class="st-form-panel js-formset-row js-indirizzo-row">
                         {% for hidden in indirizzo_form.hidden_fields %}
                             {{ hidden }}
                         {% endfor %}
@@ -356,14 +357,14 @@
                                 </div>
                             </div>
 
-                            <div class="col-md-2">
+                            <div class="col-md-3">
                                 <div class="mb-3">
-                                    <label class="form-label" for="{{ indirizzo_form.cap.id_for_label }}">
-                                        {{ indirizzo_form.cap.label }}
+                                    <label class="form-label" for="{{ indirizzo_form.provincia.id_for_label }}">
+                                        {{ indirizzo_form.provincia.label }}
                                     </label>
-                                    {{ indirizzo_form.cap }}
-                                    {% if indirizzo_form.cap.errors %}
-                                        <div class="invalid-feedback d-block">{{ indirizzo_form.cap.errors|join:", " }}</div>
+                                    {{ indirizzo_form.provincia }}
+                                    {% if indirizzo_form.provincia.errors %}
+                                        <div class="invalid-feedback d-block">{{ indirizzo_form.provincia.errors|join:", " }}</div>
                                     {% endif %}
                                 </div>
                             </div>
@@ -382,17 +383,17 @@
 
                             <div class="col-md-2">
                                 <div class="mb-3">
-                                    <label class="form-label" for="{{ indirizzo_form.provincia.id_for_label }}">
-                                        {{ indirizzo_form.provincia.label }}
+                                    <label class="form-label" for="{{ indirizzo_form.cap.id_for_label }}">
+                                        {{ indirizzo_form.cap.label }}
                                     </label>
-                                    {{ indirizzo_form.provincia }}
-                                    {% if indirizzo_form.provincia.errors %}
-                                        <div class="invalid-feedback d-block">{{ indirizzo_form.provincia.errors|join:", " }}</div>
+                                    {{ indirizzo_form.cap }}
+                                    {% if indirizzo_form.cap.errors %}
+                                        <div class="invalid-feedback d-block">{{ indirizzo_form.cap.errors|join:", " }}</div>
                                     {% endif %}
                                 </div>
                             </div>
 
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="mb-3">
                                     <label class="form-label" for="{{ indirizzo_form.nazione.id_for_label }}">
                                         {{ indirizzo_form.nazione.label }}
@@ -428,7 +429,7 @@
                 </div>
 
                 <template id="indirizziEmptyForm">
-                    <div class="st-form-panel js-formset-row">
+                    <div class="st-form-panel js-formset-row js-indirizzo-row">
                         {% for hidden in indirizzo_formset.empty_form.hidden_fields %}
                             {{ hidden }}
                         {% endfor %}
@@ -461,12 +462,12 @@
                                 </div>
                             </div>
 
-                            <div class="col-md-2">
+                            <div class="col-md-3">
                                 <div class="mb-3">
-                                    <label class="form-label" for="{{ indirizzo_formset.empty_form.cap.id_for_label }}">
-                                        {{ indirizzo_formset.empty_form.cap.label }}
+                                    <label class="form-label" for="{{ indirizzo_formset.empty_form.provincia.id_for_label }}">
+                                        {{ indirizzo_formset.empty_form.provincia.label }}
                                     </label>
-                                    {{ indirizzo_formset.empty_form.cap }}
+                                    {{ indirizzo_formset.empty_form.provincia }}
                                 </div>
                             </div>
 
@@ -481,14 +482,14 @@
 
                             <div class="col-md-2">
                                 <div class="mb-3">
-                                    <label class="form-label" for="{{ indirizzo_formset.empty_form.provincia.id_for_label }}">
-                                        {{ indirizzo_formset.empty_form.provincia.label }}
+                                    <label class="form-label" for="{{ indirizzo_formset.empty_form.cap.id_for_label }}">
+                                        {{ indirizzo_formset.empty_form.cap.label }}
                                     </label>
-                                    {{ indirizzo_formset.empty_form.provincia }}
+                                    {{ indirizzo_formset.empty_form.cap }}
                                 </div>
                             </div>
 
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="mb-3">
                                     <label class="form-label" for="{{ indirizzo_formset.empty_form.nazione.id_for_label }}">
                                         {{ indirizzo_formset.empty_form.nazione.label }}
@@ -740,6 +741,7 @@
 
 {% block extra_js %}
 {{ block.super }}
+<script src="{% static 'securtek/js/indirizzi-territorio.js' %}"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     function setSectionCollapsed(button, section, collapsed, persist) {
@@ -817,6 +819,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (newRow && window.SecurtekDisableAutocomplete) {
             window.SecurtekDisableAutocomplete(newRow);
+        }
+
+        if (newRow && prefix === "indirizzi") {
+            document.dispatchEvent(new CustomEvent("securtek:formset-row-added", {
+                detail: { row: newRow, prefix: prefix }
+            }));
         }
 
         // Se la sezione e' compatta, espandila quando si aggiunge una riga.
