@@ -27,9 +27,10 @@ Comportamento:
 - chiudi con la **X** → logout automatico
 - riapri → schermata di login
 
-## Client Mac (opzionale)
+## Client Mac (altra postazione, stessa rete)
 
-Usa `deploy/macos/SecurtekApp.command` (modifica `ORIGIN` all’interno).
+Copia `deploy/macos-client/` sul Mac utente e fai doppio clic su **InstallClient.command**.
+Installa helper cartelle + `Securtek.app`. Dettagli: `deploy/macos-client/README.md`.
 
 ## Nota
 

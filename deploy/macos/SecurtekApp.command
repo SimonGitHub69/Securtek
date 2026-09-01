@@ -1,46 +1,53 @@
 #!/bin/bash
-# Securtek App (macOS client) — finestra Chrome/Edge in modalità --app
+# Securtek App (macOS) — finestra dedicata Edge/Chrome --app (niente Safari, niente open -na).
 #
 # 1) Modifica ORIGIN con l'URL del server Mac
-# 2) sed -i '' $'s/\r$//' SecurtekApp.command && chmod +x SecurtekApp.command
-# 3) Doppio clic per avviare
+# 2) Opzionale: BROWSER=edge|chrome
+# 3) sed -i '' $'s/\r$//' SecurtekApp.command && chmod +x SecurtekApp.command
+# 4) Doppio clic per avviare
 
 set -euo pipefail
 
-# --- configura qui l'URL del server Securtek ---
 ORIGIN="http://192.168.2.76:8000"
-# Esempio in rete locale:
-# ORIGIN="http://192.168.1.50:8000"
-# -----------------------------------------------
+BROWSER="${BROWSER:-edge}"
 
 LOGIN="${ORIGIN}/login/?app=1"
 PROFILE="${HOME}/Library/Application Support/SecurtekApp"
-
 mkdir -p "${PROFILE}"
 
-CHROME="/Applications/Google Chrome.app"
-EDGE="/Applications/Microsoft Edge.app"
+APP_FLAGS=(
+  --app="${LOGIN}"
+  --user-data-dir="${PROFILE}"
+  --unsafely-treat-insecure-origin-as-secure="${ORIGIN}"
+  --test-type
+  --no-first-run
+  --no-default-browser-check
+  --no-startup-window
+  --disable-session-crashed-bubble
+  --disable-features=TranslateUI,InsecureDownloadWarnings,BlockInsecurePrivateNetworkRequests
+)
 
-if [[ -d "${CHROME}" ]]; then
-  open -na "${CHROME}" --args \
-    --app="${LOGIN}" \
-    --user-data-dir="${PROFILE}" \
-    --unsafely-treat-insecure-origin-as-secure="${ORIGIN}" \
-    --test-type \
-    --disable-features=InsecureDownloadWarnings
-elif [[ -d "${EDGE}" ]]; then
-  open -na "${EDGE}" --args \
-    --app="${LOGIN}" \
-    --user-data-dir="${PROFILE}" \
-    --unsafely-treat-insecure-origin-as-secure="${ORIGIN}" \
-    --test-type \
-    --disable-features=InsecureDownloadWarnings
-else
-  osascript -e 'display alert "Securtek" message "Chrome o Edge non trovati. Installali e riprova." as critical'
-  exit 1
-fi
+launch_edge() {
+  local EDGE_BIN="/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"
+  [[ -x "${EDGE_BIN}" ]] || return 1
+  "${EDGE_BIN}" "${APP_FLAGS[@]}" >/dev/null 2>&1 &
+}
 
-# Chiude la finestra Terminale aperta dal doppio clic su .command
+launch_chrome() {
+  local CHROME_BIN="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+  [[ -x "${CHROME_BIN}" ]] || return 1
+  "${CHROME_BIN}" "${APP_FLAGS[@]}" >/dev/null 2>&1 &
+}
+
+case "${BROWSER}" in
+  chrome)
+    launch_chrome || launch_edge
+    ;;
+  edge|*)
+    launch_edge || launch_chrome
+    ;;
+esac
+
 osascript >/dev/null 2>&1 <<'APPLESCRIPT' &
 tell application "Terminal"
   try
