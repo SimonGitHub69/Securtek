@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+  LaunchDaemon: parte all'accensione del Mac senza login utente.
+  Installare con: sudo ./deploy/macos/install-gunicorn-daemon.sh
+-->
+<dict>
+    <key>Label</key>
+    <string>com.securtek.gunicorn</string>
+
+    <key>UserName</key>
+    <string>__RUN_USER__</string>
+
+    <key>GroupName</key>
+    <string>__RUN_GROUP__</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__PROJECT_ROOT__/.venv/bin/gunicorn</string>
+        <string>-c</string>
+        <string>__PROJECT_ROOT__/deploy/macos/gunicorn.conf.py</string>
+        <string>config.wsgi:application</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__PROJECT_ROOT__</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>DJANGO_SETTINGS_MODULE</key>
+        <string>config.settings</string>
+        <key>HOME</key>
+        <string>__RUN_HOME__</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>__PROJECT_ROOT__/logs/gunicorn.launchd.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>__PROJECT_ROOT__/logs/gunicorn.launchd.err.log</string>
+</dict>
+</plist>

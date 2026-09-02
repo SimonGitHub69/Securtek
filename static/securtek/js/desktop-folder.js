@@ -88,6 +88,49 @@
         });
     }
 
+    function pickViaHelperPopup(title) {
+        return new Promise(function (resolve, reject) {
+            var openerOrigin = window.location.origin || "*";
+            var safeTitle = title || "Seleziona cartella pratica";
+            var url =
+                HELPER_BASE +
+                "/pick-ui?title=" +
+                encodeURIComponent(safeTitle) +
+                "&opener=" +
+                encodeURIComponent(openerOrigin);
+            var popup = window.open(
+                url,
+                "securtek-folder-picker",
+                "popup=yes,width=1,height=1,left=-10000,top=-10000,noopener=no,noreferrer=no"
+            );
+            if (!popup) {
+                reject(new Error("Popup bloccato. Consenti i popup per Securtek e riprova."));
+                return;
+            }
+            var timer = window.setTimeout(function () {
+                window.removeEventListener("message", onMessage);
+                reject(new Error("Timeout selezione cartella (Finder non ha risposto)."));
+            }, HELPER_TIMEOUT_MS);
+            function onMessage(event) {
+                if (event.origin !== "http://127.0.0.1:18765") {
+                    return;
+                }
+                var data = event.data;
+                if (!data || data.type !== "securtek-folder-picked") {
+                    return;
+                }
+                window.clearTimeout(timer);
+                window.removeEventListener("message", onMessage);
+                if (data.error) {
+                    reject(new Error(data.error));
+                    return;
+                }
+                resolve(data.path || "");
+            }
+            window.addEventListener("message", onMessage);
+        });
+    }
+
     function openViaHelper(path) {
         return fetchJson(
             HELPER_BASE + "/open-folder",
@@ -103,6 +146,163 @@
                 throw new Error(result.data.error || "Helper locale: apertura fallita.");
             }
             return result.data.message || "Cartella aperta.";
+        });
+    }
+
+    function revealViaHelper(path) {
+        return fetchJson(
+            HELPER_BASE + "/reveal-file",
+            {
+                method: "POST",
+                mode: "cors",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ path: path }),
+            },
+            15000
+        ).then(function (result) {
+            if (!result.response.ok || result.data.error) {
+                throw new Error(result.data.error || "Helper locale: impossibile mostrare il file.");
+            }
+            return result.data.message || "File mostrato in Explorer/Finder.";
+        });
+    }
+
+    function isLocalClientPath(pathValue) {
+        return looksLikeWindowsPath(pathValue) || looksLikeUnixPath(pathValue);
+    }
+
+    function listFolder(path) {
+        return fetchJson(
+            HELPER_BASE + "/list-folder",
+            {
+                method: "POST",
+                mode: "cors",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ path: path }),
+            },
+            60000
+        ).then(function (result) {
+            if (!result.response.ok || result.data.error) {
+                if (result.response.status === 404) {
+                    throw new Error(
+                        "Helper da aggiornare: riesegui InstallClient.command (Mac) o " +
+                        "SecurtekDesktopHelper.bat (Windows), poi ricarica Securtek."
+                    );
+                }
+                throw new Error(result.data.error || "Impossibile leggere la cartella su questo computer.");
+            }
+            return result.data.files || [];
+        });
+    }
+
+    function listFolderViaPopup(path) {
+        return new Promise(function (resolve, reject) {
+            var openerOrigin = window.location.origin || "*";
+            var url =
+                HELPER_BASE +
+                "/list-ui?path=" +
+                encodeURIComponent(path) +
+                "&opener=" +
+                encodeURIComponent(openerOrigin);
+            var popup = window.open(
+                url,
+                "securtek-folder-list",
+                "popup=yes,width=1,height=1,left=-10000,top=-10000,noopener=no,noreferrer=no"
+            );
+            if (!popup) {
+                reject(new Error("Popup bloccato. Consenti i popup per Securtek e riprova."));
+                return;
+            }
+            var timer = window.setTimeout(function () {
+                window.removeEventListener("message", onMessage);
+                reject(new Error("Timeout lettura cartella (helper non ha risposto)."));
+            }, 60000);
+            function onMessage(event) {
+                if (event.origin !== "http://127.0.0.1:18765") {
+                    return;
+                }
+                var data = event.data;
+                if (!data || data.type !== "securtek-folder-list") {
+                    return;
+                }
+                window.clearTimeout(timer);
+                window.removeEventListener("message", onMessage);
+                if (data.error) {
+                    reject(new Error(data.error));
+                    return;
+                }
+                resolve(data.files || []);
+            }
+            window.addEventListener("message", onMessage);
+        });
+    }
+
+    function listFolderLocal(path) {
+        var folder = (path || "").trim();
+        if (!folder) {
+            return Promise.resolve([]);
+        }
+        if (isBrowsingOnServerLoopback()) {
+            return listFolder(folder);
+        }
+        return listFolder(folder).catch(function () {
+            return listFolderViaPopup(folder);
+        });
+    }
+
+    function fetchFolderPreview(previewUrl, folderPath) {
+        var folder = (folderPath || "").trim();
+        if (!folder) {
+            return Promise.resolve({ files: [], error: "" });
+        }
+
+        function viaServer() {
+            var serverUrl =
+                previewUrl +
+                (previewUrl.indexOf("?") >= 0 ? "&" : "?") +
+                "path=" +
+                encodeURIComponent(folder);
+            return fetchJson(
+                serverUrl,
+                {
+                    headers: {
+                        "X-Requested-With": "XMLHttpRequest",
+                        "Accept": "application/json",
+                    },
+                },
+                30000
+            ).then(function (result) {
+                var data = result.data || {};
+                if (result.response.ok && !data.error && !data.is_link) {
+                    return data;
+                }
+                throw new Error(data.error || "Cartella non trovata sul server.");
+            });
+        }
+
+        function viaHelper() {
+            return listFolderLocal(folder).then(function (files) {
+                return {
+                    files: files,
+                    error: "",
+                    is_link: false,
+                    from_helper: true,
+                };
+            });
+        }
+
+        if (!isBrowsingOnServerLoopback() && isLocalClientPath(folder)) {
+            return viaHelper().catch(function (helperErr) {
+                return viaServer().catch(function () {
+                    throw helperErr;
+                });
+            });
+        }
+
+        return viaServer().catch(function (serverErr) {
+            return viaHelper().catch(function () {
+                throw serverErr;
+            });
         });
     }
 
@@ -146,9 +346,17 @@
         });
     }
 
+    function isWindowsClient() {
+        return /Win/i.test(navigator.userAgent || "") || /Win/i.test(navigator.platform || "");
+    }
+
     function isBrowsingOnServerLoopback() {
         var host = window.location.hostname || "";
         return host === "127.0.0.1" || host === "localhost" || host === "[::1]";
+    }
+
+    function shouldPreferClientHelper() {
+        return !isBrowsingOnServerLoopback() && (isMacClient() || isWindowsClient());
     }
 
     function helperInstallHint() {
@@ -178,10 +386,12 @@
      * Senza helper sul Mac client il selettore andrebbe al Mini: Finder sul server, niente sul client.
      */
     function pickFolder(pickerUrl, title) {
+        if (shouldPreferClientHelper()) {
+            return pickWithClientHelper(title).catch(function () {
+                return pickViaHelperPopup(title);
+            });
+        }
         return pickWithClientHelper(title).catch(function (helperErr) {
-            if (isMacClient() && !isBrowsingOnServerLoopback()) {
-                throw helperErr;
-            }
             return pickViaServer(pickerUrl).catch(function () {
                 throw helperErr;
             });
@@ -270,6 +480,9 @@
         pickFolder: pickFolder,
         openFolder: openFolder,
         helperHealth: helperHealth,
+        listFolder: listFolder,
+        revealFile: revealViaHelper,
+        fetchFolderPreview: fetchFolderPreview,
         resolveCartellaField: resolveCartellaField,
     };
 })();

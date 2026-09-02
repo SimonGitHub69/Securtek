@@ -14,9 +14,17 @@ Sistema gestionale per la gestione delle pratiche.
 
 ## Stato progetto
 
-Versione corrente:
+Versione corrente: vedi file **`VERSION`** nella root del progetto (es. `0.2.1`).
 
-0.2.0-alpha
+Verifica sul server:
+
+```bash
+curl http://127.0.0.1:8000/version/
+```
+
+In interfaccia: footer e login (**Securtek v. …**).
+
+Per ogni rilascio aggiornare solo `VERSION` (e `collectstatic` + riavvio Gunicorn sul Mini).
 
 ## Documentazione
 

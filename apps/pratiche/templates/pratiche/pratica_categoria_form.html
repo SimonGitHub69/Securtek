@@ -1,4 +1,5 @@
 {% extends "base/layout.html" %}
+{% load static %}
 
 {% block page_title %}
 {{ page_title }}
@@ -43,12 +44,22 @@
                                 <div class="input-group">
                                     {{ field }}
                                     <button type="button"
-                                            class="btn btn-outline-primary st-folder-button"
+                                            class="btn btn-outline-secondary st-folder-button"
                                             id="chooseFolderButton"
                                             data-picker-url="{% url 'pratiche:folder_picker' %}"
-                                            data-preview-url="{% url 'pratiche:folder_preview' %}">
+                                            data-picker-popup-url="{% url 'pratiche:folder_picker_popup' %}"
+                                            data-preview-url="{% url 'pratiche:folder_preview' %}"
+                                            title="Scegli cartella">
+                                        <i class="ti ti-folder-plus"></i>
+                                        Scegli
+                                    </button>
+                                    <button type="button"
+                                            class="btn btn-outline-secondary st-folder-button"
+                                            id="openFolderButton"
+                                            data-open-url="{% url 'pratiche:folder_open' %}"
+                                            title="Apri cartella in Explorer/Finder">
                                         <i class="ti ti-folder-open"></i>
-                                        Scegli cartella
+                                        Apri
                                     </button>
                                 </div>
                             {% else %}
@@ -103,10 +114,12 @@
 
 {% block extra_js %}
 {{ block.super }}
+<script src="{% static 'securtek/js/desktop-folder.js' %}?v=20260902d"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     const cartellaInput = document.getElementById("id_cartella");
     const chooseButton = document.getElementById("chooseFolderButton");
+    const openFolderButton = document.getElementById("openFolderButton");
     const preview = document.getElementById("folderPreview");
     const previewRows = document.getElementById("folderPreviewRows");
     const message = document.getElementById("folderPreviewMessage");
@@ -144,7 +157,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const typeCell = document.createElement("td");
             const sizeCell = document.createElement("td");
             const actionsCell = document.createElement("td");
-            const openButton = document.createElement("button");
+            const fileOpenButton = document.createElement("button");
             const badge = document.createElement("span");
 
             nameCell.textContent = file.name;
@@ -158,13 +171,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
             if (file.preview_open_url) {
                 const nativeOpen = ["DOC", "DOCX", "XLS", "XLSX", "XLSM"].includes(file.extension);
-                openButton.type = "button";
-                openButton.className = "btn btn-icon btn-outline-primary btn-sm";
-                openButton.title = nativeOpen ? "Apri con applicazione originale" : "Apri anteprima";
-                openButton.dataset.openUrl = file.preview_open_url;
-                openButton.dataset.nativeOpen = nativeOpen ? "1" : "0";
-                openButton.innerHTML = `<i class="ti ${nativeOpen ? nativeOpenIconClass(file.extension) : "ti-eye"}"></i>`;
-                actionsCell.appendChild(openButton);
+                fileOpenButton.type = "button";
+                fileOpenButton.className = "btn btn-icon btn-outline-primary btn-sm";
+                fileOpenButton.title = nativeOpen ? "Apri con applicazione originale" : "Apri anteprima";
+                fileOpenButton.dataset.openUrl = file.preview_open_url;
+                fileOpenButton.dataset.nativeOpen = nativeOpen ? "1" : "0";
+                fileOpenButton.innerHTML = `<i class="ti ${nativeOpen ? nativeOpenIconClass(file.extension) : "ti-eye"}"></i>`;
+                actionsCell.appendChild(fileOpenButton);
             } else {
                 actionsCell.textContent = "-";
             }
@@ -221,11 +234,16 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         try {
-            const url = `${chooseButton.dataset.previewUrl}?path=${encodeURIComponent(value)}`;
-            const response = await fetch(url, {headers: {"X-Requested-With": "XMLHttpRequest"}});
-            const data = await response.json();
+            const helper = window.SecurtekDesktopFolder;
+            const data = helper && helper.fetchFolderPreview
+                ? await helper.fetchFolderPreview(chooseButton.dataset.previewUrl, value)
+                : await fetch(`${chooseButton.dataset.previewUrl}?path=${encodeURIComponent(value)}`, {
+                    headers: {"X-Requested-With": "XMLHttpRequest"},
+                }).then(function (response) {
+                    return response.json();
+                });
 
-            if (!response.ok || data.error) {
+            if (data.error) {
                 setMessage(data.error || "Impossibile leggere la cartella.");
                 return;
             }
@@ -241,34 +259,54 @@ document.addEventListener("DOMContentLoaded", function () {
                 setMessage("Nessun file trovato nella cartella.", false);
             }
         } catch (error) {
-            setMessage("Impossibile leggere l'anteprima della cartella.");
+            setMessage((error && error.message) || "Impossibile leggere l'anteprima della cartella.");
         }
     }
 
-    chooseButton.addEventListener("click", async function () {
-        setMessage("Apro il selettore cartella...", false);
+    chooseButton.addEventListener("click", function () {
+        if (!window.SecurtekDesktopFolder) {
+            setMessage("Script helper non caricato. Esegui collectstatic e ricarica (Ctrl+F5).");
+            return;
+        }
 
-        try {
-            const response = await fetch(chooseButton.dataset.pickerUrl, {
-                headers: {"X-Requested-With": "XMLHttpRequest"},
-            });
-            const data = await response.json();
+        chooseButton.disabled = true;
 
-            if (!response.ok || data.error) {
-                setMessage(data.error || "Impossibile scegliere la cartella.");
+        window.SecurtekDesktopFolder.pickFolder(
+            chooseButton.dataset.pickerUrl,
+            "Seleziona cartella pratica"
+        ).then(function (selectedPath) {
+            if (selectedPath) {
+                cartellaInput.value = selectedPath;
+                return refreshPreview();
+            }
+            setMessage("");
+        }).catch(function (error) {
+            setMessage((error && error.message) || "Impossibile aprire il selettore cartella.");
+        }).finally(function () {
+            chooseButton.disabled = false;
+        });
+    });
+
+    if (openFolderButton) {
+        openFolderButton.addEventListener("click", async function () {
+            if (!window.SecurtekDesktopFolder) {
+                setMessage("Script helper non caricato.");
                 return;
             }
 
-            if (data.path) {
-                cartellaInput.value = data.path;
-                await refreshPreview();
-            } else {
+            openFolderButton.disabled = true;
+            window.SecurtekDesktopFolder.openFolder(
+                openFolderButton.dataset.openUrl,
+                cartellaInput.value
+            ).then(function () {
                 setMessage("");
-            }
-        } catch (error) {
-            setMessage("Impossibile aprire il selettore cartella.");
-        }
-    });
+            }).catch(function (error) {
+                setMessage((error && error.message) || "Impossibile aprire la cartella.");
+            }).finally(function () {
+                openFolderButton.disabled = false;
+            });
+        });
+    }
 
     cartellaInput.addEventListener("change", refreshPreview);
     cartellaInput.addEventListener("blur", refreshPreview);

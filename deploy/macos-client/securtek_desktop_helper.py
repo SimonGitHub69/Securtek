@@ -11,13 +11,44 @@ import json
 import os
 import subprocess
 import sys
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 HOST = "127.0.0.1"
 PORT = 18765
-HELPER_VERSION = 1
+HELPER_VERSION = 3
+
+NATIVE_OPEN_EXTENSIONS = {".doc", ".docx", ".xls", ".xlsx", ".xlsm"}
+IGNORED_FOLDER_FILE_NAMES = {
+    ".ds_store",
+    "thumbs.db",
+    "desktop.ini",
+    ".localized",
+    ".spotlight-v100",
+    ".trashes",
+    ".fseventsd",
+    ".temporaryitems",
+}
+
+
+def should_ignore_folder_file(file_path: Path) -> bool:
+    name = file_path.name
+    lower = name.lower()
+    if lower in IGNORED_FOLDER_FILE_NAMES:
+        return True
+    if name.startswith("._"):
+        return True
+    return False
+
+
+def office_file_priority(file_path: Path) -> int:
+    return 0 if file_path.suffix.lower() in NATIVE_OPEN_EXTENSIONS else 1
+
+
+def format_file_datetime(timestamp: float) -> str:
+    return datetime.fromtimestamp(timestamp).strftime("%d/%m/%Y %H:%M")
 
 
 def _json_bytes(payload: dict) -> bytes:
@@ -210,6 +241,133 @@ end tell
     raise RuntimeError("Piattaforma non supportata dall'helper Securtek.")
 
 
+def list_folder(path_value: str) -> list[dict]:
+    folder = Path(path_value).expanduser()
+    if not folder.exists():
+        raise RuntimeError("Cartella non trovata su questo computer.")
+    if not folder.is_dir():
+        raise RuntimeError("Il percorso non è una cartella.")
+
+    entries: list[dict] = []
+    for file_path in sorted(
+        folder.rglob("*"),
+        key=lambda item: (office_file_priority(item), str(item.relative_to(folder)).lower()),
+    ):
+        if not file_path.is_file() or should_ignore_folder_file(file_path):
+            continue
+
+        stat = file_path.stat()
+        relative_path_text = file_path.relative_to(folder).as_posix()
+        extension = file_path.suffix.upper().lstrip(".") or "-"
+        entries.append(
+            {
+                "name": relative_path_text,
+                "description": "",
+                "extension": extension,
+                "size_kb": max(1, round(stat.st_size / 1024)),
+                "created_at": format_file_datetime(stat.st_ctime),
+                "modified_at": format_file_datetime(stat.st_mtime),
+                "full_path": str(file_path.resolve()),
+                "url": "",
+                "open_app_url": "",
+                "preview_open_url": "",
+                "description_url": "",
+                "delete_url": "",
+                "unlink_url": "",
+                "open_folder_url": "",
+            }
+        )
+    return entries
+
+
+def _pick_ui_html(title: str, opener: str) -> bytes:
+    """Pagina locale same-origin: aggira il blocco browser verso 127.0.0.1 dal server remoto."""
+    payload = json.dumps(
+        {
+            "title": title or "Seleziona cartella pratica",
+            "opener": opener or "*",
+        },
+        ensure_ascii=False,
+    )
+    html = f"""<!doctype html>
+<html><head><meta charset="utf-8"><title></title>
+<style>html,body{{margin:0;padding:0;width:1px;height:1px;overflow:hidden;opacity:0}}</style></head><body>
+<script>
+const cfg = {payload};
+function notify(payload) {{
+  if (window.opener && !window.opener.closed) {{
+    try {{ window.opener.postMessage(payload, cfg.opener); }} catch (e) {{}}
+  }}
+  window.close();
+}}
+fetch("/pick-folder", {{
+  method: "POST",
+  headers: {{ "Content-Type": "application/json" }},
+  body: JSON.stringify({{ title: cfg.title }}),
+}})
+  .then(function (r) {{ return r.json().then(function (d) {{ return {{ ok: r.ok, d: d }}; }}); }})
+  .then(function (res) {{
+    if (!res.ok || res.d.error) {{
+      notify({{ type: "securtek-folder-picked", path: "", error: res.d.error || "Selezione fallita." }});
+      return;
+    }}
+    notify({{
+      type: "securtek-folder-picked",
+      path: res.d.path || "",
+      cancelled: !!res.d.cancelled || !res.d.path,
+    }});
+  }})
+  .catch(function (err) {{
+    notify({{ type: "securtek-folder-picked", path: "", error: (err && err.message) || "Helper non disponibile." }});
+  }});
+</script></body></html>"""
+    return html.encode("utf-8")
+
+
+def _list_ui_html(folder_path: str, opener: str) -> bytes:
+    """Pagina locale same-origin per elencare file (come pick-ui)."""
+    payload = json.dumps(
+        {
+            "path": folder_path or "",
+            "opener": opener or "*",
+        },
+        ensure_ascii=False,
+    )
+    html = f"""<!doctype html>
+<html><head><meta charset="utf-8"><title></title>
+<style>html,body{{margin:0;padding:0;width:1px;height:1px;overflow:hidden;opacity:0}}</style></head><body>
+<script>
+const cfg = {payload};
+function notify(payload) {{
+  if (window.opener && !window.opener.closed) {{
+    try {{ window.opener.postMessage(payload, cfg.opener); }} catch (e) {{}}
+  }}
+  window.close();
+}}
+if (!cfg.path) {{
+  notify({{ type: "securtek-folder-list", files: [], error: "Percorso cartella mancante." }});
+}} else {{
+  fetch("/list-folder", {{
+    method: "POST",
+    headers: {{ "Content-Type": "application/json" }},
+    body: JSON.stringify({{ path: cfg.path }}),
+  }})
+    .then(function (r) {{ return r.json().then(function (d) {{ return {{ ok: r.ok, d: d }}; }}); }})
+    .then(function (res) {{
+      if (!res.ok || res.d.error) {{
+        notify({{ type: "securtek-folder-list", files: [], error: res.d.error || "Lettura fallita." }});
+        return;
+      }}
+      notify({{ type: "securtek-folder-list", files: res.d.files || [], error: "" }});
+    }})
+    .catch(function (err) {{
+      notify({{ type: "securtek-folder-list", files: [], error: (err && err.message) || "Helper non disponibile." }});
+    }});
+}}
+</script></body></html>"""
+    return html.encode("utf-8")
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
@@ -240,7 +398,8 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self) -> None:  # noqa: N802
-        path = urlparse(self.path).path
+        parsed = urlparse(self.path)
+        path = parsed.path
         if path == "/health":
             self._reply(
                 200,
@@ -251,6 +410,30 @@ class Handler(BaseHTTPRequestHandler):
                     "platform": sys.platform,
                 },
             )
+            return
+        if path == "/pick-ui":
+            query = parse_qs(parsed.query)
+            title = (query.get("title") or ["Seleziona cartella pratica"])[0]
+            opener = (query.get("opener") or ["*"])[0]
+            body = _pick_ui_html(title, opener)
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self._cors()
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if path == "/list-ui":
+            query = parse_qs(parsed.query)
+            folder = (query.get("path") or [""])[0]
+            opener = (query.get("opener") or ["*"])[0]
+            body = _list_ui_html(folder, opener)
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self._cors()
+            self.end_headers()
+            self.wfile.write(body)
             return
         self._reply(404, {"error": "Not found"})
 
@@ -283,6 +466,14 @@ class Handler(BaseHTTPRequestHandler):
                     return
                 reveal_file(file_path)
                 self._reply(200, {"ok": True, "message": f"File mostrato: {file_path}"})
+                return
+            if path == "/list-folder":
+                folder = str(data.get("path") or "").strip()
+                if not folder:
+                    self._reply(400, {"error": "Percorso cartella mancante."})
+                    return
+                files = list_folder(folder)
+                self._reply(200, {"files": files, "error": ""})
                 return
         except Exception as exc:  # noqa: BLE001
             self._reply(500, {"error": str(exc)})

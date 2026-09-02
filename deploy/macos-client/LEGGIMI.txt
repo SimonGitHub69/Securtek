@@ -1,0 +1,30 @@
+Securtek — installazione client Mac
+====================================
+
+Se il doppio clic su InstallClient.command dice che non hai i privilegi:
+
+1. Apri Terminale (Spotlight: scrivi "Terminale")
+2. Incolla questi comandi (una riga alla volta):
+
+   cd ~/Downloads/macos-client
+   chmod +x InstallClient.command install-client.sh
+   xattr -dr com.apple.quarantine .
+   bash install-client.sh
+
+3. Inserisci l URL del Mac Mini (es. http://192.168.2.76:8000)
+4. Securtek.app comparira sul Desktop
+
+Se il doppio clic su Securtek.app non fa niente:
+
+   chmod +x ~/Desktop/Securtek.app/Contents/MacOS/Securtek
+   xattr -cr ~/Desktop/Securtek.app
+   ~/Desktop/Securtek.app/Contents/MacOS/Securtek
+
+   (oppure: bash repair-app.sh nella cartella macos-client)
+
+   Serve Microsoft Edge o Google Chrome — Safari non apre Securtek come app.
+
+   Log errori: ~/Library/Logs/Securtek/app-launch.log
+
+Se la cartella e in un altro posto, sostituisci la prima riga, es.:
+   cd ~/Desktop/macos-client

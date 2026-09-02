@@ -141,6 +141,9 @@
         setButtonLoading(button, true);
         try {
             const data = await requestDesktopOpen(url);
+            if (opts.silent) {
+                return;
+            }
             const message = data.message || opts.fallbackSuccessMessage;
             if (message) {
                 showToast(message, "success", opts.successDurationMs);
@@ -166,9 +169,7 @@
                 return;
             }
             handleDesktopOpen(folderButton, folderButton.dataset.openUrl, {
-                fallbackSuccessMessage:
-                    "Cartella aperta. Se Explorer resta dietro al browser, clicca la sua icona nella barra applicazioni.",
-                successDurationMs: 4000,
+                silent: true,
             });
             return;
         }

@@ -13,6 +13,7 @@ the client browser machine.
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -247,14 +248,86 @@ def _windows_open_default_app(file_path: Path) -> None:
 def _macos_open(*args: str) -> None:
     _require_command("open", human_name="Comando open (macOS)")
     _run_command(["open", *args])
+    try:
+        subprocess.run(
+            ["osascript", "-e", 'tell application "Finder" to activate'],
+            check=False,
+            capture_output=True,
+        )
+        subprocess.run(
+            [
+                "osascript",
+                "-e",
+                'tell application "System Events" to set frontmost of process "Finder" to true',
+            ],
+            check=False,
+            capture_output=True,
+        )
+    except Exception:
+        pass
 
 
 def _macos_open_file_in_finder(file_path: Path) -> None:
-    _macos_open("-R", str(file_path))
+    target = str(file_path.resolve())
+    safe = target.replace("\\", "\\\\").replace('"', '\\"')
+    script = f'''
+set theItem to POSIX file "{safe}"
+tell application "Finder"
+    activate
+    reveal theItem
+    select theItem
+end tell
+tell application "System Events"
+    set frontmost of process "Finder" to true
+end tell
+'''
+    try:
+        result = subprocess.run(
+            ["osascript", "-e", script],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError as exc:
+        raise DesktopOpenError("osascript non disponibile su questo sistema.") from exc
+
+    if result.returncode != 0:
+        _macos_open("-R", target)
 
 
 def _macos_open_folder(folder_path: Path) -> None:
-    _macos_open(str(folder_path))
+    path_text = str(folder_path)
+    if re.match(r"^[A-Za-z]:[\\/]", path_text) or path_text.startswith("\\\\"):
+        raise DesktopOpenError(
+            "Percorso Windows non valido sul Mac. "
+            "Usa Scegli cartella per selezionare un percorso Mac, "
+            "oppure apri Securtek dal PC Windows."
+        )
+    target = str(folder_path.resolve())
+    safe = target.replace("\\", "\\\\").replace('"', '\\"')
+    script = f'''
+set theFolder to POSIX file "{safe}"
+tell application "Finder"
+    activate
+    open theFolder
+    set target of front Finder window to theFolder
+end tell
+tell application "System Events"
+    set frontmost of process "Finder" to true
+end tell
+'''
+    try:
+        result = subprocess.run(
+            ["osascript", "-e", script],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError as exc:
+        raise DesktopOpenError("osascript non disponibile su questo sistema.") from exc
+
+    if result.returncode != 0:
+        _macos_open(target)
 
 
 def _macos_open_file_with_default_app(file_path: Path) -> None:

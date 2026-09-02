@@ -41,15 +41,63 @@ def _escape_ps_single_quoted(value: str) -> str:
     return value.replace("'", "''")
 
 
-def _run_powershell(script: str) -> str:
+def _windows_pick_folder_script_path() -> Path:
+    return Path(__file__).resolve().parents[2] / "scripts" / "win_pick_folder.py"
+
+
+def _python_gui_executable() -> str:
+    exe = Path(sys.executable)
+    pythonw = exe.with_name("pythonw.exe")
+    if pythonw.is_file():
+        return str(pythonw)
+    return str(exe)
+
+
+def _run_powershell(script: str, *, ui: bool = False) -> str:
     command = [
         "powershell.exe",
         "-NoProfile",
         "-STA",
+        "-WindowStyle",
+        "Hidden",
         "-ExecutionPolicy",
         "Bypass",
         "-Command",
         script,
+    ]
+    kwargs: dict = _windows_no_window_kwargs()
+    try:
+        result = subprocess.run(
+            command,
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            **kwargs,
+        )
+    except FileNotFoundError as exc:
+        raise FolderPickerError("PowerShell non disponibile su questo sistema.") from exc
+
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip()
+        raise FolderPickerError(detail or "Selettore Windows non disponibile.")
+
+    return (result.stdout or "").strip()
+
+
+def _run_powershell_file(script_path: Path, *args: str) -> str:
+    command = [
+        "powershell.exe",
+        "-NoProfile",
+        "-STA",
+        "-WindowStyle",
+        "Hidden",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        str(script_path),
+        *args,
     ]
     try:
         result = subprocess.run(
@@ -72,18 +120,33 @@ def _run_powershell(script: str) -> str:
 
 
 def _pick_folder_windows(title: str) -> str | None:
-    safe_title = _escape_ps_single_quoted(title)
-    script = f"""
-Add-Type -AssemblyName System.Windows.Forms
-$dialog = New-Object System.Windows.Forms.FolderBrowserDialog
-$dialog.Description = '{safe_title}'
-$dialog.ShowNewFolderButton = $true
-if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {{
-    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-    Write-Output $dialog.SelectedPath
-}}
-"""
-    selected = _run_powershell(script)
+    script_path = _windows_pick_folder_script_path()
+    if not script_path.is_file():
+        raise FolderPickerError(f"Script selettore non trovato: {script_path}")
+    try:
+        result = subprocess.run(
+            [
+                _python_gui_executable(),
+                str(script_path),
+                title,
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            timeout=300,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise FolderPickerError("Timeout selezione cartella Windows.") from exc
+    except FileNotFoundError as exc:
+        raise FolderPickerError("Python non disponibile per il selettore cartelle.") from exc
+
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip()
+        raise FolderPickerError(detail or "Selettore Windows non disponibile.")
+    selected = (result.stdout or "").strip()
     return selected or None
 
 
@@ -106,13 +169,26 @@ if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {{
     Write-Output $dialog.FileName
 }}
 """
-    selected = _run_powershell(script)
+    selected = _run_powershell(script, ui=True)
     return selected or None
 
 
 def _pick_folder_macos(title: str) -> str | None:
     safe_title = title.replace("\\", "\\\\").replace('"', '\\"')
-    script = f'POSIX path of (choose folder with prompt "{safe_title}")'
+    script = f'''
+tell application "Finder"
+    activate
+end tell
+try
+    set chosenFolder to choose folder with prompt "{safe_title}"
+    return POSIX path of chosenFolder
+on error errMsg number errNum
+    if errNum is -128 then
+        return ""
+    end if
+    error errMsg number errNum
+end try
+'''
     try:
         result = subprocess.run(
             ["osascript", "-e", script],
@@ -123,12 +199,14 @@ def _pick_folder_macos(title: str) -> str | None:
     except FileNotFoundError as exc:
         raise FolderPickerError("osascript non disponibile su questo sistema.") from exc
 
-    # User cancelled: osascript exits with 1 and stderr contains User canceled
     if result.returncode != 0:
         stderr = (result.stderr or "").lower()
-        if "user canceled" in stderr or "user cancelled" in stderr:
+        if "user canceled" in stderr or "user cancelled" in stderr or "-128" in stderr:
             return None
-        raise FolderPickerError((result.stderr or result.stdout or "").strip() or "Selettore macOS non disponibile.")
+        raise FolderPickerError(
+            (result.stderr or result.stdout or "").strip()
+            or "Selettore macOS non disponibile. Avvia l'helper desktop."
+        )
 
     selected = (result.stdout or "").strip()
     return selected.rstrip("/") if selected else None

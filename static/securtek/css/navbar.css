@@ -1,6 +1,10 @@
 .navbar{
     height:72px;
     background:#fff;
+    position: sticky;
+    top: 0;
+    z-index: 1030;
+    box-shadow: 0 1px 0 rgba(15, 23, 42, 0.06);
 }
 
 [data-bs-theme="dark"] .navbar {

@@ -1,0 +1,80 @@
+#!/bin/bash
+# Launcher Securtek.app — usa open -a (affidabile su macOS) con log errori.
+ORIGIN="__ORIGIN__"
+BROWSER="__BROWSER__"
+LOG_DIR="${HOME}/Library/Logs/Securtek"
+LOG="${LOG_DIR}/app-launch.log"
+
+mkdir -p "${LOG_DIR}" "${HOME}/Library/Application Support/SecurtekApp"
+
+log() {
+  printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >> "${LOG}"
+}
+
+alert() {
+  local msg="$1"
+  osascript -e "display alert \"Securtek\" message \"${msg}\" as critical" 2>/dev/null || true
+}
+
+LOGIN="${ORIGIN}/login/?app=1"
+PROFILE="${HOME}/Library/Application Support/SecurtekApp"
+
+APP_ARGS=(
+  --app="${LOGIN}"
+  --user-data-dir="${PROFILE}"
+  --unsafely-treat-insecure-origin-as-secure="${ORIGIN},http://127.0.0.1:18765"
+  --test-type
+  --no-first-run
+  --no-default-browser-check
+  --disable-session-crashed-bubble
+  --disable-features=TranslateUI,InsecureDownloadWarnings,BlockInsecurePrivateNetworkRequests,PrivateNetworkAccessSendPreflights,PrivateNetworkAccessRespectPreflightResults
+)
+
+launch_via_open() {
+  local app_name="$1"
+  if [[ ! -d "/Applications/${app_name}.app" ]]; then
+    return 1
+  fi
+  log "open -a \"${app_name}\" -> ${LOGIN}"
+  if open -a "${app_name}" --args "${APP_ARGS[@]}" >> "${LOG}" 2>&1; then
+    return 0
+  fi
+  log "open -a \"${app_name}\" fallito"
+  return 1
+}
+
+launch_via_bin() {
+  local bin="$1"
+  local label="$2"
+  if [[ ! -x "${bin}" ]]; then
+    return 1
+  fi
+  log "bin ${label} -> ${LOGIN}"
+  "${bin}" "${APP_ARGS[@]}" >> "${LOG}" 2>&1 &
+  sleep 0.5
+  return 0
+}
+
+FAILED=1
+case "${BROWSER}" in
+  chrome)
+    launch_via_open "Google Chrome" && FAILED=0
+    [[ "${FAILED}" -eq 1 ]] && launch_via_open "Microsoft Edge" && FAILED=0
+    [[ "${FAILED}" -eq 1 ]] && launch_via_bin "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" "Chrome" && FAILED=0
+    [[ "${FAILED}" -eq 1 ]] && launch_via_bin "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge" "Edge" && FAILED=0
+    ;;
+  *)
+    launch_via_open "Microsoft Edge" && FAILED=0
+    [[ "${FAILED}" -eq 1 ]] && launch_via_open "Google Chrome" && FAILED=0
+    [[ "${FAILED}" -eq 1 ]] && launch_via_bin "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge" "Edge" && FAILED=0
+    [[ "${FAILED}" -eq 1 ]] && launch_via_bin "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" "Chrome" && FAILED=0
+    ;;
+esac
+
+if [[ "${FAILED}" -eq 1 ]]; then
+  log "ERRORE: Edge/Chrome non trovati"
+  alert "Installa Microsoft Edge o Google Chrome. Safari non apre Securtek come app. Log: ${LOG}"
+  exit 1
+fi
+
+exit 0

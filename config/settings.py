@@ -1,7 +1,11 @@
 from pathlib import Path
 import environ
 
+from config.version import VERSION
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+SECURTEK_VERSION = VERSION
 
 env = environ.Env(
     DEBUG=(bool, False),
@@ -39,7 +43,11 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "apps.core.middleware.PreserveEmbedMiddleware",
 ]
+
+# Consenti iframe same-origin (multi-finestra)
+X_FRAME_OPTIONS = "SAMEORIGIN"
 
 ROOT_URLCONF = "config.urls"
 
@@ -55,6 +63,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.core.context_processors.securtek_version",
             ],
         },
     },

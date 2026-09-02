@@ -260,8 +260,10 @@ class PraticaCategoriaForm(forms.ModelForm):
             "origine_template": forms.HiddenInput(),
             "cartella": forms.TextInput(
                 attrs={
-                    "class": "form-control",
+                    "class": "form-control js-cartella-input",
                     "placeholder": r"D:\Pratiche\Cliente\Cartella oppure https://...",
+                    "data-securtek-cartella": "1",
+                    "autocomplete": "off",
                 }
             ),
             "versione": forms.TextInput(attrs={"class": "form-control"}),

@@ -7,6 +7,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="format-detection" content="telephone=no, email=no, address=no">
+    <meta name="securtek-version" content="{{ SECURTEK_VERSION }}">
 
     <title>{% block title %}SECURTEK{% endblock %}</title>
 
@@ -55,7 +56,7 @@
         href="{% static 'securtek/css/sidebar.css' %}">
 
     <link rel="stylesheet"
-        href="{% static 'securtek/css/navbar.css' %}">
+        href="{% static 'securtek/css/navbar.css' %}?v=20260902b">
 
     <link rel="stylesheet"
         href="{% static 'securtek/css/components.css' %}">
@@ -65,25 +66,32 @@
 
     <link rel="stylesheet"
       href="{% static '@tabler/icons-webfont/dist/tabler-icons.min.css' %}">
-        
+
+    <link rel="stylesheet"
+        href="{% static 'securtek/css/multi-window.css' %}?v=20260902b">
 
     {% block extra_css %}{% endblock %}
 
 </head>
 
 <body
-    {% if user.is_authenticated and request.session.securtek_app %}
+    class="{% if request.is_embed %}st-embed{% endif %}"
+    {% if user.is_authenticated and request.session.securtek_app and not request.is_embed %}
     data-logout-on-close="1"
     data-logout-url="{% url 'logout' %}"
     {% endif %}>
 
 <div class="page">
 
+    {% if not request.is_embed %}
     {% include "base/sidebar.html" %}
+    {% endif %}
 
     <div class="page-wrapper">
 
+        {% if not request.is_embed %}
         {% include "base/navbar.html" %}
+        {% endif %}
 
         <div class="page-body">
 
@@ -98,7 +106,9 @@
 
         </div>
 
+        {% if not request.is_embed %}
         {% include "base/footer.html" %}
+        {% endif %}
 
     </div>
 
@@ -110,9 +120,14 @@
 
 <script src="{% static 'htmx.org/dist/htmx.min.js' %}"></script>
 
-<script src="{% static 'securtek/js/disable-autocomplete.js' %}"></script>
+<script src="{% static 'securtek/js/disable-autocomplete.js' %}?v=20260901g"></script>
 <script src="{% static 'securtek/js/app.js' %}"></script>
-{% if user.is_authenticated and request.session.securtek_app %}
+{% if request.is_embed %}
+<script src="{% static 'securtek/js/embed.js' %}"></script>
+{% else %}
+<script src="{% static 'securtek/js/multi-window.js' %}"></script>
+{% endif %}
+{% if user.is_authenticated and request.session.securtek_app and not request.is_embed %}
 <script src="{% static 'securtek/js/logout-on-close.js' %}?v=20260722d"></script>
 {% endif %}
 

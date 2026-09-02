@@ -12,6 +12,22 @@ ORIGIN="http://192.168.2.76:8000"
 # edge | chrome (Safari non supporta modalità app)
 BROWSER="${BROWSER:-edge}"
 
+read_securtek_version() {
+  local candidate line
+  for candidate in "${ROOT}/../macos-client/VERSION" "${ROOT}/../../VERSION"; do
+    if [[ -f "${candidate}" ]]; then
+      line="$(head -n1 "${candidate}" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+      if [[ -n "${line}" ]]; then
+        printf '%s' "${line}"
+        return 0
+      fi
+    fi
+  done
+  printf '%s' "0.0.0"
+}
+
+SECURTEK_VERSION="$(read_securtek_version)"
+
 mkdir -p "${BIN}" "${RES}"
 
 cat > "${OUT}/Contents/Info.plist" <<EOF
@@ -28,9 +44,9 @@ cat > "${OUT}/Contents/Info.plist" <<EOF
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleVersion</key>
-	<string>1.3</string>
+	<string>${SECURTEK_VERSION}</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3</string>
+	<string>${SECURTEK_VERSION}</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>11.0</string>
 	<key>NSHighResolutionCapable</key>
@@ -39,59 +55,22 @@ cat > "${OUT}/Contents/Info.plist" <<EOF
 </plist>
 EOF
 
-cat > "${OUT}/Contents/MacOS/Securtek" <<'LAUNCHER'
-#!/bin/bash
-ORIGIN="__ORIGIN__"
-BROWSER="__BROWSER__"
-LOGIN="${ORIGIN}/login/?app=1"
-PROFILE="${HOME}/Library/Application Support/SecurtekApp"
-mkdir -p "${PROFILE}"
-
-APP_FLAGS=(
-  --app="${LOGIN}"
-  --user-data-dir="${PROFILE}"
-  --unsafely-treat-insecure-origin-as-secure="${ORIGIN}"
-  --test-type
-  --no-first-run
-  --no-default-browser-check
-  --no-startup-window
-  --disable-session-crashed-bubble
-  --disable-features=TranslateUI,InsecureDownloadWarnings,BlockInsecurePrivateNetworkRequests
-)
-
-launch_edge() {
-  local EDGE_BIN="/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"
-  [[ -x "${EDGE_BIN}" ]] || return 1
-  exec "${EDGE_BIN}" "${APP_FLAGS[@]}" >/dev/null 2>&1 &
-}
-
-launch_chrome() {
-  local CHROME_BIN="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-  [[ -x "${CHROME_BIN}" ]] || return 1
-  exec "${CHROME_BIN}" "${APP_FLAGS[@]}" >/dev/null 2>&1 &
-}
-
-show_missing_browser() {
-  osascript -e 'display alert "Securtek" message "Installa Microsoft Edge o Google Chrome per aprire Securtek come applicazione." as critical' 2>/dev/null || true
-}
-
-case "${BROWSER}" in
-  chrome)
-    launch_chrome || launch_edge || show_missing_browser
-    ;;
-  edge|*)
-    launch_edge || launch_chrome || show_missing_browser
-    ;;
-esac
-exit 0
-LAUNCHER
-
-# Sostituisci placeholder (evita problemi con ${} nel heredoc)
+TEMPLATE="${ROOT}/../macos-client/SecurtekLauncher.template"
+if [[ ! -f "${TEMPLATE}" ]]; then
+  echo "Template mancante: ${TEMPLATE}" >&2
+  exit 1
+fi
+cp "${TEMPLATE}" "${OUT}/Contents/MacOS/Securtek"
 perl -pi -e "s|__ORIGIN__|${ORIGIN}|g; s|__BROWSER__|${BROWSER}|g" "${OUT}/Contents/MacOS/Securtek"
 perl -pi -e 's/\r\n?/\n/g' "${OUT}/Contents/MacOS/Securtek"
 chmod +x "${OUT}/Contents/MacOS/Securtek"
+xattr -cr "${OUT}" 2>/dev/null || true
+if command -v codesign >/dev/null 2>&1; then
+  codesign -s - --force --deep "${OUT}" 2>/dev/null || true
+fi
 
 echo "Creata: ${OUT}"
+echo "Versione: ${SECURTEK_VERSION}"
 echo "Browser preferito: ${BROWSER} (fallback: l'altro tra Edge/Chrome)"
 echo "Elimina eventuali vecchie Securtek.app prima di usare questa."
 echo "Doppio clic su Securtek.app — finestra dedicata, senza Safari/Chrome normale."

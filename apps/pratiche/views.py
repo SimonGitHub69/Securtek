@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.views.generic import CreateView, DetailView, ListView, UpdateView, View
+from django.views.generic import CreateView, DetailView, ListView, TemplateView, UpdateView, View
 from datetime import date, datetime, time
 from email import policy
 from email.parser import BytesParser
@@ -103,11 +103,20 @@ from apps.pratiche.services.folder_picker import (
     pick_file,
     pick_folder,
 )
+from apps.pratiche.services.desktop_helper_client import (
+    DesktopHelperError,
+    helper_health,
+    list_folder_via_helper,
+    open_folder_via_helper,
+    pick_folder_via_helper,
+    reveal_file_via_helper,
+)
 from apps.pratiche.services.desktop_open import (
     DesktopOpenError,
     folder_open_success_message,
     open_file_with_default_app,
     open_folder_for_file,
+    open_folder_in_explorer,
 )
 from apps.pratiche.models import (
     CategoriaPratica,
@@ -127,6 +136,29 @@ from apps.pratiche.models import (
 
 
 NATIVE_OPEN_EXTENSIONS = {".doc", ".docx", ".xls", ".xlsx", ".xlsm"}
+
+# File di sistema da non mostrare/elaborare nelle cartelle pratiche
+IGNORED_FOLDER_FILE_NAMES = {
+    ".ds_store",
+    "thumbs.db",
+    "desktop.ini",
+    ".localized",
+    ".spotlight-v100",
+    ".trashes",
+    ".fseventsd",
+    ".temporaryitems",
+}
+
+
+def should_ignore_folder_file(file_path: Path) -> bool:
+    name = file_path.name
+    lower = name.lower()
+    if lower in IGNORED_FOLDER_FILE_NAMES:
+        return True
+    # File AppleDouble / metadata macOS
+    if name.startswith("._"):
+        return True
+    return False
 
 
 def office_file_priority(file_path):
@@ -337,6 +369,9 @@ def get_supported_file_entries(folder_path, pratica_categoria=None):
         if not file_path.is_file():
             continue
 
+        if should_ignore_folder_file(file_path):
+            continue
+
         stat = file_path.stat()
         relative_path = file_path.relative_to(folder_path)
         relative_path_text = relative_path.as_posix()
@@ -401,6 +436,9 @@ def get_supported_file_entries(folder_path, pratica_categoria=None):
             preview_open_url = reverse("pratiche:folder_preview_file_open") + (
                 f"?path={quote(str(folder_path), safe='')}&file={quote(relative_path_text, safe='')}"
             )
+            open_folder_url = reverse("pratiche:folder_preview_file_reveal") + (
+                f"?path={quote(str(folder_path), safe='')}&file={quote(relative_path_text, safe='')}"
+            )
             delete_url = reverse("pratiche:folder_preview_file_delete")
 
         entries.append(
@@ -442,6 +480,13 @@ def build_folder_file_entries(pratica_categoria):
     folder_path = Path(cartella).expanduser()
 
     if not folder_path.exists():
+        if helper_health():
+            try:
+                pratica_categoria.cartella_is_folder = True
+                pratica_categoria.file_entries = list_folder_via_helper(cartella)
+                return
+            except DesktopHelperError:
+                pass
         pratica_categoria.cartella_error = "Cartella non trovata"
         return
 
@@ -522,6 +567,18 @@ def request_wants_json(request):
         return True
     accept = request.headers.get("Accept", "")
     return "application/json" in accept
+
+
+class AjaxLoginRequiredMixin(LoginRequiredMixin):
+    """Restituisce JSON 401 invece del redirect HTML per richieste AJAX/popup."""
+
+    def handle_no_permission(self):
+        if request_wants_json(self.request) or self.request.GET.get("popup") == "1":
+            return JsonResponse(
+                {"error": "Sessione scaduta. Effettua di nuovo il login."},
+                status=401,
+            )
+        return super().handle_no_permission()
 
 
 def append_query_param(url, key, value):
@@ -1601,6 +1658,17 @@ class PraticaCategoriaFileFolderOpenView(LoginRequiredMixin, View):
             )
 
         try:
+            message = reveal_file_via_helper(str(file_path))
+            return desktop_action_response(
+                request,
+                success=True,
+                message=message,
+                return_url=return_url,
+            )
+        except DesktopHelperError:
+            pass
+
+        try:
             open_folder_for_file(file_path)
         except DesktopOpenError as exc:
             return desktop_action_response(
@@ -1927,6 +1995,17 @@ class PraticaCategoriaAllegatoFolderOpenView(LoginRequiredMixin, View):
         file_path = Path(allegato.file.path)
 
         try:
+            message = reveal_file_via_helper(str(file_path))
+            return desktop_action_response(
+                request,
+                success=True,
+                message=message,
+                return_url=return_url,
+            )
+        except DesktopHelperError:
+            pass
+
+        try:
             open_folder_for_file(file_path)
         except DesktopOpenError as exc:
             return desktop_action_response(
@@ -1983,14 +2062,100 @@ class PraticaCategoriaAllegatoDestroyView(LoginRequiredMixin, View):
         )
 
 
-class FolderPickerView(LoginRequiredMixin, View):
+class FolderPickerView(AjaxLoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
+        # Preferisci helper locale (GUI utente): serve quando Gunicorn è LaunchDaemon.
         try:
-            selected_path = pick_folder(title="Seleziona cartella pratica")
-        except FolderPickerError as exc:
-            return JsonResponse({"error": f"Selettore cartella non disponibile: {exc}"}, status=500)
+            selected_path = pick_folder_via_helper(title="Seleziona cartella pratica")
+        except DesktopHelperError as exc:
+            try:
+                selected_path = pick_folder(title="Seleziona cartella pratica")
+            except FolderPickerError as pick_exc:
+                return JsonResponse(
+                    {
+                        "error": (
+                            f"Selettore cartella non disponibile: {pick_exc}. "
+                            f"Helper: {exc}. "
+                            "Su Mac server: ./deploy/macos/install-desktop-helper.sh. "
+                            "Su Mac client: deploy/macos-client/InstallClient.command."
+                        )
+                    },
+                    status=500,
+                )
 
-        return JsonResponse({"path": normalize_selected_path(selected_path)})
+        normalized = normalize_selected_path(selected_path)
+        return JsonResponse(
+            {
+                "path": normalized,
+                "cancelled": not bool(normalized),
+            }
+        )
+
+
+class FolderPickerPopupView(AjaxLoginRequiredMixin, TemplateView):
+    """Finestra popup top-level: evita problemi cookie/iframe su Mac."""
+
+    template_name = "pratiche/folder_picker_popup.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        opener = (self.request.GET.get("opener") or "").strip()
+        host = self.request.get_host()
+        parsed = urlparse(opener)
+        if parsed.scheme in {"http", "https"} and parsed.netloc == host:
+            context["opener_origin"] = f"{parsed.scheme}://{parsed.netloc}"
+        else:
+            context["opener_origin"] = f"{self.request.scheme}://{host}"
+        context["picker_api_url"] = reverse("pratiche:folder_picker")
+        return context
+
+
+class FolderOpenView(AjaxLoginRequiredMixin, View):
+    """Apre la cartella nel file manager (helper locale, poi fallback Django)."""
+
+    def get(self, request, *args, **kwargs):
+        folder_value = (request.GET.get("path") or "").strip()
+
+        if not folder_value:
+            return desktop_action_response(
+                request,
+                success=False,
+                error="Percorso cartella mancante.",
+                status=400,
+            )
+
+        if is_external_link(folder_value):
+            return desktop_action_response(
+                request,
+                success=False,
+                error="Il valore è un link web, non una cartella locale.",
+                status=400,
+            )
+
+        try:
+            message = open_folder_via_helper(folder_value)
+            return desktop_action_response(request, success=True, message=message)
+        except DesktopHelperError:
+            pass
+
+        try:
+            open_folder_in_explorer(folder_value)
+        except DesktopOpenError as exc:
+            return desktop_action_response(
+                request,
+                success=False,
+                error=(
+                    f"{exc}. Su Mac server: ./deploy/macos/install-desktop-helper.sh. "
+                    "Su Mac client: deploy/macos-client/InstallClient.command."
+                ),
+                status=404 if "non trovata" in str(exc).lower() else 500,
+            )
+
+        return desktop_action_response(
+            request,
+            success=True,
+            message=folder_open_success_message(Path(folder_value).name or folder_value),
+        )
 
 
 class FolderPreviewView(LoginRequiredMixin, View):
@@ -2006,6 +2171,12 @@ class FolderPreviewView(LoginRequiredMixin, View):
         folder_path = Path(folder_value).expanduser()
 
         if not folder_path.exists():
+            if helper_health():
+                try:
+                    files = list_folder_via_helper(folder_value)
+                    return JsonResponse({"files": files, "error": "", "from_helper": True})
+                except DesktopHelperError as exc:
+                    return JsonResponse({"files": [], "error": str(exc)})
             return JsonResponse({"files": [], "error": "Cartella non trovata"})
 
         if not folder_path.is_dir():
@@ -2041,6 +2212,42 @@ class FolderPreviewFileOpenView(LoginRequiredMixin, View):
             )
 
         return FileResponse(file_path.open("rb"), as_attachment=False, filename=file_path.name)
+
+
+class FolderPreviewFileRevealView(AjaxLoginRequiredMixin, View):
+    """Mostra il file in Explorer/Finder (Reveal in File Explorer)."""
+
+    def get(self, request, *args, **kwargs):
+        _, file_path = resolve_preview_folder_file_path(
+            request.GET.get("path") or "",
+            request.GET.get("file") or "",
+        )
+
+        try:
+            message = reveal_file_via_helper(str(file_path))
+            return JsonResponse({"success": True, "opened": True, "message": message})
+        except DesktopHelperError:
+            pass
+
+        try:
+            open_folder_for_file(file_path)
+        except DesktopOpenError as exc:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "opened": False,
+                    "error": f"Impossibile mostrare il file in Explorer/Finder: {exc}",
+                },
+                status=500,
+            )
+
+        return JsonResponse(
+            {
+                "success": True,
+                "opened": True,
+                "message": folder_open_success_message(file_path.name),
+            }
+        )
 
 
 class FolderPreviewFileDeleteView(LoginRequiredMixin, View):

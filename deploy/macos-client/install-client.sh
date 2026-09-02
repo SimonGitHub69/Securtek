@@ -14,6 +14,93 @@ LOG_DIR="${HOME}/Library/Logs/Securtek"
 PLIST_DST="${HOME}/Library/LaunchAgents/${LABEL}.plist"
 APP_OUT="${HOME}/Desktop/Securtek.app"
 
+read_securtek_version() {
+  local candidate line
+  for candidate in "${HERE}/VERSION" "${HERE}/../../VERSION"; do
+    if [[ -f "${candidate}" ]]; then
+      line="$(head -n1 "${candidate}" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+      if [[ -n "${line}" ]]; then
+        printf '%s' "${line}"
+        return 0
+      fi
+    fi
+  done
+  printf '%s' "0.0.0"
+}
+
+SECURTEK_VERSION="$(read_securtek_version)"
+SECURTEK_VERSION_LABEL="v. ${SECURTEK_VERSION}"
+
+resolve_desktop_dir() {
+  local desktop="${HOME}/Desktop"
+  if [[ -d "${desktop}" ]]; then
+    printf '%s' "${desktop}"
+    return 0
+  fi
+  desktop="${HOME}/Scrivania"
+  if [[ -d "${desktop}" ]]; then
+    printf '%s' "${desktop}"
+    return 0
+  fi
+  mkdir -p "${HOME}/Desktop"
+  printf '%s' "${HOME}/Desktop"
+}
+
+reveal_app() {
+  if [[ -d "${APP_OUT}" ]]; then
+    open -R "${APP_OUT}" 2>/dev/null || open "${APP_OUT}" 2>/dev/null || true
+  fi
+}
+
+create_securtek_app() {
+  local origin="$1"
+  local browser="${2:-edge}"
+  APP_OUT="$(resolve_desktop_dir)/Securtek.app"
+
+  local bin="${APP_OUT}/Contents/MacOS"
+  local res="${APP_OUT}/Contents/Resources"
+  mkdir -p "${bin}" "${res}"
+
+  cat > "${APP_OUT}/Contents/Info.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleExecutable</key>
+	<string>Securtek</string>
+	<key>CFBundleIdentifier</key>
+	<string>local.securtek.app</string>
+	<key>CFBundleName</key>
+	<string>Securtek</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleVersion</key>
+	<string>${SECURTEK_VERSION}</string>
+	<key>CFBundleShortVersionString</key>
+	<string>${SECURTEK_VERSION}</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>11.0</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+</dict>
+</plist>
+EOF
+
+  local template="${HERE}/SecurtekLauncher.template"
+  if [[ ! -f "${template}" ]]; then
+    alert "SecurtekLauncher.template mancante nella cartella macos-client."
+    return 1
+  fi
+  cp "${template}" "${APP_OUT}/Contents/MacOS/Securtek"
+  perl -pi -e "s|__ORIGIN__|${origin}|g; s|__BROWSER__|${browser}|g" "${APP_OUT}/Contents/MacOS/Securtek"
+  perl -pi -e 's/\r\n?/\n/g' "${APP_OUT}/Contents/MacOS/Securtek"
+  chmod +x "${APP_OUT}/Contents/MacOS/Securtek"
+  xattr -cr "${APP_OUT}" 2>/dev/null || true
+  if command -v codesign >/dev/null 2>&1; then
+    codesign -s - --force --deep "${APP_OUT}" 2>/dev/null || true
+  fi
+}
+
 strip_cr() {
   local f
   for f in "$@"; do
@@ -98,15 +185,25 @@ if [[ ! "${ORIGIN}" =~ ^https?:// ]]; then
   exit 1
 fi
 
+APP_OUT="$(resolve_desktop_dir)/Securtek.app"
+create_securtek_app "${ORIGIN}" "${BROWSER}"
+echo "App creata: ${APP_OUT}"
+reveal_app
+
+if [[ "${SECURTEK_APP_ONLY:-}" == "1" ]]; then
+  info "Securtek.app ${SECURTEK_VERSION_LABEL} creata sul Desktop (${ORIGIN}). Per Scegli cartella esegui InstallClient.command."
+  exit 0
+fi
+
 HELPER_SRC="$(find_helper_src || true)"
 if [[ -z "${HELPER_SRC}" ]]; then
-  alert "Helper non trovato. Tieni securtek_desktop_helper.py nella stessa cartella di questo installer."
+  alert "Helper non trovato. Securtek.app e sul Desktop; copia securtek_desktop_helper.py accanto a InstallClient e rilancia."
   exit 1
 fi
 
 PYTHON3="$(find_python || true)"
 if [[ -z "${PYTHON3}" ]]; then
-  alert "Python 3 non trovato. Installa Command Line Tools (Terminale: xcode-select --install) oppure Python da python.org, poi rilancia InstallClient."
+  alert "Python 3 non trovato. Securtek.app e sul Desktop. Per Scegli cartella installa Python (xcode-select --install) e rilancia InstallClient."
   exit 1
 fi
 
@@ -166,86 +263,6 @@ fi
 launchctl enable "${DOMAIN}/${LABEL}" 2>/dev/null || true
 launchctl kickstart -k "${DOMAIN}/${LABEL}" 2>/dev/null || true
 
-BIN="${APP_OUT}/Contents/MacOS"
-RES="${APP_OUT}/Contents/Resources"
-mkdir -p "${BIN}" "${RES}"
-
-cat > "${APP_OUT}/Contents/Info.plist" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-	<key>CFBundleExecutable</key>
-	<string>Securtek</string>
-	<key>CFBundleIdentifier</key>
-	<string>local.securtek.app</string>
-	<key>CFBundleName</key>
-	<string>Securtek</string>
-	<key>CFBundlePackageType</key>
-	<string>APPL</string>
-	<key>CFBundleVersion</key>
-	<string>1.3</string>
-	<key>CFBundleShortVersionString</key>
-	<string>1.3</string>
-	<key>LSMinimumSystemVersion</key>
-	<string>11.0</string>
-	<key>NSHighResolutionCapable</key>
-	<true/>
-</dict>
-</plist>
-EOF
-
-cat > "${APP_OUT}/Contents/MacOS/Securtek" <<'LAUNCHER'
-#!/bin/bash
-ORIGIN="__ORIGIN__"
-BROWSER="__BROWSER__"
-LOGIN="${ORIGIN}/login/?app=1"
-PROFILE="${HOME}/Library/Application Support/SecurtekApp"
-mkdir -p "${PROFILE}"
-
-APP_FLAGS=(
-  --app="${LOGIN}"
-  --user-data-dir="${PROFILE}"
-  --unsafely-treat-insecure-origin-as-secure="${ORIGIN}"
-  --test-type
-  --no-first-run
-  --no-default-browser-check
-  --no-startup-window
-  --disable-session-crashed-bubble
-  --disable-features=TranslateUI,InsecureDownloadWarnings,BlockInsecurePrivateNetworkRequests
-)
-
-launch_edge() {
-  local EDGE_BIN="/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"
-  [[ -x "${EDGE_BIN}" ]] || return 1
-  exec "${EDGE_BIN}" "${APP_FLAGS[@]}" >/dev/null 2>&1 &
-}
-
-launch_chrome() {
-  local CHROME_BIN="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-  [[ -x "${CHROME_BIN}" ]] || return 1
-  exec "${CHROME_BIN}" "${APP_FLAGS[@]}" >/dev/null 2>&1 &
-}
-
-show_missing_browser() {
-  osascript -e 'display alert "Securtek" message "Installa Microsoft Edge o Google Chrome per aprire Securtek come applicazione." as critical' 2>/dev/null || true
-}
-
-case "${BROWSER}" in
-  chrome)
-    launch_chrome || launch_edge || show_missing_browser
-    ;;
-  edge|*)
-    launch_edge || launch_chrome || show_missing_browser
-    ;;
-esac
-exit 0
-LAUNCHER
-
-perl -pi -e "s|__ORIGIN__|${ORIGIN}|g; s|__BROWSER__|${BROWSER}|g" "${APP_OUT}/Contents/MacOS/Securtek"
-perl -pi -e 's/\r\n?/\n/g' "${APP_OUT}/Contents/MacOS/Securtek"
-chmod +x "${APP_OUT}/Contents/MacOS/Securtek"
-
 sleep 1
 HEALTH_OK=0
 if curl -fsS "http://127.0.0.1:18765/health" >/tmp/securtek-helper-health.json; then
@@ -253,15 +270,18 @@ if curl -fsS "http://127.0.0.1:18765/health" >/tmp/securtek-helper-health.json; 
 fi
 
 echo "Server: ${ORIGIN}"
+echo "Securtek: ${SECURTEK_VERSION_LABEL}"
 echo "Python: ${PYTHON3}"
 echo "Helper: ${HELPER_DIR}/securtek_desktop_helper.py"
 echo "App:    ${APP_OUT}"
 
 if [[ "${HEALTH_OK}" -eq 1 ]]; then
   echo "OK — helper in ascolto su http://127.0.0.1:18765/"
-  info "Client Securtek installato. Helper cartelle attivo. Apri Securtek.app sul Desktop (${ORIGIN}). Alla prima selezione cartella, se macOS chiede di controllare Finder, premi Consenti."
+  info "Client Securtek ${SECURTEK_VERSION_LABEL} installato. Securtek.app sul Desktop (${ORIGIN})."
+  reveal_app
 else
-  echo "ATTENZIONE: health non risponde. Log: ${LOG_DIR}/desktop-helper.err.log" >&2
-  alert "App creata, ma l'helper cartelle non risponde. Controlla ${LOG_DIR}/desktop-helper.err.log oppure rilancia InstallClient dopo aver installato Python 3."
+  echo "ATTENZIONE: helper non risponde. Log: ${LOG_DIR}/desktop-helper.err.log" >&2
+  alert "Securtek.app e stata creata sul Desktop, ma l helper cartelle non risponde. Apri l app e controlla ${LOG_DIR}/desktop-helper.err.log oppure rilancia InstallClient."
+  reveal_app
   exit 1
 fi

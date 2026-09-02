@@ -1,10 +1,13 @@
 from django.conf import settings
 from django.contrib.auth import logout
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_GET
+
+from config.version import VERSION
 
 
 def app_login_entry(request):
@@ -17,6 +20,17 @@ def app_login_entry(request):
         return redirect(settings.LOGIN_REDIRECT_URL)
 
     return redirect(settings.LOGIN_URL)
+
+
+@require_GET
+def app_version(request):
+    """Versione installata (per verifiche server/client)."""
+    return JsonResponse(
+        {
+            "name": "securtek",
+            "version": VERSION,
+        }
+    )
 
 
 @method_decorator(csrf_exempt, name="dispatch")

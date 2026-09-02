@@ -18,13 +18,13 @@ mkdir -p "${PROFILE}"
 APP_FLAGS=(
   --app="${LOGIN}"
   --user-data-dir="${PROFILE}"
-  --unsafely-treat-insecure-origin-as-secure="${ORIGIN}"
+  --unsafely-treat-insecure-origin-as-secure="${ORIGIN},http://127.0.0.1:18765"
   --test-type
   --no-first-run
   --no-default-browser-check
   --no-startup-window
   --disable-session-crashed-bubble
-  --disable-features=TranslateUI,InsecureDownloadWarnings,BlockInsecurePrivateNetworkRequests
+  --disable-features=TranslateUI,InsecureDownloadWarnings,BlockInsecurePrivateNetworkRequests,PrivateNetworkAccessSendPreflights,PrivateNetworkAccessRespectPreflightResults
 )
 
 launch_edge() {

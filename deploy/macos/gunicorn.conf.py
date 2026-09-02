@@ -9,7 +9,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 bind = "0.0.0.0:8000"
 workers = max(2, min(4, multiprocessing.cpu_count()))
 threads = 2
-timeout = 120
+timeout = 360
 graceful_timeout = 30
 keepalive = 5
 

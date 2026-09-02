@@ -11,7 +11,9 @@
 
 {% block extrahead %}
 {{ block.super }}
+<link rel="stylesheet" href="{% static 'securtek/css/admin-password-toggle.css' %}">
 <script src="{% static 'securtek/js/disable-autocomplete.js' %}"></script>
+<script src="{% static 'securtek/js/admin-password-toggle.js' %}"></script>
 {% if user.is_authenticated and request.session.securtek_app %}
 <script>
     document.addEventListener("DOMContentLoaded", function () {

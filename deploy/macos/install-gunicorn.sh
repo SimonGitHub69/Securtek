@@ -1,5 +1,7 @@
 #!/bin/bash
-# Installa Gunicorn come servizio macOS (launchd): parte al login e resta attivo.
+# Installa Gunicorn come LaunchAgent: parte al LOGIN utente e resta attivo.
+# Per ripartire all'accensione SENZA login usa invece:
+#   sudo ./deploy/macos/install-gunicorn-daemon.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -64,10 +66,14 @@ launchctl kickstart -k "${DOMAIN}/${LABEL}" 2>/dev/null \
   || launchctl start "${LABEL}" 2>/dev/null \
   || true
 
-echo "Servizio installato: ${PLIST_DST}"
+echo "LaunchAgent installato: ${PLIST_DST}"
 echo "WorkingDirectory: ${ROOT}"
+echo "Parte al LOGIN di questo utente (non all'accensione senza accesso)."
 echo "Securtek in ascolto su: http://0.0.0.0:8000"
 echo "Log: ${LOG_DIR}/gunicorn.*.log"
+echo
+echo "Per avvio senza login (consigliato su server):"
+echo "  sudo ./deploy/macos/install-gunicorn-daemon.sh"
 echo
 echo "Comandi utili:"
 echo "  launchctl kickstart -k ${DOMAIN}/${LABEL}   # riavvia"

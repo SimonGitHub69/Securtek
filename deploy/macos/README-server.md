@@ -43,24 +43,46 @@ Oppure dall’app Securtek con `Origin` puntato a quell’IP.
 
 Ferma con `Ctrl+C`.
 
-## 3. Avvio automatico (consigliato)
+## 3. Avvio automatico (consigliato: senza login)
+
+Per un Mac server che deve ripartire **all’accensione senza fare accesso**,
+usa il **LaunchDaemon** (richiede `sudo` una volta):
+
+```bash
+chmod +x deploy/macos/install-gunicorn-daemon.sh
+sudo ./deploy/macos/install-gunicorn-daemon.sh
+```
+
+Così Gunicorn:
+- parte all’accensione del Mac (**senza login**)
+- gira come l’utente che ha lanciato `sudo` (es. `macminiserver`)
+- si riavvia se si chiude
+- ascolta su porta **8000**
+- rimuove automaticamente il vecchio LaunchAgent utente (evita doppio servizio)
+
+### Riavvio / stop (Daemon)
+
+```bash
+sudo launchctl kickstart -k system/com.securtek.gunicorn
+sudo launchctl bootout system/com.securtek.gunicorn
+sudo launchctl print system/com.securtek.gunicorn
+```
+
+### Alternativa: solo al login (LaunchAgent)
+
+Se preferisci che parta solo dopo il login desktop:
 
 ```bash
 chmod +x deploy/macos/install-gunicorn.sh
 ./deploy/macos/install-gunicorn.sh
 ```
 
-Così Gunicorn:
-- parte al login dell’utente Mac
-- si riavvia se si chiude
-- ascolta su porta **8000**
-
-### Riavvio / stop
-
 ```bash
 launchctl kickstart -k "gui/$(id -u)/com.securtek.gunicorn"
 launchctl bootout "gui/$(id -u)/com.securtek.gunicorn"
 ```
+
+Non installare Agent e Daemon insieme.
 
 ## 4. Client Mac (app)
 

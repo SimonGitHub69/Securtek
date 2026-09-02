@@ -1,4 +1,5 @@
 {% extends "base/layout.html" %}
+{% load static %}
 
 {% block page_title %}
 Pratica
@@ -471,12 +472,22 @@ Pratica
                                                         <button type="button"
                                                                 class="btn btn-icon btn-outline-secondary js-pick-inline-folder"
                                                                 data-picker-url="{% url 'pratiche:folder_picker' %}"
+                                                                data-picker-popup-url="{% url 'pratiche:folder_picker_popup' %}"
+                                                                data-cartella-target="{{ category_form.cartella.id_for_label }}"
                                                                 title="Scegli cartella">
+                                                            <i class="ti ti-folder-plus"></i>
+                                                        </button>
+                                                        <button type="button"
+                                                                class="btn btn-icon btn-outline-secondary js-open-inline-folder"
+                                                                data-open-url="{% url 'pratiche:folder_open' %}"
+                                                                data-cartella-target="{{ category_form.cartella.id_for_label }}"
+                                                                title="Apri cartella in Explorer/Finder">
                                                             <i class="ti ti-folder-open"></i>
                                                         </button>
                                                         <button type="button"
                                                                 class="btn btn-icon btn-outline-primary js-preview-inline-folder"
                                                                 data-preview-url="{% url 'pratiche:folder_preview' %}"
+                                                                data-cartella-target="{{ category_form.cartella.id_for_label }}"
                                                                 title="Anteprima file cartella">
                                                             <i class="ti ti-eye"></i>
                                                         </button>
@@ -622,12 +633,22 @@ Pratica
                                             <button type="button"
                                                     class="btn btn-icon btn-outline-secondary js-pick-inline-folder"
                                                     data-picker-url="{% url 'pratiche:folder_picker' %}"
+                                                    data-picker-popup-url="{% url 'pratiche:folder_picker_popup' %}"
+                                                    data-cartella-target="{{ categorie_formset.empty_form.cartella.id_for_label }}"
                                                     title="Scegli cartella">
+                                                <i class="ti ti-folder-plus"></i>
+                                            </button>
+                                            <button type="button"
+                                                    class="btn btn-icon btn-outline-secondary js-open-inline-folder"
+                                                    data-open-url="{% url 'pratiche:folder_open' %}"
+                                                    data-cartella-target="{{ categorie_formset.empty_form.cartella.id_for_label }}"
+                                                    title="Apri cartella in Explorer/Finder">
                                                 <i class="ti ti-folder-open"></i>
                                             </button>
                                             <button type="button"
                                                     class="btn btn-icon btn-outline-primary js-preview-inline-folder"
                                                     data-preview-url="{% url 'pratiche:folder_preview' %}"
+                                                    data-cartella-target="{{ categorie_formset.empty_form.cartella.id_for_label }}"
                                                     title="Anteprima file cartella">
                                                 <i class="ti ti-eye"></i>
                                             </button>
@@ -1048,6 +1069,147 @@ Pratica
 
 {% block extra_js %}
 {{ block.super }}
+<script src="{% static 'securtek/js/desktop-folder.js' %}?v=20260902d"></script>
+<script>
+/* Handler cartelle: fuori dal blocco principale, così funziona anche se altro JS fallisce. */
+(function () {
+    function resolveInput(button) {
+        function safeQuery(root, selector) {
+            if (!root) {
+                return null;
+            }
+            try {
+                return root.querySelector(selector);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        var targetId = button.getAttribute("data-cartella-target");
+        if (targetId) {
+            var byId = document.getElementById(targetId);
+            if (byId) {
+                return byId;
+            }
+        }
+
+        var scope =
+            button.closest(".st-folder-field") ||
+            button.closest("tr.js-formset-row") ||
+            button.closest(".st-category-form-panel") ||
+            button.closest("form") ||
+            document;
+        var byClass =
+            safeQuery(scope, "input.js-cartella-input") ||
+            safeQuery(scope, 'input[data-securtek-cartella="1"]');
+        if (byClass) {
+            return byClass;
+        }
+
+        var group = button.closest(".input-group");
+        if (group) {
+            var inputs = group.querySelectorAll("input");
+            for (var i = 0; i < inputs.length; i++) {
+                var candidate = inputs[i];
+                var type = (candidate.getAttribute("type") || "text").toLowerCase();
+                if (type !== "hidden" && type !== "file" && type !== "checkbox" && type !== "radio") {
+                    return candidate;
+                }
+            }
+        }
+
+        var row = button.closest("tr.js-formset-row");
+        if (row) {
+            return (
+                safeQuery(row, "input.js-cartella-input") ||
+                safeQuery(row, 'input[data-securtek-cartella="1"]') ||
+                safeQuery(row, 'input[name*="cartella"]') ||
+                safeQuery(row, 'input[data-original-name*="cartella"]') ||
+                safeQuery(row, 'input[id*="cartella"]')
+            );
+        }
+
+        return null;
+    }
+
+    document.addEventListener("click", function (event) {
+        var button = event.target.closest(".js-pick-inline-folder");
+        if (!button) {
+            return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (!window.SecurtekDesktopFolder) {
+            window.alert(
+                "Script cartelle non caricato. Sul Mac esegui:\n" +
+                "python manage.py collectstatic --noinput\n" +
+                "e ricarica la pagina con Cmd+Shift+R."
+            );
+            return;
+        }
+
+        var cartellaInput = resolveInput(button);
+        if (!cartellaInput) {
+            window.alert(
+                "Campo cartella non trovato.\n" +
+                "Ricarica la pagina con Cmd+Shift+R dopo aver aggiornato i template."
+            );
+            return;
+        }
+
+        var previousTitle = button.getAttribute("title") || "";
+        button.disabled = true;
+        button.setAttribute("title", "Selezione cartella…");
+
+        window.SecurtekDesktopFolder.pickFolder(
+            button.dataset.pickerUrl,
+            "Seleziona cartella pratica"
+        ).then(function (selectedPath) {
+            if (selectedPath) {
+                cartellaInput.value = selectedPath;
+                cartellaInput.dispatchEvent(new Event("input", { bubbles: true }));
+                cartellaInput.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+        }).catch(function (error) {
+            window.alert((error && error.message) || "Impossibile aprire il selettore cartella.");
+        }).finally(function () {
+            button.disabled = false;
+            button.setAttribute("title", previousTitle);
+        });
+    });
+
+    document.addEventListener("click", function (event) {
+        var button = event.target.closest(".js-open-inline-folder");
+        if (!button) {
+            return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (!window.SecurtekDesktopFolder) {
+            window.alert("Script cartelle non caricato. Esegui collectstatic e ricarica.");
+            return;
+        }
+
+        var cartellaInput = resolveInput(button);
+        var folderPath = cartellaInput ? cartellaInput.value.trim() : "";
+        if (!folderPath) {
+            window.alert("Inserisci o scegli prima una cartella.");
+            return;
+        }
+
+        button.disabled = true;
+        window.SecurtekDesktopFolder.openFolder(button.dataset.openUrl, folderPath)
+            .catch(function (error) {
+                window.alert((error && error.message) || "Impossibile aprire la cartella.");
+            })
+            .finally(function () {
+                button.disabled = false;
+            });
+    });
+})();
+</script>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     function setSectionCollapsed(button, section, collapsed, persist) {
@@ -1203,6 +1365,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
             row.querySelectorAll("label[for]").forEach(function (label) {
                 label.htmlFor = label.htmlFor.replace(new RegExp(`id_${prefix}-\\d+-`), `id_${prefix}-${index}-`);
+            });
+
+            row.querySelectorAll("[data-cartella-target]").forEach(function (el) {
+                el.setAttribute(
+                    "data-cartella-target",
+                    el.getAttribute("data-cartella-target").replace(
+                        new RegExp(`id_${prefix}-\\d+-`),
+                        `id_${prefix}-${index}-`
+                    )
+                );
             });
         });
 
@@ -1666,6 +1838,8 @@ document.addEventListener("DOMContentLoaded", function () {
             const extension = file.extension || "-";
             const nativeOpen = Boolean(file.nativeOpen);
             const openUrl = file.preview_open_url || "";
+            const revealUrl = file.open_folder_url || "";
+            const revealLocalPath = file.reveal_local_path || "";
             const fileName = file.name || "";
             const isSelectedFile = file.source === "selected";
             const previewButton = openUrl
@@ -1682,6 +1856,15 @@ document.addEventListener("DOMContentLoaded", function () {
                            title="Anteprima non disponibile">
                        <i class="ti ti-eye-off"></i>
                    </button>`;
+            const revealButton = (revealUrl || revealLocalPath)
+                ? `<button type="button"
+                           class="btn btn-icon btn-outline-secondary btn-sm js-inline-reveal-file"
+                           data-reveal-url="${escapeHtml(revealUrl)}"
+                           data-reveal-path="${escapeHtml(revealLocalPath)}"
+                           title="Mostra in Explorer / Finder">
+                       <i class="ti ti-folder-open"></i>
+                   </button>`
+                : "";
             const unlinkButton = isSelectedFile
                 ? ""
                 : `<button type="button"
@@ -1713,6 +1896,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 <td class="text-end">
                     <div class="st-preview-actions">
                     ${previewButton}
+                    ${revealButton}
                     ${unlinkButton}
                     ${deleteButton}
                     </div>
@@ -1968,11 +2152,16 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         try {
-            const url = `${previewButton.dataset.previewUrl}?path=${encodeURIComponent(folderPath)}`;
-            const response = await fetch(url, {headers: {"X-Requested-With": "XMLHttpRequest"}});
-            const data = await response.json();
+            const helper = window.SecurtekDesktopFolder;
+            const data = helper && helper.fetchFolderPreview
+                ? await helper.fetchFolderPreview(previewButton.dataset.previewUrl, folderPath)
+                : await fetch(`${previewButton.dataset.previewUrl}?path=${encodeURIComponent(folderPath)}`, {
+                    headers: {"X-Requested-With": "XMLHttpRequest"},
+                }).then(function (response) {
+                    return response.json();
+                });
 
-            if (!response.ok || data.error) {
+            if (data.error) {
                 setRowPreviewMessage(previewRow, data.error || "Impossibile leggere la cartella.");
                 return;
             }
@@ -1986,8 +2175,9 @@ document.addEventListener("DOMContentLoaded", function () {
                 return {
                     ...file,
                     folder_path: folderPath,
+                    reveal_local_path: file.full_path || "",
                     nativeOpen: ["DOC", "DOCX", "XLS", "XLSX", "XLSM"].includes(file.extension),
-                    source: "folder"
+                    source: data.from_helper ? "helper_folder" : "folder"
                 };
             });
             renderCombinedRowPreview(row);
@@ -1996,50 +2186,26 @@ document.addEventListener("DOMContentLoaded", function () {
                 setRowPreviewMessage(previewRow, "Nessun file trovato nella cartella.", false);
             }
         } catch (error) {
-            setRowPreviewMessage(previewRow, "Impossibile leggere l'anteprima della cartella.");
+            setRowPreviewMessage(
+                previewRow,
+                (error && error.message) || "Impossibile leggere l'anteprima della cartella."
+            );
         }
     }
 
-    document.addEventListener("click", async function (event) {
-        const button = event.target.closest(".js-pick-inline-folder");
-
-        if (!button) {
+    // Anteprima dopo selezione cartella (change/input emessi dallo script dedicato)
+    document.addEventListener("change", async function (event) {
+        const input = event.target.closest('[name$="-cartella"]');
+        if (!input) {
             return;
         }
-
-        const row = button.closest("tr.js-formset-row");
-        const cartellaInput = row ? row.querySelector('[name$="-cartella"]') : null;
-
-        if (!cartellaInput) {
+        const row = input.closest("tr.js-formset-row");
+        if (!row) {
             return;
         }
-
-        try {
-            const response = await fetch(button.dataset.pickerUrl, {
-                headers: {"X-Requested-With": "XMLHttpRequest"},
-            });
-            const data = await response.json();
-
-            if (!response.ok || data.error) {
-                const previewRow = openRowPreview(row, "Selezione cartella", "");
-
-                if (previewRow) {
-                    setRowPreviewMessage(previewRow, data.error || "Impossibile scegliere la cartella.");
-                }
-                return;
-            }
-
-            if (data.path) {
-                cartellaInput.value = data.path;
-                updateCartellaHint(cartellaInput);
-                await showInlineFolderPreview(row, row.querySelector(".js-preview-inline-folder"));
-            }
-        } catch (error) {
-            const previewRow = openRowPreview(row, "Selezione cartella", "");
-
-            if (previewRow) {
-                setRowPreviewMessage(previewRow, "Impossibile aprire il selettore cartella.");
-            }
+        updateCartellaHint(input);
+        if (input.value.trim()) {
+            await showInlineFolderPreview(row, row.querySelector(".js-preview-inline-folder"));
         }
     });
 
@@ -2154,6 +2320,73 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         window.open(button.dataset.openUrl, "_blank", "noopener");
+    });
+
+    document.addEventListener("click", async function (event) {
+        const button = event.target.closest(".js-inline-reveal-file");
+
+        if (!button || (!button.dataset.revealUrl && !button.dataset.revealPath)) {
+            return;
+        }
+
+        const previewRow = button.closest(".js-category-preview-row");
+        button.disabled = true;
+
+        try {
+            const localPath = (button.dataset.revealPath || "").trim();
+            if (localPath && window.SecurtekDesktopFolder && window.SecurtekDesktopFolder.revealFile) {
+                await window.SecurtekDesktopFolder.revealFile(localPath);
+                if (previewRow) {
+                    setRowPreviewMessage(previewRow, "", false);
+                }
+                return;
+            }
+
+            if (!button.dataset.revealUrl) {
+                const err = "Impossibile mostrare il file in Explorer/Finder.";
+                if (previewRow) {
+                    setRowPreviewMessage(previewRow, err);
+                } else {
+                    window.alert(err);
+                }
+                return;
+            }
+
+            const response = await fetch(button.dataset.revealUrl, {
+                headers: {
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Accept": "application/json",
+                },
+            });
+            const data = await response.json().catch(function () {
+                return {};
+            });
+
+            if (!response.ok || data.success === false || data.opened === false || data.error) {
+                const err = data.error || "Impossibile mostrare il file in Explorer/Finder.";
+                if (previewRow) {
+                    setRowPreviewMessage(previewRow, err);
+                } else {
+                    window.alert(err);
+                }
+                return;
+            }
+
+            const okMsg = data.message || "File mostrato in Explorer/Finder.";
+            if (previewRow) {
+                // Nessun messaggio di successo: Finder viene già portato in primo piano.
+                setRowPreviewMessage(previewRow, "", false);
+            }
+        } catch (error) {
+            const err = "Impossibile mostrare il file in Explorer/Finder.";
+            if (previewRow) {
+                setRowPreviewMessage(previewRow, err);
+            } else {
+                window.alert(err);
+            }
+        } finally {
+            button.disabled = false;
+        }
     });
 
     document.addEventListener("click", function (event) {

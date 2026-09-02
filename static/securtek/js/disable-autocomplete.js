@@ -60,6 +60,7 @@
         const type = (field.getAttribute("type") || "").toLowerCase();
         const name = (field.getAttribute("name") || "").toLowerCase();
         const id = (field.getAttribute("id") || "").toLowerCase();
+        const originalName = (field.dataset.originalName || "").toLowerCase();
         const labelText =
             field.labels && field.labels.length
                 ? Array.from(field.labels)
@@ -69,12 +70,20 @@
                       .join(" ")
                       .toLowerCase()
                 : "";
-        const haystack = name + " " + id + " " + labelText;
+        const haystack = [name, originalName, id, labelText].join(" ");
+
+        // Non toccare i campi cartella/path (usati dai pulsanti Scegli/Apri).
+        if (
+            /cartella|folder|path|percorso/.test(haystack) ||
+            field.classList.contains("js-cartella-input")
+        ) {
+            return false;
+        }
 
         return (
             type === "email" ||
             type === "tel" ||
-            /email|e-mail|mail|telefono|phone|tel|cellulare|pec|indirizzo|address|citta|city|cap|zip|denominazione|ragione|nome|cognome|titolo|username|password|host|porta|smtp|mittente|destinatari|partita|piva|fiscale|codice_fiscale|codice fiscale|vat|tax|valore|contatto|contatti|civico|comune|provincia|nazione|descrizione/.test(
+            /\b(email|e-mail|mail|telefono|phone|tel|cellulare|pec|indirizzo|address|citta|city|cap|zip|denominazione|ragione|nome|cognome|titolo|username|password|host|porta|smtp|mittente|destinatari|partita|piva|fiscale|codice_fiscale|codice fiscale|vat|tax|valore|contatto|contatti|civico|comune|provincia|nazione|descrizione)\b/.test(
                 haystack
             )
         );
