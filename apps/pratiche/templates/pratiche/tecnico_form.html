@@ -16,7 +16,7 @@
 </div>
 
 <div class="card">
-    <form method="post">
+    <form method="post" id="tecnicoForm">
         {% csrf_token %}
 
         <div class="card-body">
@@ -36,7 +36,7 @@
         </div>
 
         <div class="card-footer text-end">
-            <a href="{% url 'pratiche:pratica_detail' pratica.pk %}" class="btn btn-secondary">
+            <a href="{% url 'pratiche:pratica_detail' pratica.pk %}" class="btn btn-secondary js-personale-cancel">
                 Annulla
             </a>
             <button type="submit" class="btn btn-primary">
@@ -45,5 +45,42 @@
         </div>
     </form>
 </div>
+
+<script>
+(function () {
+    var detailPath = "{% url 'pratiche:pratica_detail' pratica.pk %}";
+
+    function ensureReturn() {
+        if (window.SecurtekScrollHold && typeof window.SecurtekScrollHold.remember === "function") {
+            try {
+                var existing = JSON.parse(sessionStorage.getItem(window.SecurtekScrollHold.storageKey) || "null");
+                if (existing && existing.path) {
+                    return;
+                }
+            } catch (error) {
+                /* ignore */
+            }
+            window.SecurtekScrollHold.remember(detailPath);
+            return;
+        }
+        sessionStorage.setItem(
+            "securtek:personale-return",
+            JSON.stringify({
+                path: detailPath,
+                scrollY: 0,
+                focusPersonale: true,
+            })
+        );
+    }
+
+    var form = document.getElementById("tecnicoForm");
+    if (form) {
+        form.addEventListener("submit", ensureReturn);
+    }
+    document.querySelectorAll(".js-personale-cancel").forEach(function (link) {
+        link.addEventListener("click", ensureReturn);
+    });
+})();
+</script>
 
 {% endblock %}

@@ -27,6 +27,10 @@ PATHS=(
     apps/pratiche/templates/pratiche/folder_picker_popup.html
     apps/pratiche/templates/pratiche/pratica_form.html
     apps/pratiche/templates/pratiche/pratica_categoria_form.html
+    apps/dashboard/views.py
+    config/__init__.py
+    config/admin.py
+    config/apps.py
     config/settings.py
     config/urls.py
     config/version.py
@@ -105,7 +109,17 @@ Dopo estrazione (macOS): cartella Securtek-aggiornamento-v${VERSION}
 
    Deve rispondere: "version": "${VERSION}"
 
-## 2. Mac client (iMac)
+## 2. Login (staff / app)
+
+Dopo il riavvio Gunicorn, su ciascun utente Django:
+
+- Staff spento + Attivo = entra nell'app
+- Staff acceso = entra nel menu Django
+
+Sui client (Windows / iMac) basta riaprire Securtek e Ctrl+F5.
+Non serve reinstallare l'app Desktop per questo aggiornamento.
+
+## 3. Mac client (iMac) — solo se serve anche l'helper cartelle
 
 1. Copia deploy/macos-client/ sul Mac client.
 2. Terminale:

@@ -20,7 +20,13 @@ Serve questo **helper locale** sul computer dove usi il browser.
 3. (Consigliato) Metti un collegamento a quel `.bat` in:
    `shell:startup` (Esegui → shell:startup)
 4. Verifica: apri nel browser `http://127.0.0.1:18765/health`
-   → deve rispondere `{"ok": true, ...}`
+   → deve rispondere `{"ok": true, "version": 4, ...}`
+
+**Dopo ogni aggiornamento Securtek:** chiudi tutte le finestre del browser, esegui di
+nuovo `SecurtekDesktopHelper.bat` (termina eventuali istanze duplicate) e ricarica
+Securtek con **Ctrl+Shift+R**.
+
+Il selettore cartelle usa il dialogo nativo Windows (Shell32), **senza PowerShell**.
 
 Poi in Securtek → Modifica pratica → Categorie:
 - icona **+ cartella** = Scegli
@@ -39,7 +45,5 @@ python3 scripts/securtek_desktop_helper.py
 
 ## Nota
 
-- L’occhio (anteprima elenco file) legge ancora i file **dal server Django**.
-  Se i file sono solo sul PC Windows, l’anteprima può risultare vuota finché
-  i path non esistono anche sul server (condivisione di rete).
-- Scegli/Apri funzionano sul PC grazie all’helper.
+- L'anteprima elenco file usa l'helper locale sul PC Windows (cartelle `D:/...`).
+- Scegli/Apri/Anteprima funzionano sul PC grazie all'helper v4.

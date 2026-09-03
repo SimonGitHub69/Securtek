@@ -17,6 +17,8 @@ from pathlib import Path
 from urllib.parse import quote, unquote, urlparse
 from urllib.parse import urlencode
 
+MAX_FOLDER_PREVIEW_FILES = 500
+
 
 def _search_list_context(request):
     q = (request.GET.get("q") or "").strip()
@@ -354,6 +356,7 @@ def create_category_attachment_from_path(pratica_categoria, selected_path, user=
 
 def get_supported_file_entries(folder_path, pratica_categoria=None):
     entries = []
+    truncated = False
     metadata_by_path = {}
 
     if pratica_categoria:
@@ -458,8 +461,11 @@ def get_supported_file_entries(folder_path, pratica_categoria=None):
                 "open_folder_url": open_folder_url,
             }
         )
+        if len(entries) >= MAX_FOLDER_PREVIEW_FILES:
+            truncated = True
+            break
 
-    return entries
+    return entries, truncated
 
 
 def build_folder_file_entries(pratica_categoria):
@@ -495,7 +501,9 @@ def build_folder_file_entries(pratica_categoria):
         return
 
     pratica_categoria.cartella_is_folder = True
-    pratica_categoria.file_entries = get_supported_file_entries(folder_path, pratica_categoria)
+    entries, truncated = get_supported_file_entries(folder_path, pratica_categoria)
+    pratica_categoria.file_entries = entries
+    pratica_categoria.file_entries_truncated = truncated
 
 
 def save_category_formset_attachments(request, formset):
@@ -2174,7 +2182,14 @@ class FolderPreviewView(LoginRequiredMixin, View):
             if helper_health():
                 try:
                     files = list_folder_via_helper(folder_value)
-                    return JsonResponse({"files": files, "error": "", "from_helper": True})
+                    return JsonResponse(
+                        {
+                            "files": files,
+                            "error": "",
+                            "from_helper": True,
+                            "truncated": len(files) >= MAX_FOLDER_PREVIEW_FILES,
+                        }
+                    )
                 except DesktopHelperError as exc:
                     return JsonResponse({"files": [], "error": str(exc)})
             return JsonResponse({"files": [], "error": "Cartella non trovata"})
@@ -2182,7 +2197,8 @@ class FolderPreviewView(LoginRequiredMixin, View):
         if not folder_path.is_dir():
             return JsonResponse({"files": [], "error": "Il percorso non è una cartella"})
 
-        return JsonResponse({"files": get_supported_file_entries(folder_path), "error": ""})
+        entries, truncated = get_supported_file_entries(folder_path)
+        return JsonResponse({"files": entries, "error": "", "truncated": truncated})
 
 
 class FolderPreviewFileOpenView(LoginRequiredMixin, View):
@@ -2472,7 +2488,7 @@ class TecnicoCreateView(LoginRequiredMixin, CreateView):
         return context
 
     def get_success_url(self):
-        return reverse_lazy("pratiche:pratica_detail", kwargs={"pk": self.pratica.pk})
+        return reverse("pratiche:pratica_detail", kwargs={"pk": self.pratica.pk})
 
 
 class TecnicoUpdateView(LoginRequiredMixin, UpdateView):
@@ -2495,7 +2511,7 @@ class TecnicoUpdateView(LoginRequiredMixin, UpdateView):
         return context
 
     def get_success_url(self):
-        return reverse_lazy("pratiche:pratica_detail", kwargs={"pk": self.object.pratica_id})
+        return reverse("pratiche:pratica_detail", kwargs={"pk": self.object.pratica_id})
 
 
 class TecnicoDeleteView(LoginRequiredMixin, View):

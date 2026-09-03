@@ -135,7 +135,6 @@ def _pick_folder_windows(title: str) -> str | None:
             text=True,
             encoding="utf-8",
             errors="replace",
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             timeout=300,
         )
     except subprocess.TimeoutExpired as exc:

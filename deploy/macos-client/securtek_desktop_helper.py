@@ -483,7 +483,13 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> int:
-    server = ThreadingHTTPServer((HOST, PORT), Handler)
+    try:
+        server = ThreadingHTTPServer((HOST, PORT), Handler)
+    except OSError as exc:
+        if getattr(exc, "errno", None) == 48 or "Address already in use" in str(exc):
+            print(f"Helper già attivo su http://{HOST}:{PORT}/", flush=True)
+            return 0
+        raise
     print(f"Securtek desktop helper on http://{HOST}:{PORT}/ (v{HELPER_VERSION})", flush=True)
     try:
         server.serve_forever()

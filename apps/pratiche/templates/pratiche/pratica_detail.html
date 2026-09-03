@@ -286,6 +286,21 @@
 (function () {
     const praticaDetailUi = window.SecurtekPraticaDetail || {};
 
+    function rememberPersonaleReturn(returnPath) {
+        if (window.SecurtekScrollHold && typeof window.SecurtekScrollHold.remember === "function") {
+            window.SecurtekScrollHold.remember(returnPath || window.location.pathname);
+            return;
+        }
+        sessionStorage.setItem(
+            "securtek:personale-return",
+            JSON.stringify({
+                path: returnPath || window.location.pathname,
+                scrollY: window.scrollY || window.pageYOffset || 0,
+                focusPersonale: true,
+            })
+        );
+    }
+
     function setSectionCollapsed(button, section, collapsed, persist) {
         section.hidden = collapsed;
         button.classList.toggle("is-collapsed", collapsed);
@@ -391,6 +406,7 @@
     });
 
     praticaDetailUi.setSectionCollapsed = setSectionCollapsed;
+    praticaDetailUi.rememberPersonaleReturn = rememberPersonaleReturn;
     praticaDetailUi.openCategoryDetail = function (button, detailRow) {
         detailRow.hidden = false;
         button.classList.add("is-open");
@@ -1252,7 +1268,7 @@
     </div>
 </div>
 
-<div class="row mb-3">
+<div class="row mb-3" id="personale">
     <div class="col-12">
         <div class="card">
             <div class="card-header st-section-header" data-collapse-target="practice-technicians-section">
@@ -1577,6 +1593,17 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
+    document.addEventListener("click", function (event) {
+        var link = event.target.closest('a[href*="/tecnici/"]');
+        if (
+            link &&
+            window.SecurtekPraticaDetail &&
+            typeof window.SecurtekPraticaDetail.rememberPersonaleReturn === "function"
+        ) {
+            window.SecurtekPraticaDetail.rememberPersonaleReturn(window.location.pathname);
+        }
+    }, true);
+
     function closeTecnicoModal() {
         if (!modalElement || !form) {
             return;
@@ -1677,6 +1704,15 @@ document.addEventListener("DOMContentLoaded", function () {
                 nameElement.textContent = button.dataset.deleteName || "Personale selezionato";
                 modalElement.hidden = false;
             });
+        });
+
+        form.addEventListener("submit", function () {
+            if (
+                window.SecurtekPraticaDetail &&
+                typeof window.SecurtekPraticaDetail.rememberPersonaleReturn === "function"
+            ) {
+                window.SecurtekPraticaDetail.rememberPersonaleReturn(window.location.pathname);
+            }
         });
 
         cancelButton.addEventListener("click", closeTecnicoModal);

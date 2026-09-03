@@ -11,6 +11,8 @@ import json
 import os
 import subprocess
 import sys
+import threading
+import time
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -18,7 +20,12 @@ from urllib.parse import parse_qs, urlparse
 
 HOST = "127.0.0.1"
 PORT = 18765
-HELPER_VERSION = 3
+HELPER_VERSION = 5
+MAX_FOLDER_PREVIEW_FILES = 500
+
+_RESULT_STORE: dict[str, tuple[float, dict]] = {}
+_RESULT_LOCK = threading.Lock()
+_RESULT_TTL_SECONDS = 300
 
 NATIVE_OPEN_EXTENSIONS = {".doc", ".docx", ".xls", ".xlsx", ".xlsm"}
 IGNORED_FOLDER_FILE_NAMES = {
@@ -78,6 +85,7 @@ def _python_gui_executable() -> str:
 def pick_folder(title: str = "Seleziona cartella pratica") -> str | None:
     if sys.platform == "win32":
         script_path = _resolve_win_pick_folder_script()
+        # Nessun CREATE_NO_WINDOW: il processo figlio deve poter mostrare il dialogo nativo.
         result = subprocess.run(
             [
                 _python_gui_executable(),
@@ -89,7 +97,6 @@ def pick_folder(title: str = "Seleziona cartella pratica") -> str | None:
             text=True,
             encoding="utf-8",
             errors="replace",
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             timeout=300,
         )
         if result.returncode != 0:
@@ -247,7 +254,32 @@ end tell
     raise RuntimeError("Piattaforma non supportata dall'helper Securtek.")
 
 
-def list_folder(path_value: str) -> list[dict]:
+def _store_popup_result(result_id: str, payload: dict) -> None:
+    if not result_id:
+        return
+    with _RESULT_LOCK:
+        _RESULT_STORE[result_id] = (time.time(), payload)
+
+
+def _take_popup_result(result_id: str) -> dict | None:
+    if not result_id:
+        return None
+    with _RESULT_LOCK:
+        entry = _RESULT_STORE.pop(result_id, None)
+    if not entry:
+        return None
+    return entry[1]
+
+
+def _cleanup_popup_results() -> None:
+    cutoff = time.time() - _RESULT_TTL_SECONDS
+    with _RESULT_LOCK:
+        stale = [key for key, (created, _) in _RESULT_STORE.items() if created < cutoff]
+        for key in stale:
+            _RESULT_STORE.pop(key, None)
+
+
+def list_folder(path_value: str) -> tuple[list[dict], bool]:
     folder = Path(path_value).expanduser()
     if not folder.exists():
         raise RuntimeError("Cartella non trovata su questo computer.")
@@ -255,6 +287,7 @@ def list_folder(path_value: str) -> list[dict]:
         raise RuntimeError("Il percorso non è una cartella.")
 
     entries: list[dict] = []
+    truncated = False
     for file_path in sorted(
         folder.rglob("*"),
         key=lambda item: (office_file_priority(item), str(item.relative_to(folder)).lower()),
@@ -283,15 +316,19 @@ def list_folder(path_value: str) -> list[dict]:
                 "open_folder_url": "",
             }
         )
-    return entries
+        if len(entries) >= MAX_FOLDER_PREVIEW_FILES:
+            truncated = True
+            break
+    return entries, truncated
 
 
-def _pick_ui_html(title: str, opener: str) -> bytes:
+def _pick_ui_html(title: str, opener: str, callback: str) -> bytes:
     """Pagina locale same-origin: aggira il blocco browser verso 127.0.0.1 dal server remoto."""
     payload = json.dumps(
         {
             "title": title or "Seleziona cartella pratica",
             "opener": opener or "*",
+            "callback": callback or "",
         },
         ensure_ascii=False,
     )
@@ -300,11 +337,21 @@ def _pick_ui_html(title: str, opener: str) -> bytes:
 <style>html,body{{margin:0;padding:0;width:1px;height:1px;overflow:hidden;opacity:0}}</style></head><body>
 <script>
 const cfg = {payload};
+function storeResult(payload) {{
+  if (!cfg.callback) return Promise.resolve();
+  return fetch("/result", {{
+    method: "POST",
+    headers: {{ "Content-Type": "application/json" }},
+    body: JSON.stringify({{ id: cfg.callback, payload: payload }}),
+  }}).catch(function () {{}});
+}}
 function notify(payload) {{
-  if (window.opener && !window.opener.closed) {{
-    try {{ window.opener.postMessage(payload, cfg.opener); }} catch (e) {{}}
-  }}
-  window.close();
+  storeResult(payload).finally(function () {{
+    if (window.opener && !window.opener.closed) {{
+      try {{ window.opener.postMessage(payload, cfg.opener); }} catch (e) {{}}
+    }}
+    window.close();
+  }});
 }}
 fetch("/pick-folder", {{
   method: "POST",
@@ -330,12 +377,13 @@ fetch("/pick-folder", {{
     return html.encode("utf-8")
 
 
-def _list_ui_html(folder_path: str, opener: str) -> bytes:
+def _list_ui_html(folder_path: str, opener: str, callback: str) -> bytes:
     """Pagina locale same-origin per elencare file (come pick-ui)."""
     payload = json.dumps(
         {
             "path": folder_path or "",
             "opener": opener or "*",
+            "callback": callback or "",
         },
         ensure_ascii=False,
     )
@@ -344,11 +392,21 @@ def _list_ui_html(folder_path: str, opener: str) -> bytes:
 <style>html,body{{margin:0;padding:0;width:1px;height:1px;overflow:hidden;opacity:0}}</style></head><body>
 <script>
 const cfg = {payload};
+function storeResult(payload) {{
+  if (!cfg.callback) return Promise.resolve();
+  return fetch("/result", {{
+    method: "POST",
+    headers: {{ "Content-Type": "application/json" }},
+    body: JSON.stringify({{ id: cfg.callback, payload: payload }}),
+  }}).catch(function () {{}});
+}}
 function notify(payload) {{
-  if (window.opener && !window.opener.closed) {{
-    try {{ window.opener.postMessage(payload, cfg.opener); }} catch (e) {{}}
-  }}
-  window.close();
+  storeResult(payload).finally(function () {{
+    if (window.opener && !window.opener.closed) {{
+      try {{ window.opener.postMessage(payload, cfg.opener); }} catch (e) {{}}
+    }}
+    window.close();
+  }});
 }}
 if (!cfg.path) {{
   notify({{ type: "securtek-folder-list", files: [], error: "Percorso cartella mancante." }});
@@ -364,7 +422,12 @@ if (!cfg.path) {{
         notify({{ type: "securtek-folder-list", files: [], error: res.d.error || "Lettura fallita." }});
         return;
       }}
-      notify({{ type: "securtek-folder-list", files: res.d.files || [], error: "" }});
+      notify({{
+        type: "securtek-folder-list",
+        files: res.d.files || [],
+        truncated: !!res.d.truncated,
+        error: "",
+      }});
     }})
     .catch(function (err) {{
       notify({{ type: "securtek-folder-list", files: [], error: (err && err.message) || "Helper non disponibile." }});
@@ -421,7 +484,8 @@ class Handler(BaseHTTPRequestHandler):
             query = parse_qs(parsed.query)
             title = (query.get("title") or ["Seleziona cartella pratica"])[0]
             opener = (query.get("opener") or ["*"])[0]
-            body = _pick_ui_html(title, opener)
+            callback = (query.get("cb") or [""])[0]
+            body = _pick_ui_html(title, opener, callback)
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
@@ -433,13 +497,24 @@ class Handler(BaseHTTPRequestHandler):
             query = parse_qs(parsed.query)
             folder = (query.get("path") or [""])[0]
             opener = (query.get("opener") or ["*"])[0]
-            body = _list_ui_html(folder, opener)
+            callback = (query.get("cb") or [""])[0]
+            body = _list_ui_html(folder, opener, callback)
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
             self._cors()
             self.end_headers()
             self.wfile.write(body)
+            return
+        if path == "/result":
+            query = parse_qs(parsed.query)
+            result_id = (query.get("id") or [""])[0]
+            _cleanup_popup_results()
+            payload = _take_popup_result(result_id)
+            if payload is None:
+                self._reply(404, {"payload": None})
+                return
+            self._reply(200, {"payload": payload})
             return
         self._reply(404, {"error": "Not found"})
 
@@ -453,6 +528,16 @@ class Handler(BaseHTTPRequestHandler):
             data = {}
 
         try:
+            if path == "/result":
+                result_id = str(data.get("id") or "").strip()
+                payload = data.get("payload")
+                if not result_id or not isinstance(payload, dict):
+                    self._reply(400, {"error": "Risultato popup non valido."})
+                    return
+                _cleanup_popup_results()
+                _store_popup_result(result_id, payload)
+                self._reply(200, {"ok": True})
+                return
             if path == "/pick-folder":
                 selected = pick_folder(str(data.get("title") or "Seleziona cartella pratica"))
                 self._reply(200, {"path": selected or "", "cancelled": not bool(selected)})
@@ -478,8 +563,8 @@ class Handler(BaseHTTPRequestHandler):
                 if not folder:
                     self._reply(400, {"error": "Percorso cartella mancante."})
                     return
-                files = list_folder(folder)
-                self._reply(200, {"files": files, "error": ""})
+                files, truncated = list_folder(folder)
+                self._reply(200, {"files": files, "error": "", "truncated": truncated})
                 return
         except Exception as exc:  # noqa: BLE001
             self._reply(500, {"error": str(exc)})
@@ -489,7 +574,18 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> int:
-    server = ThreadingHTTPServer((HOST, PORT), Handler)
+    try:
+        server = ThreadingHTTPServer((HOST, PORT), Handler)
+    except OSError as exc:
+        in_use = (
+            getattr(exc, "winerror", None) == 10048
+            or getattr(exc, "errno", None) in (48, 98, 10048)
+            or "Address already in use" in str(exc)
+        )
+        if in_use:
+            print(f"Helper già attivo su http://{HOST}:{PORT}/", flush=True)
+            return 0
+        raise
     print(f"Securtek desktop helper on http://{HOST}:{PORT}/ (v{HELPER_VERSION})", flush=True)
     try:
         server.serve_forever()

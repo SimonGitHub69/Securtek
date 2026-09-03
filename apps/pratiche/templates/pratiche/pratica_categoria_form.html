@@ -114,7 +114,7 @@
 
 {% block extra_js %}
 {{ block.super }}
-<script src="{% static 'securtek/js/desktop-folder.js' %}?v=20260902d"></script>
+<script src="{% static 'securtek/js/desktop-folder.js' %}?v=20260902g"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     const cartellaInput = document.getElementById("id_cartella");
@@ -257,6 +257,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
             if (!data.files || data.files.length === 0) {
                 setMessage("Nessun file trovato nella cartella.", false);
+            } else if (data.truncated) {
+                setMessage("Mostrati i primi 500 file. La cartella ne contiene di più.", false);
             }
         } catch (error) {
             setMessage((error && error.message) || "Impossibile leggere l'anteprima della cartella.");

@@ -1,0 +1,5 @@
+/* Impedisce il flash/scroll visibile al ripristino posizione dopo salvataggio personale. */
+html.st-hold-scroll,
+html.st-hold-scroll body {
+    opacity: 0 !important;
+}

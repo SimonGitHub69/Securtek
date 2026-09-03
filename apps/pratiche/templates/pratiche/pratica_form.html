@@ -732,7 +732,7 @@ Pratica
             </div>
 
             <div class="d-flex align-items-center justify-content-between mb-2 st-section-header"
-                 id="personaleSectionHeader"
+                 id="personale"
                  data-collapse-target="pratica-form-personale-section">
                 <div>
                     <h3 class="card-title mb-1 d-flex align-items-center gap-2">
@@ -1069,7 +1069,7 @@ Pratica
 
 {% block extra_js %}
 {{ block.super }}
-<script src="{% static 'securtek/js/desktop-folder.js' %}?v=20260902d"></script>
+<script src="{% static 'securtek/js/desktop-folder.js' %}?v=20260902g"></script>
 <script>
 /* Handler cartelle: fuori dal blocco principale, così funziona anche se altro JS fallisce. */
 (function () {
@@ -1212,6 +1212,21 @@ Pratica
 </script>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
+    function rememberPersonaleReturn(returnPath) {
+        if (window.SecurtekScrollHold && typeof window.SecurtekScrollHold.remember === "function") {
+            window.SecurtekScrollHold.remember(returnPath || window.location.pathname);
+            return;
+        }
+        sessionStorage.setItem(
+            "securtek:personale-return",
+            JSON.stringify({
+                path: returnPath || window.location.pathname,
+                scrollY: window.scrollY || window.pageYOffset || 0,
+                focusPersonale: true,
+            })
+        );
+    }
+
     function setSectionCollapsed(button, section, collapsed, persist) {
         section.hidden = collapsed;
         button.classList.toggle("is-collapsed", collapsed);
@@ -1254,6 +1269,36 @@ document.addEventListener("DOMContentLoaded", function () {
             false
         );
     });
+
+    if (window.location.hash === "#personale") {
+        const personaleSection = document.getElementById("pratica-form-personale-section");
+        const personaleToggle = document.querySelector(
+            '.st-collapse-toggle[data-collapse-target="pratica-form-personale-section"]'
+        );
+
+        if (personaleSection && personaleToggle) {
+            setSectionCollapsed(personaleToggle, personaleSection, false, true);
+        }
+    }
+
+    document.addEventListener("click", function (event) {
+        var link = event.target.closest('a[href*="/tecnici/"]');
+        if (!link) {
+            return;
+        }
+        rememberPersonaleReturn(
+            "{% if object %}{% url 'pratiche:pratica_detail' object.pk %}{% endif %}" || window.location.pathname
+        );
+    }, true);
+
+    var mainForm = document.querySelector('form[method="post"][enctype="multipart/form-data"]');
+    if (mainForm) {
+        mainForm.addEventListener("submit", function () {
+            rememberPersonaleReturn(
+                "{% if object %}{% url 'pratiche:pratica_detail' object.pk %}{% else %}{% endif %}" || window.location.pathname
+            );
+        });
+    }
 
     document.addEventListener("click", function (event) {
         const collapseButton = event.target.closest(".st-collapse-toggle");
@@ -1563,6 +1608,10 @@ document.addEventListener("DOMContentLoaded", function () {
                 deleteTecnicoName.textContent = button.dataset.deleteName || "Personale selezionato";
                 deleteTecnicoModal.hidden = false;
             });
+        });
+
+        deleteTecnicoForm.addEventListener("submit", function () {
+            rememberPersonaleReturn("{% if object %}{% url 'pratiche:pratica_detail' object.pk %}{% endif %}" || window.location.pathname);
         });
 
         deleteTecnicoCancel.addEventListener("click", closeDeleteTecnicoModal);
@@ -2184,6 +2233,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
             if (!data.files || data.files.length === 0) {
                 setRowPreviewMessage(previewRow, "Nessun file trovato nella cartella.", false);
+            } else if (data.truncated) {
+                setRowPreviewMessage(
+                    previewRow,
+                    "Mostrati i primi 500 file. La cartella ne contiene di più.",
+                    false
+                );
             }
         } catch (error) {
             setRowPreviewMessage(
