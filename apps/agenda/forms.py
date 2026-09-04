@@ -147,6 +147,8 @@ class ConfigurazioneNotificaEmailForm(forms.ModelForm):
         model = ConfigurazioneNotificaEmail
         fields = [
             "attiva",
+            "servizio_attivo",
+            "intervallo_controllo_minuti",
             "host",
             "porta",
             "usa_tls",
@@ -156,11 +158,18 @@ class ConfigurazioneNotificaEmailForm(forms.ModelForm):
             "password",
             "mittente",
             "destinatari_default",
+            "template_oggetto",
+            "template_corpo",
             "giorni_preavviso",
+            "ora_invio",
             "note",
         ]
         widgets = {
             "attiva": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "servizio_attivo": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "intervallo_controllo_minuti": forms.NumberInput(
+                attrs={"class": "form-control", "min": 1, "max": 120, "autocomplete": "off"}
+            ),
             "host": forms.TextInput(
                 attrs={
                     "class": "form-control",
@@ -195,12 +204,30 @@ class ConfigurazioneNotificaEmailForm(forms.ModelForm):
             "destinatari_default": forms.Textarea(
                 attrs={
                     "class": "form-control",
-                    "rows": 4,
+                    "rows": 3,
                     "placeholder": "Una email per riga oppure separate da virgola",
                     "autocomplete": "off",
                 }
             ),
+            "template_oggetto": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "autocomplete": "off",
+                    "placeholder": "[Securtek] Promemoria {{data}} - {{titolo}}",
+                }
+            ),
+            "template_corpo": forms.Textarea(
+                attrs={
+                    "class": "form-control font-monospace",
+                    "rows": 12,
+                    "autocomplete": "off",
+                }
+            ),
             "giorni_preavviso": forms.NumberInput(attrs={"class": "form-control", "autocomplete": "off"}),
+            "ora_invio": forms.TimeInput(
+                attrs={"class": "form-control", "type": "time", "autocomplete": "off"},
+                format="%H:%M",
+            ),
             "note": forms.Textarea(attrs={"class": "form-control", "rows": 3, "autocomplete": "off"}),
         }
 
@@ -209,12 +236,48 @@ class ConfigurazioneNotificaEmailForm(forms.ModelForm):
         self.fields["giorni_preavviso"].help_text = (
             "Valore predefinito per i nuovi eventi agenda. Ogni evento puo' avere un preavviso diverso."
         )
+        self.fields["ora_invio"].help_text = (
+            "Orario di spedizione automatica. L'email parte il giorno "
+            "(data evento − giorni preavviso) a quest'ora."
+        )
+        self.fields["ora_invio"].input_formats = ["%H:%M", "%H:%M:%S"]
+        self.fields["servizio_attivo"].help_text = (
+            "Spegni per sospendere gli invii automatici senza disinstallare il job sul Mac Mini."
+        )
+        self.fields["intervallo_controllo_minuti"].help_text = (
+            "Frequenza di controllo del servizio (1–120 minuti). Default 15."
+        )
         self.fields["password"].help_text = (
             "Lascia vuoto per mantenere la password gia' salvata."
         )
         self.fields["verifica_certificato_ssl"].help_text = (
             "Disattiva solo se il certificato del server non corrisponde al nome host SMTP."
         )
+        self.fields["template_oggetto"].help_text = (
+            "Oggetto dell'email. Segnaposto: {{titolo}}, {{data}}, {{pratica_codice}}, …"
+        )
+        self.fields["template_corpo"].help_text = (
+            "Corpo testo. Segnaposto: {{titolo}}, {{tipo}}, {{pratica_codice}}, {{pratica_titolo}}, "
+            "{{cliente}}, {{data}}, {{ora}}, {{descrizione}}, {{url_pratica}}, "
+            "{{giorni_preavviso}}, {{data_notifica}}."
+        )
+        if not (self.instance.template_oggetto or "").strip():
+            self.initial.setdefault(
+                "template_oggetto",
+                "[Securtek] Promemoria {{data}} - {{titolo}}",
+            )
+        if not (self.instance.template_corpo or "").strip():
+            from apps.agenda.services.notifiche import DEFAULT_TEMPLATE_CORPO
+
+            self.initial.setdefault("template_corpo", DEFAULT_TEMPLATE_CORPO)
+
+    def clean_intervallo_controllo_minuti(self):
+        value = self.cleaned_data.get("intervallo_controllo_minuti")
+        if value is None:
+            return 15
+        if value < 1 or value > 120:
+            raise forms.ValidationError("L'intervallo deve essere tra 1 e 120 minuti.")
+        return value
 
     def clean_password(self):
         password = self.cleaned_data.get("password", "")

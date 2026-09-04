@@ -15,6 +15,92 @@
     justify-content: center;
     white-space: nowrap;
 }
+
+.st-file-actions {
+    white-space: nowrap;
+}
+
+.st-file-description-form {
+    margin: 0;
+    position: relative;
+}
+
+.st-file-description-form.is-saved .js-file-description-input {
+    border-color: var(--tblr-success, #2fb344);
+}
+
+.st-file-description-form.is-error .js-file-description-input {
+    border-color: var(--tblr-danger, #d63939);
+}
+
+.st-confirm {
+    background: rgba(15, 23, 42, 0.45);
+    bottom: 0;
+    display: flex;
+    left: 0;
+    padding: 1rem;
+    position: fixed;
+    right: 0;
+    top: 0;
+    z-index: 1080;
+}
+
+.st-confirm[hidden] {
+    display: none;
+}
+
+.st-confirm-dialog {
+    background: var(--tblr-bg-surface, #fff);
+    border-radius: 8px;
+    box-shadow: 0 12px 40px rgba(15, 23, 42, 0.18);
+    margin: auto;
+    max-width: 420px;
+    width: 100%;
+}
+
+.st-confirm-body {
+    display: flex;
+    gap: 1rem;
+    padding: 1.25rem;
+}
+
+.st-confirm-icon {
+    align-items: center;
+    background: var(--tblr-bg-surface-secondary, #f8fafc);
+    border-radius: 999px;
+    color: var(--tblr-secondary, #667085);
+    display: inline-flex;
+    flex: 0 0 2.5rem;
+    font-size: 1.25rem;
+    height: 2.5rem;
+    justify-content: center;
+    width: 2.5rem;
+}
+
+.st-confirm-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.st-confirm-text {
+    color: var(--tblr-secondary, #667085);
+    font-size: 0.875rem;
+}
+
+.st-confirm-name {
+    color: var(--tblr-body-color, #1e293b);
+    font-weight: 600;
+}
+
+.st-confirm-footer {
+    background: var(--tblr-bg-surface-secondary, #f8fafc);
+    border-top: 1px solid var(--tblr-border-color, #e6e8eb);
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    padding: 0.75rem 1.25rem;
+}
 </style>
 
 <div class="page-header d-print-none mb-3">
@@ -27,8 +113,13 @@
 </div>
 
 <div class="card">
-    <form method="post">
+    <form method="post" id="pratica-categoria-main-form">
         {% csrf_token %}
+        {% if next_url %}
+            <input type="hidden" name="next" value="{{ next_url }}">
+        {% elif request.GET.next %}
+            <input type="hidden" name="next" value="{{ request.GET.next }}">
+        {% endif %}
 
         <div class="card-body">
             {% if form.non_field_errors %}
@@ -76,6 +167,7 @@
                 {% endfor %}
             </div>
 
+            {% if not show_file_actions %}
             <div class="mt-3" id="folderPreview" hidden>
                 <h3 class="card-title mb-2">File nella cartella</h3>
                 <div class="table-responsive">
@@ -94,27 +186,297 @@
                     </table>
                 </div>
             </div>
+            {% endif %}
 
             <div class="alert alert-warning mt-3" id="folderPreviewMessage" hidden></div>
         </div>
-
-        <div class="card-footer text-end">
-            <a href="{% url 'pratiche:pratica_detail' pratica.pk %}" class="btn btn-secondary">
-                Annulla
-            </a>
-            <button type="submit" class="btn btn-primary">
-                <i class="ti ti-device-floppy"></i>
-                Salva
-            </button>
-        </div>
     </form>
+
+    {% if show_file_actions and pratica_categoria %}
+        <div class="card-body border-top">
+                <h3 class="card-title mb-3">File della categoria</h3>
+
+                {% if pratica_categoria.cartella_is_folder %}
+                    <form method="post"
+                          action="{% url 'pratiche:pratica_categoria_file_upload' pratica.pk pratica_categoria.pk %}"
+                          enctype="multipart/form-data"
+                          class="row g-2 align-items-end mb-3">
+                        {% csrf_token %}
+                        {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+                        <div class="col-lg-4">
+                            <label class="form-label small mb-1">Aggiungi nella cartella collegata</label>
+                            <input type="file"
+                                   name="file"
+                                   class="form-control form-control-sm"
+                                   multiple
+                                   accept=".doc,.docx,.htm,.html,.jpeg,.jpg,.pdf,.png,.txt,.xls,.xlsm,.xlsx"
+                                   required>
+                        </div>
+                        <div class="col-lg-5">
+                            <label class="form-label small mb-1">Descrizione</label>
+                            <input type="text"
+                                   name="descrizione"
+                                   class="form-control form-control-sm"
+                                   placeholder="Descrizione del file">
+                        </div>
+                        <div class="col-lg-3">
+                            <button type="submit" class="btn btn-sm btn-primary w-100">
+                                <i class="ti ti-upload"></i>
+                                Aggiungi
+                            </button>
+                        </div>
+                    </form>
+                {% else %}
+                    <div class="row g-2 align-items-end mb-3">
+                        <div class="col-lg-4">
+                            <form method="post"
+                                  action="{% url 'pratiche:pratica_categoria_allegato_upload' pratica.pk pratica_categoria.pk %}"
+                                  enctype="multipart/form-data"
+                                  id="allegato-upload-form"
+                                  class="row g-2 align-items-end">
+                                {% csrf_token %}
+                                {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+                                <div class="col-12">
+                                    <label class="form-label small mb-1">Collega file singolo</label>
+                                    <input type="file"
+                                           name="file"
+                                           class="form-control form-control-sm"
+                                           multiple
+                                           accept=".doc,.docx,.htm,.html,.jpeg,.jpg,.pdf,.png,.txt,.xls,.xlsm,.xlsx"
+                                           required>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="col-lg-4">
+                            <label class="form-label small mb-1" for="allegato-descrizione">Descrizione</label>
+                            <input type="text"
+                                   form="allegato-upload-form"
+                                   id="allegato-descrizione"
+                                   name="descrizione"
+                                   class="form-control form-control-sm"
+                                   placeholder="Descrizione del file">
+                        </div>
+                        <div class="col-lg-4">
+                            <div class="d-flex gap-2">
+                                <button type="submit" form="allegato-upload-form" class="btn btn-sm btn-primary flex-fill">
+                                    <i class="ti ti-paperclip"></i>
+                                    Collega
+                                </button>
+                                <form method="post"
+                                      action="{% url 'pratiche:pratica_categoria_allegato_pick' pratica.pk pratica_categoria.pk %}"
+                                      class="flex-fill">
+                                    {% csrf_token %}
+                                    {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+                                    <button type="submit" class="btn btn-sm btn-outline-primary w-100" title="Seleziona dal disco con il selettore desktop">
+                                        <i class="ti ti-file-plus"></i>
+                                        Da disco
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-secondary small mb-3">
+                        Senza cartella collegata puoi solo collegare file singoli alla pratica.
+                    </div>
+                {% endif %}
+
+                {% if pratica_categoria.allegato_entries %}
+                    <div class="table-responsive mt-2 mb-3">
+                        <table class="table table-vcenter table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>File singolo</th>
+                                    <th>Descrizione</th>
+                                    <th>Modificato il</th>
+                                    <th>Tipo</th>
+                                    <th>Dimensione</th>
+                                    <th class="text-end">Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for allegato in pratica_categoria.allegato_entries %}
+                                    <tr>
+                                        <td>{{ allegato.name }}</td>
+                                        <td>{{ allegato.description|default:"-" }}</td>
+                                        <td>{{ allegato.modified_at }}</td>
+                                        <td><span class="badge bg-secondary-lt">{{ allegato.extension }}</span></td>
+                                        <td>{{ allegato.size_kb }} KB</td>
+                                        <td class="text-end st-file-actions">
+                                            <button type="button"
+                                                    class="btn btn-icon btn-outline-primary js-open-pratica-file"
+                                                    data-open-url="{% if allegato.open_app_url %}{{ allegato.open_app_url }}{% else %}{{ allegato.open_url }}{% endif %}"
+                                                    data-native-open="{% if allegato.open_app_url %}1{% else %}0{% endif %}"
+                                                    title="{% if allegato.open_app_url %}Apri con applicazione originale{% else %}Apri anteprima{% endif %}">
+                                                {% if allegato.open_app_url %}
+                                                    {% with ext=allegato.extension|lower %}
+                                                        {% if ext == "doc" or ext == "docx" %}
+                                                            <i class="ti ti-file-type-doc text-blue"></i>
+                                                        {% elif ext == "xls" or ext == "xlsx" or ext == "xlsm" %}
+                                                            <i class="ti ti-file-type-xls text-green"></i>
+                                                        {% else %}
+                                                            <i class="ti ti-launch"></i>
+                                                        {% endif %}
+                                                    {% endwith %}
+                                                {% else %}
+                                                    <i class="ti ti-eye"></i>
+                                                {% endif %}
+                                            </button>
+                                            <button type="button"
+                                                    class="btn btn-icon btn-outline-secondary js-delete-file"
+                                                    title="Scollega file"
+                                                    data-delete-action="{{ allegato.delete_url }}"
+                                                    data-delete-file="{{ allegato.name }}"
+                                                    data-delete-mode="unlink">
+                                                <i class="ti ti-unlink"></i>
+                                            </button>
+                                            <button type="button"
+                                                    class="btn btn-icon btn-outline-secondary js-open-pratica-folder"
+                                                    data-open-url="{{ allegato.open_folder_url }}"
+                                                    title="Apri cartella di origine">
+                                                <i class="ti ti-folder-open"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% endif %}
+
+                {% if pratica_categoria.file_entries %}
+                    <div class="table-responsive mt-2">
+                        <table class="table table-vcenter table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Nome file</th>
+                                    <th>Descrizione</th>
+                                    <th>Creato il</th>
+                                    <th>Modificato il</th>
+                                    <th>Tipo</th>
+                                    <th>Dimensione</th>
+                                    <th class="text-end">Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for file in pratica_categoria.file_entries %}
+                                    <tr>
+                                        <td>{{ file.name }}</td>
+                                        <td>
+                                            <form method="post"
+                                                  action="{{ file.description_url }}"
+                                                  class="st-file-description-form"
+                                                  data-unsaved-guard="false">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="file" value="{{ file.name }}">
+                                                <input type="hidden" name="next" value="{% if next_url %}{{ next_url }}{% else %}{{ request.get_full_path }}{% endif %}">
+                                                <input type="text"
+                                                       name="descrizione"
+                                                       value="{{ file.description }}"
+                                                       data-original-value="{{ file.description }}"
+                                                       class="form-control form-control-sm js-file-description-input"
+                                                       placeholder="Aggiungi descrizione">
+                                            </form>
+                                        </td>
+                                        <td>{{ file.created_at }}</td>
+                                        <td>{{ file.modified_at }}</td>
+                                        <td><span class="badge bg-secondary-lt">{{ file.extension }}</span></td>
+                                        <td>{{ file.size_kb }} KB</td>
+                                        <td class="text-end st-file-actions">
+                                            <button type="button"
+                                                    class="btn btn-icon btn-outline-primary js-open-pratica-file"
+                                                    data-open-url="{% if file.open_app_url %}{{ file.open_app_url }}{% else %}{{ file.url }}{% endif %}"
+                                                    data-native-open="{% if file.open_app_url %}1{% else %}0{% endif %}"
+                                                    title="{% if file.open_app_url %}Apri con applicazione originale{% else %}Apri anteprima{% endif %}">
+                                                {% if file.open_app_url %}
+                                                    {% with ext=file.extension|lower %}
+                                                        {% if ext == "doc" or ext == "docx" %}
+                                                            <i class="ti ti-file-type-doc text-blue"></i>
+                                                        {% elif ext == "xls" or ext == "xlsx" or ext == "xlsm" %}
+                                                            <i class="ti ti-file-type-xls text-green"></i>
+                                                        {% else %}
+                                                            <i class="ti ti-launch"></i>
+                                                        {% endif %}
+                                                    {% endwith %}
+                                                {% else %}
+                                                    <i class="ti ti-eye"></i>
+                                                {% endif %}
+                                            </button>
+                                            <button type="button"
+                                                    class="btn btn-icon btn-outline-secondary js-delete-file"
+                                                    title="Scollega file dalla pratica"
+                                                    data-delete-action="{{ file.unlink_url }}"
+                                                    data-delete-file="{{ file.name }}"
+                                                    data-delete-mode="unlink">
+                                                <i class="ti ti-unlink"></i>
+                                            </button>
+                                            <button type="button"
+                                                    class="btn btn-icon btn-outline-secondary js-open-pratica-folder"
+                                                    data-open-url="{{ file.open_folder_url }}"
+                                                    title="Apri cartella di origine">
+                                                <i class="ti ti-folder-open"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% elif pratica_categoria.cartella_is_folder %}
+                    <div class="text-secondary small mt-2">Nessun file nella cartella.</div>
+                {% endif %}
+        </div>
+    {% endif %}
+
+    <div class="card-footer text-end">
+        <a href="{{ cancel_url }}" class="btn btn-secondary">
+            Annulla
+        </a>
+        <button type="submit" class="btn btn-primary" form="pratica-categoria-main-form">
+            <i class="ti ti-device-floppy"></i>
+            Salva
+        </button>
+    </div>
 </div>
+
+{% if show_file_actions %}
+<div class="st-confirm" id="deleteFileModal" hidden>
+    <div class="st-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="deleteFileTitle">
+        <form method="post" id="deleteFileForm">
+            {% csrf_token %}
+            <input type="hidden" name="file" id="deleteFileInput">
+            {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+
+            <div class="st-confirm-body">
+                <div class="st-confirm-icon">
+                    <i class="ti ti-unlink"></i>
+                </div>
+                <div>
+                    <div class="st-confirm-title" id="deleteFileTitle">Scollegare questo file?</div>
+                    <div class="st-confirm-text" id="deleteFileText">
+                        <span class="st-confirm-name" id="deleteFileName">File selezionato</span>
+                        non sarà più visibile nella pratica, ma resterà nella cartella.
+                    </div>
+                </div>
+            </div>
+
+            <div class="st-confirm-footer">
+                <button type="button" class="btn btn-outline-secondary js-delete-file-cancel">Annulla</button>
+                <button type="submit" class="btn btn-secondary" id="deleteFileSubmit">
+                    <i class="ti ti-unlink"></i>
+                    <span id="deleteFileSubmitText">Scollega</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
 
 {% endblock %}
 
 {% block extra_js %}
 {{ block.super }}
 <script src="{% static 'securtek/js/desktop-folder.js' %}?v=20260902g"></script>
+<script src="{% static 'securtek/js/desktop-open.js' %}?v=20260711" defer></script>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     const cartellaInput = document.getElementById("id_cartella");
@@ -124,9 +486,177 @@ document.addEventListener("DOMContentLoaded", function () {
     const previewRows = document.getElementById("folderPreviewRows");
     const message = document.getElementById("folderPreviewMessage");
 
-    if (!cartellaInput || !chooseButton || !preview || !previewRows || !message) {
+    function getCsrfToken() {
+        const tokenInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+        return tokenInput ? tokenInput.value : "";
+    }
+
+    function showActionToast(msg, type) {
+        if (window.SecurtekToast && typeof window.SecurtekToast.show === "function") {
+            window.SecurtekToast.show(msg, type);
+            return;
+        }
+        window.alert(msg);
+    }
+
+    const fileModalElement = document.getElementById("deleteFileModal");
+    const fileForm = document.getElementById("deleteFileForm");
+    const fileNameElement = document.getElementById("deleteFileName");
+    const fileTitleElement = document.getElementById("deleteFileTitle");
+    const fileTextElement = document.getElementById("deleteFileText");
+    const fileInput = document.getElementById("deleteFileInput");
+    const fileCancelButton = fileModalElement
+        ? fileModalElement.querySelector(".js-delete-file-cancel")
+        : null;
+    const fileSubmitElement = document.getElementById("deleteFileSubmit");
+    const fileSubmitTextElement = document.getElementById("deleteFileSubmitText");
+    let pendingFileUnlinkRequest = null;
+    let pendingUnlinkFileButton = null;
+
+    function closeFileModal(force) {
+        if (!fileModalElement || !fileForm || !fileInput) {
+            return;
+        }
+        if (pendingFileUnlinkRequest && !force) {
+            return;
+        }
+        fileModalElement.hidden = true;
+        fileForm.removeAttribute("action");
+        fileInput.value = "";
+        pendingUnlinkFileButton = null;
+    }
+
+    if (fileModalElement && fileForm && fileNameElement && fileInput && fileCancelButton) {
+        document.querySelectorAll(".js-delete-file").forEach(function (button) {
+            button.addEventListener("click", function () {
+                const fileName = button.dataset.deleteFile || "File selezionato";
+                fileForm.action = button.dataset.deleteAction;
+                fileInput.value = fileName;
+                fileNameElement.textContent = fileName;
+                pendingUnlinkFileButton = button;
+                if (fileTitleElement) {
+                    fileTitleElement.textContent = "Scollegare questo file?";
+                }
+                if (fileTextElement) {
+                    fileTextElement.textContent = fileName + " non sarà più visibile nella pratica, ma resterà nella cartella.";
+                }
+                if (fileSubmitTextElement) {
+                    fileSubmitTextElement.textContent = "Scollega";
+                }
+                fileModalElement.hidden = false;
+            });
+        });
+
+        fileForm.addEventListener("submit", function (event) {
+            event.preventDefault();
+            if (pendingFileUnlinkRequest || !fileForm.action) {
+                return;
+            }
+            const unlinkButton = pendingUnlinkFileButton;
+            const formData = new FormData(fileForm);
+            if (fileSubmitElement) {
+                fileSubmitElement.disabled = true;
+            }
+            fileCancelButton.disabled = true;
+            pendingFileUnlinkRequest = fetch(fileForm.action, {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": getCsrfToken(),
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Accept": "application/json",
+                },
+                body: formData,
+                credentials: "same-origin",
+            })
+                .then(function (response) {
+                    return response.json().catch(function () { return {}; }).then(function (data) {
+                        if (!response.ok || !data.success) {
+                            throw new Error(data.error || data.message || "Impossibile scollegare il file.");
+                        }
+                        return data;
+                    });
+                })
+                .then(function (data) {
+                    const row = unlinkButton ? unlinkButton.closest("tr") : null;
+                    if (row) {
+                        row.remove();
+                    }
+                    closeFileModal(true);
+                    showActionToast(data.message || "File scollegato dalla pratica.", "success");
+                })
+                .catch(function (error) {
+                    showActionToast(error.message || "Impossibile scollegare il file.", "error");
+                })
+                .finally(function () {
+                    pendingFileUnlinkRequest = null;
+                    if (fileSubmitElement) {
+                        fileSubmitElement.disabled = false;
+                    }
+                    fileCancelButton.disabled = false;
+                });
+        });
+
+        fileCancelButton.addEventListener("click", closeFileModal);
+        fileModalElement.addEventListener("click", function (event) {
+            if (event.target === fileModalElement) {
+                closeFileModal();
+            }
+        });
+    }
+
+    document.querySelectorAll(".st-file-description-form").forEach(function (form) {
+        const input = form.querySelector(".js-file-description-input");
+        if (!input) {
+            return;
+        }
+        async function saveIfChanged() {
+            const currentValue = input.value.trim();
+            const originalValue = (input.dataset.originalValue || "").trim();
+            if (currentValue === originalValue || form._saving) {
+                return;
+            }
+            form._saving = true;
+            form.classList.remove("is-saved", "is-error");
+            try {
+                const formData = new FormData(form);
+                formData.set("descrizione", input.value);
+                const response = await fetch(form.action, {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": getCsrfToken(),
+                        "X-Requested-With": "XMLHttpRequest",
+                        "Accept": "application/json",
+                    },
+                    body: formData,
+                });
+                const data = await response.json().catch(function () { return {}; });
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || "Impossibile salvare la descrizione.");
+                }
+                const savedValue = typeof data.descrizione === "string" ? data.descrizione : currentValue;
+                input.value = savedValue;
+                input.dataset.originalValue = savedValue;
+                form.classList.add("is-saved");
+            } catch (error) {
+                form.classList.add("is-error");
+            } finally {
+                form._saving = false;
+            }
+        }
+        input.addEventListener("blur", saveIfChanged);
+        input.addEventListener("keydown", function (event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                saveIfChanged();
+            }
+        });
+    });
+
+    if (!cartellaInput || !chooseButton || !message) {
         return;
     }
+
+    const hasFolderPreview = Boolean(preview && previewRows);
 
     function nativeOpenIconClass(extension) {
         const ext = (extension || "").toLowerCase();
@@ -147,6 +677,10 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function renderFiles(files) {
+        if (!hasFolderPreview) {
+            return;
+        }
+
         previewRows.innerHTML = "";
 
         files.forEach(function (file) {
@@ -194,42 +728,51 @@ document.addEventListener("DOMContentLoaded", function () {
         preview.hidden = files.length === 0;
     }
 
-    previewRows.addEventListener("click", async function (event) {
-        const button = event.target.closest("[data-open-url]");
+    if (hasFolderPreview) {
+        previewRows.addEventListener("click", async function (event) {
+            const button = event.target.closest("[data-open-url]");
 
-        if (!button) {
-            return;
-        }
-
-        if (button.dataset.nativeOpen === "1") {
-            try {
-                const response = await fetch(button.dataset.openUrl, {
-                    headers: {"X-Requested-With": "XMLHttpRequest"},
-                });
-                const data = await response.json();
-
-                if (!response.ok || data.success === false || data.opened === false || data.error) {
-                    setMessage(data.error || "Impossibile aprire il file.");
-                    return;
-                }
-
-                setMessage(data.message || "File aperto con l'applicazione originale.", false);
-            } catch (error) {
-                setMessage("Impossibile aprire il file.");
+            if (!button) {
+                return;
             }
-            return;
-        }
 
-        window.open(button.dataset.openUrl, "_blank", "noopener");
-    });
+            if (button.dataset.nativeOpen === "1") {
+                try {
+                    const response = await fetch(button.dataset.openUrl, {
+                        headers: {"X-Requested-With": "XMLHttpRequest"},
+                    });
+                    const data = await response.json();
+
+                    if (!response.ok || data.success === false || data.opened === false || data.error) {
+                        setMessage(data.error || "Impossibile aprire il file.");
+                        return;
+                    }
+
+                    setMessage(data.message || "File aperto con l'applicazione originale.", false);
+                } catch (error) {
+                    setMessage("Impossibile aprire il file.");
+                }
+                return;
+            }
+
+            window.open(button.dataset.openUrl, "_blank", "noopener");
+        });
+    }
 
     async function refreshPreview() {
         const value = cartellaInput.value.trim();
-        preview.hidden = true;
-        previewRows.innerHTML = "";
         setMessage("");
 
+        if (hasFolderPreview) {
+            preview.hidden = true;
+            previewRows.innerHTML = "";
+        }
+
         if (!value) {
+            return;
+        }
+
+        if (!hasFolderPreview) {
             return;
         }
 

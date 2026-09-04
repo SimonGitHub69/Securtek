@@ -63,7 +63,7 @@ ContattoFormSet = inlineformset_factory(
     Contatto,
     form=ContattoForm,
     extra=1,
-    can_delete=False,
+    can_delete=True,
 )
 
 
@@ -72,5 +72,5 @@ IndirizzoFormSet = inlineformset_factory(
     Indirizzo,
     form=IndirizzoForm,
     extra=1,
-    can_delete=False,
+    can_delete=True,
 )

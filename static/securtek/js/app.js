@@ -163,20 +163,6 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 
-    document.addEventListener("click", function (event) {
-        const button = event.target.closest("button");
-
-        if (!button || button.type === "submit" || button.dataset.unsavedIgnore === "true") {
-            return;
-        }
-
-        const form = button.closest('form[method="post"]');
-
-        if (form && guardedForms.includes(form)) {
-            markUnsaved();
-        }
-    });
-
     window.addEventListener("beforeunload", function (event) {
         if (!hasUnsavedChanges || isSubmitting) {
             return;

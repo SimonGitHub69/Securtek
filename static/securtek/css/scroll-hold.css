@@ -1,4 +1,9 @@
-/* Impedisce il flash/scroll visibile al ripristino posizione dopo salvataggio personale. */
+/* Nasconde la pagina e blocca lo scroll finché la posizione non è ripristinata. */
+html.st-hold-scroll {
+    background: var(--tblr-body-bg, #f5f7fb);
+    overflow: hidden !important;
+}
+
 html.st-hold-scroll,
 html.st-hold-scroll body {
     opacity: 0 !important;

@@ -40,7 +40,7 @@ Anteprima comunicazione
                 <i class="ti ti-download"></i>
                 Apri file originale
             </a>
-            <a href="{% url 'pratiche:pratica_detail' comunicazione.pratica.pk %}" class="btn btn-outline-secondary">
+            <a href="{% if cancel_url %}{{ cancel_url }}{% else %}{% url 'pratiche:pratica_detail' comunicazione.pratica.pk %}{% endif %}" class="btn btn-outline-secondary">
                 <i class="ti ti-arrow-left"></i>
                 Pratica
             </a>

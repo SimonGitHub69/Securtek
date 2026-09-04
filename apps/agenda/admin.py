@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from apps.agenda.models import ConfigurazioneNotificaEmail, EventoAgenda
+from apps.agenda.models import ConfigurazioneNotificaEmail, EventoAgenda, LogNotificaEmail
 
 
 @admin.register(EventoAgenda)
@@ -26,4 +26,23 @@ class EventoAgendaAdmin(admin.ModelAdmin):
 
 @admin.register(ConfigurazioneNotificaEmail)
 class ConfigurazioneNotificaEmailAdmin(admin.ModelAdmin):
-    list_display = ("attiva", "host", "porta", "mittente", "giorni_preavviso", "is_active")
+    list_display = (
+        "attiva",
+        "servizio_attivo",
+        "intervallo_controllo_minuti",
+        "host",
+        "porta",
+        "mittente",
+        "giorni_preavviso",
+        "ora_invio",
+        "ultimo_controllo_il",
+        "is_active",
+    )
+
+
+@admin.register(LogNotificaEmail)
+class LogNotificaEmailAdmin(admin.ModelAdmin):
+    list_display = ("inviata_il", "oggetto", "esito", "tipo", "pratica", "evento")
+    list_filter = ("esito", "tipo", "inviata_il")
+    search_fields = ("oggetto", "destinatari", "pratica__codice", "errore")
+    readonly_fields = ("inviata_il", "created_at", "updated_at")

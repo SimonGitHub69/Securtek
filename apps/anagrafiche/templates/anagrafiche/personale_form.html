@@ -18,6 +18,9 @@
 <div class="card">
     <form method="post" autocomplete="off">
         {% csrf_token %}
+        {% if next_url %}
+            <input type="hidden" name="next" value="{{ next_url }}">
+        {% endif %}
 
         <div class="card-body">
             {% if form.non_field_errors %}
@@ -40,7 +43,7 @@
         </div>
 
         <div class="card-footer text-end">
-            <a href="{% url 'anagrafiche:anagrafica_detail' anagrafica.pk %}" class="btn btn-secondary">
+            <a href="{{ cancel_url }}" class="btn btn-secondary">
                 Annulla
             </a>
             <button type="submit" class="btn btn-primary">

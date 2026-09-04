@@ -10,13 +10,44 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
-from django.views.generic import CreateView, TemplateView, UpdateView, View
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.generic import CreateView, ListView, TemplateView, UpdateView, View
 
 from apps.anagrafiche.models import Anagrafica
 from apps.agenda.forms import ConfigurazioneNotificaEmailForm, EventoAgendaForm
-from apps.agenda.models import ConfigurazioneNotificaEmail, EventoAgenda
+from apps.agenda.models import ConfigurazioneNotificaEmail, EventoAgenda, LogNotificaEmail
 from apps.agenda.services.notifiche import send_test_email
 from apps.pratiche.models import Pratica, Tecnico, TipologiaPratica
+
+
+def get_safe_next_url(request):
+    next_url = (request.GET.get("next") or request.POST.get("next") or "").strip()
+    if not next_url:
+        return ""
+    if not next_url.startswith("/") or next_url.startswith("//"):
+        return ""
+    if not url_has_allowed_host_and_scheme(
+        next_url.split("#")[0] or next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return ""
+    return next_url
+
+
+def evento_return_url(request, pratica_id=None):
+    """Torna a next se presente (con scroll), altrimenti al dettaglio pratica."""
+    from urllib.parse import urlsplit, urlunsplit
+
+    next_url = get_safe_next_url(request)
+    if next_url:
+        # Rimuovi hash (#agenda): provoca salto; lo scroll resta nei query params.
+        parts = urlsplit(next_url)
+        return urlunsplit((parts.scheme, parts.netloc, parts.path, parts.query, ""))
+
+    if pratica_id:
+        return reverse("pratiche:pratica_detail", kwargs={"pk": pratica_id})
+    return reverse("agenda:calendar")
 
 
 class PraticaScadenzaAgendaItem:
@@ -399,19 +430,17 @@ class EventoAgendaCreateView(LoginRequiredMixin, CreateView):
         context["cancel_url"] = self.get_success_url()
         context["selected_tecnici_ids"] = []
         context["cliente_id"] = self.get_cliente_id()
+        context["next_url"] = get_safe_next_url(self.request)
         return context
 
     def get_success_url(self):
-        pratica_id = self.request.GET.get("pratica") or self.request.POST.get("pratica") or ""
-        cliente_id = self.get_cliente_id()
-        url = reverse("agenda:calendar")
-
-        if pratica_id:
-            return f"{url}?pratica={pratica_id}"
-        if cliente_id:
-            return f"{url}?cliente={cliente_id}"
-
-        return url
+        pratica_id = (
+            getattr(getattr(self, "object", None), "pratica_id", None)
+            or self.request.GET.get("pratica")
+            or self.request.POST.get("pratica")
+            or ""
+        )
+        return evento_return_url(self.request, pratica_id or None)
 
 
 class EventoAgendaUpdateView(LoginRequiredMixin, UpdateView):
@@ -431,13 +460,14 @@ class EventoAgendaUpdateView(LoginRequiredMixin, UpdateView):
         context = super().get_context_data(**kwargs)
         context["page_title"] = "Modifica evento"
         context["cancel_url"] = self.get_success_url()
+        context["next_url"] = get_safe_next_url(self.request)
         context["selected_tecnici_ids"] = list(
             self.object.tecnici.filter(is_active=True).values_list("pk", flat=True)
         )
         return context
 
     def get_success_url(self):
-        return f"{reverse('agenda:calendar')}?pratica={self.object.pratica_id}"
+        return evento_return_url(self.request, self.object.pratica_id)
 
 
 class EventoAgendaDeleteView(LoginRequiredMixin, View):
@@ -446,7 +476,7 @@ class EventoAgendaDeleteView(LoginRequiredMixin, View):
         pratica_id = evento.pratica_id
         evento.soft_delete(user=request.user)
         messages.success(request, "Evento agenda eliminato correttamente.")
-        return redirect(f"{reverse('agenda:calendar')}?pratica={pratica_id}")
+        return redirect(evento_return_url(request, pratica_id))
 
 
 class ConfigurazioneNotificaEmailUpdateView(LoginRequiredMixin, UpdateView):
@@ -464,8 +494,104 @@ class ConfigurazioneNotificaEmailUpdateView(LoginRequiredMixin, UpdateView):
         messages.success(self.request, "Parametri mail notifiche aggiornati correttamente.")
         return super().form_valid(form)
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        from apps.agenda.services.servizio_notifiche import get_servizio_status
+
+        context["recent_logs"] = (
+            LogNotificaEmail.objects.filter(is_active=True)
+            .select_related("evento", "pratica")
+            .order_by("-inviata_il", "-id")[:8]
+        )
+        context["log_count"] = LogNotificaEmail.objects.filter(is_active=True).count()
+        context["servizio_status"] = get_servizio_status(self.object)
+        return context
+
     def get_success_url(self):
         return reverse("agenda:configurazione_email")
+
+
+class ConfigurazioneNotificaEmailServizioView(LoginRequiredMixin, View):
+    """Accende o spegne il servizio automatico senza toccare SMTP."""
+
+    def post(self, request, *args, **kwargs):
+        config = ConfigurazioneNotificaEmail.get_solo()
+        action = (request.POST.get("action") or "").strip().lower()
+        if action == "off":
+            config.servizio_attivo = False
+            messages.success(request, "Servizio automatico mail spento.")
+        elif action == "on":
+            config.servizio_attivo = True
+            messages.success(request, "Servizio automatico mail acceso.")
+        else:
+            messages.error(request, "Azione non valida.")
+            return redirect("agenda:configurazione_email")
+        config.updated_by = request.user
+        config.save(update_fields=["servizio_attivo", "updated_by", "updated_at"])
+        return redirect("agenda:configurazione_email")
+
+
+class LogNotificaEmailClearView(LoginRequiredMixin, View):
+    """Azzera il registro mail (soft-delete di tutte le voci attive)."""
+
+    def post(self, request, *args, **kwargs):
+        now = timezone.now()
+        updated = LogNotificaEmail.objects.filter(is_active=True).update(
+            is_active=False,
+            deleted_at=now,
+            deleted_by=request.user,
+            updated_at=now,
+        )
+        if updated:
+            messages.success(
+                request,
+                f"Registro mail azzerato ({updated} voc{'e' if updated == 1 else 'i'} rimosse).",
+            )
+        else:
+            messages.info(request, "Il registro mail era già vuoto.")
+        return redirect("agenda:configurazione_email")
+
+
+class LogNotificaEmailListView(LoginRequiredMixin, ListView):
+    model = LogNotificaEmail
+    template_name = "agenda/log_notifiche_email_list.html"
+    context_object_name = "logs"
+    paginate_by = 50
+
+    def get_queryset(self):
+        queryset = (
+            LogNotificaEmail.objects.filter(is_active=True)
+            .select_related("evento", "pratica", "pratica__cliente")
+            .order_by("-inviata_il", "-id")
+        )
+        esito = (self.request.GET.get("esito") or "").strip()
+        tipo = (self.request.GET.get("tipo") or "").strip()
+        q = (self.request.GET.get("q") or "").strip()
+        if esito:
+            queryset = queryset.filter(esito=esito)
+        if tipo:
+            queryset = queryset.filter(tipo=tipo)
+        if q:
+            queryset = queryset.filter(
+                Q(oggetto__icontains=q)
+                | Q(destinatari__icontains=q)
+                | Q(pratica__codice__icontains=q)
+                | Q(pratica__titolo__icontains=q)
+            )
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["config"] = ConfigurazioneNotificaEmail.get_solo()
+        context["q"] = (self.request.GET.get("q") or "").strip()
+        context["esito"] = (self.request.GET.get("esito") or "").strip()
+        context["tipo"] = (self.request.GET.get("tipo") or "").strip()
+        context["esito_choices"] = LogNotificaEmail.Esito.choices
+        context["tipo_choices"] = LogNotificaEmail.Tipo.choices
+        params = self.request.GET.copy()
+        params.pop("page", None)
+        context["filter_query"] = params.urlencode()
+        return context
 
 
 class ConfigurazioneNotificaEmailTestView(LoginRequiredMixin, View):
@@ -481,7 +607,7 @@ class ConfigurazioneNotificaEmailTestView(LoginRequiredMixin, View):
             messages.error(request, "L'indirizzo email di destinazione non e' valido.")
             return redirect("agenda:configurazione_email")
 
-        result = send_test_email(recipients=[destinatario])
+        result = send_test_email(recipients=[destinatario], user=request.user)
         if result["ok"]:
             messages.success(
                 request,

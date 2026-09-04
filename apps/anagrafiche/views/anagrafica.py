@@ -3,6 +3,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.generic import ListView, CreateView, UpdateView, DetailView, View
 from django.db.models import Count, Prefetch, Q
 from django.contrib.messages.views import SuccessMessageMixin
@@ -10,6 +11,29 @@ from django.contrib.messages.views import SuccessMessageMixin
 from apps.anagrafiche.models import Anagrafica, Contatto, Indirizzo
 from apps.anagrafiche.forms import AnagraficaForm, ContattoFormSet, IndirizzoFormSet, PersonaleFormSet
 from apps.pratiche.models import Pratica, PraticaCategoria, Tecnico
+
+
+def get_safe_next_url(request):
+    next_url = (request.GET.get("next") or request.POST.get("next") or "").strip()
+    if not next_url:
+        return ""
+    if not next_url.startswith("/") or next_url.startswith("//"):
+        return ""
+    if not url_has_allowed_host_and_scheme(
+        next_url.split("#")[0] or next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return ""
+    return next_url
+
+
+def with_next(url, next_url):
+    if not next_url:
+        return url
+    from urllib.parse import urlencode
+
+    return f"{url}?{urlencode({'next': next_url})}"
 
 
 class AnagraficaListView(LoginRequiredMixin, ListView):
@@ -110,6 +134,10 @@ class AnagraficaDetailView(LoginRequiredMixin, DetailView):
             .prefetch_related("tecnici")
             .order_by("-data_inizio", "-ora_inizio", "-id")[:12]
         )
+        next_url = get_safe_next_url(self.request)
+        context["next_url"] = next_url
+        context["back_url"] = next_url or reverse("anagrafiche:anagrafica_list")
+        context["back_label"] = "Torna alla pratica" if next_url else "Elenco"
         return context
 
 
@@ -172,6 +200,13 @@ class AnagraficaFormsetMixin:
         if "personale_formset" not in context:
             context["personale_formset"] = self.get_personale_formset()
 
+        next_url = get_safe_next_url(self.request)
+        context["next_url"] = next_url
+        if self.object:
+            detail_url = reverse("anagrafiche:anagrafica_detail", kwargs={"pk": self.object.pk})
+            context["cancel_url"] = with_next(detail_url, next_url)
+        else:
+            context["cancel_url"] = next_url or reverse("anagrafiche:anagrafica_list")
         return context
 
     def form_valid(self, form):
@@ -225,6 +260,12 @@ class AnagraficaFormsetMixin:
         formset.instance = self.object
         instances = formset.save(commit=False)
 
+        for obj in formset.deleted_objects:
+            if hasattr(obj, "soft_delete"):
+                obj.soft_delete(user=self.request.user)
+            else:
+                obj.delete()
+
         for instance in instances:
             if hasattr(instance, "valore") and not instance.valore:
                 continue
@@ -260,7 +301,8 @@ class AnagraficaCreateView(LoginRequiredMixin, AnagraficaFormsetMixin, SuccessMe
     success_message = "Anagrafica creata correttamente."
 
     def get_success_url(self):
-        return reverse("anagrafiche:anagrafica_detail", kwargs={"pk": self.object.pk})
+        detail_url = reverse("anagrafiche:anagrafica_detail", kwargs={"pk": self.object.pk})
+        return with_next(detail_url, get_safe_next_url(self.request))
 
 
 class AnagraficaUpdateView(LoginRequiredMixin, AnagraficaFormsetMixin, SuccessMessageMixin, UpdateView):
@@ -270,7 +312,8 @@ class AnagraficaUpdateView(LoginRequiredMixin, AnagraficaFormsetMixin, SuccessMe
     success_message = "Anagrafica aggiornata correttamente."
 
     def get_success_url(self):
-        return reverse("anagrafiche:anagrafica_detail", kwargs={"pk": self.object.pk})
+        detail_url = reverse("anagrafiche:anagrafica_detail", kwargs={"pk": self.object.pk})
+        return with_next(detail_url, get_safe_next_url(self.request))
 
 
 class AnagraficaDeleteView(LoginRequiredMixin, View):

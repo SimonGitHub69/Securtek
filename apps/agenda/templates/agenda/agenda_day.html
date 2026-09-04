@@ -45,7 +45,7 @@ Agenda giornaliera
                     Torna all'anagrafica
                 </a>
             {% endif %}
-            <a href="{% url 'agenda:evento_create' %}?data={{ selected_date|date:'Y-m-d' }}{{ agenda_query_suffix }}" class="btn btn-primary">
+            <a href="{% url 'agenda:evento_create' %}?data={{ selected_date|date:'Y-m-d' }}{{ agenda_query_suffix }}&next={{ request.get_full_path|urlencode }}" class="btn btn-primary">
                 <i class="ti ti-plus"></i>
                 Nuovo evento
             </a>
@@ -166,7 +166,7 @@ Agenda giornaliera
                                             <i class="ti ti-folder"></i>
                                         </a>
                                         {% if not event.is_pratica_scadenza %}
-                                            <a href="{% url 'agenda:evento_update' event.pk %}" class="btn btn-icon btn-outline-primary" title="Modifica">
+                                            <a href="{% url 'agenda:evento_update' event.pk %}?next={{ request.get_full_path|urlencode }}" class="btn btn-icon btn-outline-primary" title="Modifica">
                                                 <i class="ti ti-edit"></i>
                                             </a>
                                         {% endif %}

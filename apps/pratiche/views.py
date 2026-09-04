@@ -570,6 +570,65 @@ def get_safe_next_url(request):
     return next_url
 
 
+def parse_scroll_y(value) -> int | None:
+    try:
+        scroll_y = int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    if scroll_y < 0 or scroll_y > 500_000:
+        return None
+    return scroll_y
+
+
+def with_query_param(url: str, key: str, value: str) -> str:
+    if not url:
+        return url
+    from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+    parts = urlsplit(url)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query[key] = value
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+
+
+def with_scroll(url: str, scroll_y: int | None) -> str:
+    if scroll_y is None:
+        return url
+    return with_query_param(url, "scroll", str(scroll_y))
+
+
+def with_personale_position(url: str) -> str:
+    if not url:
+        return url
+    return with_query_param(url, "pos", "personale")
+
+
+def tecnico_success_url(request, pratica_pk: int) -> str:
+    from urllib.parse import parse_qsl, urlsplit
+
+    next_url = get_safe_next_url(request)
+    if next_url:
+        url = next_url.split("#")[0]
+    else:
+        url = reverse("pratiche:pratica_update", kwargs={"pk": pratica_pk})
+
+    # Preferisci lo scroll salvato in ?next= (posizione sulla pratica), non quello
+    # della pagina tecnico (che sarebbe ~0).
+    existing = dict(parse_qsl(urlsplit(url).query, keep_blank_values=True))
+    scroll_y = parse_scroll_y(existing.get("scroll"))
+    if scroll_y is None:
+        # Ignora scroll_y della pagina tecnico se non c'era già in next.
+        posted = parse_scroll_y(request.POST.get("scroll_y"))
+        from_get = parse_scroll_y(request.GET.get("scroll"))
+        if request.POST.get("next") or request.GET.get("next"):
+            scroll_y = from_get
+        else:
+            scroll_y = posted if posted is not None else from_get
+
+    url = with_personale_position(url)
+    return with_scroll(url, scroll_y)
+
+
 def request_wants_json(request):
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return True
@@ -619,6 +678,51 @@ def with_next(url, next_url):
         return url
 
     return f"{url}?{urlencode({'next': next_url})}"
+
+
+def categoria_return_url(request, pratica_id) -> str:
+    """Torna a next se presente, altrimenti al dettaglio pratica sulla sezione Categorie."""
+    return pratica_section_return_url(request, pratica_id, pos="categorie")
+
+
+def categoria_file_action_return_url(request, pratica_id, categoria_pk) -> str:
+    """Dopo azioni file resta sulla modifica categoria, preservando next verso la pratica."""
+    from urllib.parse import urlencode
+
+    update_url = reverse(
+        "pratiche:pratica_categoria_update",
+        kwargs={"pratica_pk": pratica_id, "pk": categoria_pk},
+    )
+    next_url = get_safe_next_url(request)
+    if next_url:
+        return f"{update_url}?{urlencode({'next': next_url})}"
+    return update_url
+
+
+def pratica_section_return_url(request, pratica_id, pos: str | None = None) -> str:
+    """Ritorno alla pratica (o next) con scroll e sezione, senza hash."""
+    from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+    next_url = get_safe_next_url(request)
+    if next_url:
+        parts = urlsplit(next_url)
+        query = dict(parse_qsl(parts.query, keep_blank_values=True))
+        url_path = parts.path
+    else:
+        url_path = reverse("pratiche:pratica_detail", kwargs={"pk": pratica_id})
+        query = {}
+        if request.POST.get("embed") == "1" or request.GET.get("embed") == "1":
+            query["embed"] = "1"
+
+    scroll_y = parse_scroll_y(query.get("scroll"))
+    if scroll_y is None:
+        scroll_y = parse_scroll_y(request.POST.get("scroll_y") or request.GET.get("scroll"))
+    if scroll_y is not None:
+        query["scroll"] = str(scroll_y)
+    if pos:
+        query["pos"] = pos
+
+    return urlunsplit(("", "", url_path, urlencode(query), ""))
 
 
 def apply_template_to_pratica(pratica, user=None):
@@ -807,7 +911,14 @@ class PraticaDetailView(LoginRequiredMixin, DetailView):
         context["macro_categorie_pratica"] = macro_categorie_pratica
         context["macro_categoria_apply_form"] = PraticaMacroCategoriaApplyForm()
         categorie_pratica = list(
-            self.object.categoria_collegamenti.filter(is_active=True).select_related("categoria", "macro_categoria")
+            self.object.categoria_collegamenti.filter(is_active=True)
+            .select_related("categoria", "macro_categoria")
+            .order_by(
+                "macro_categoria__denominazione",
+                "categoria__denominazione",
+                "versione",
+                "id",
+            )
         )
         for pratica_categoria in categorie_pratica:
             build_folder_file_entries(pratica_categoria)
@@ -931,8 +1042,7 @@ class PraticaCreateView(LoginRequiredMixin, CreateView):
         return context
 
     def get_success_url(self):
-        update_url = reverse("pratiche:pratica_update", kwargs={"pk": self.object.pk})
-        return with_next(update_url, get_safe_next_url(self.request))
+        return get_safe_next_url(self.request) or reverse("pratiche:pratica_list")
 
 
 class PraticaUpdateView(LoginRequiredMixin, UpdateView):
@@ -944,12 +1054,14 @@ class PraticaUpdateView(LoginRequiredMixin, UpdateView):
         return Pratica.objects.filter(is_active=True)
 
     def get_inline_formsets(self, data=None):
+        # Le categorie in modifica si gestiscono come in visione
+        # (tabella + Aggiungi/Modifica/Elimina), non via formset inline.
         return {
             "categorie_formset": PraticaCategoriaFormSet(
                 data=data,
                 instance=self.object,
                 prefix="categorie",
-                queryset=PraticaCategoria.objects.filter(is_active=True),
+                queryset=PraticaCategoria.objects.none(),
             ),
         }
 
@@ -1004,6 +1116,8 @@ class PraticaUpdateView(LoginRequiredMixin, UpdateView):
         detail_url = reverse("pratiche:pratica_detail", kwargs={"pk": self.object.pk})
         next_url = get_safe_next_url(self.request)
         context["next_url"] = next_url
+        context["return_url"] = next_url or reverse("pratiche:pratica_list")
+        context["return_label"] = "Anagrafica" if next_url else "Elenco"
         context["cancel_url"] = with_next(detail_url, next_url)
         if "categorie_formset" not in context:
             context.update(self.get_inline_formsets())
@@ -1013,11 +1127,62 @@ class PraticaUpdateView(LoginRequiredMixin, UpdateView):
             tecnici_per_cliente(self.object.cliente_id, pratica_id=self.object.pk),
             prefer_pratica_id=self.object.pk,
         )
+        context["macro_categorie_pratica"] = list(
+            self.object.macro_categoria_collegamenti.filter(is_active=True).select_related(
+                "macro_categoria"
+            )
+        )
+        context["macro_categoria_apply_form"] = PraticaMacroCategoriaApplyForm()
+        categorie_pratica = list(
+            self.object.categoria_collegamenti.filter(is_active=True)
+            .select_related("categoria", "macro_categoria")
+            .order_by(
+                "macro_categoria__denominazione",
+                "categoria__denominazione",
+                "versione",
+                "id",
+            )
+        )
+        for pratica_categoria in categorie_pratica:
+            build_folder_file_entries(pratica_categoria)
+            pratica_categoria.allegato_entries = [
+                build_uploaded_file_entry(allegato)
+                for allegato in pratica_categoria.allegati_singoli.filter(is_active=True)
+            ]
+            append_category_detail_return_to_file_entries(self.request, pratica_categoria)
+        context["categorie_pratica"] = categorie_pratica
+        context["comunicazioni"] = self.object.comunicazioni.filter(is_active=True).order_by(
+            "-data_ora", "-id"
+        )
+        context["comunicazione_form"] = ComunicazionePraticaForm()
+        eventi_agenda = list(
+            self.object.eventi_agenda.filter(is_active=True)
+            .prefetch_related(
+                "tecnici__studio_appartenenza",
+                "tecnici__incarico",
+            )
+            .order_by("data_inizio", "ora_inizio")
+        )
+        eventi_agenda.extend(
+            get_pratica_deadline_items(
+                date(1900, 1, 1),
+                date(2100, 12, 31),
+                pratica_id=str(self.object.pk),
+            )
+        )
+        eventi_agenda.sort(
+            key=lambda evento: (
+                evento.data_inizio,
+                evento.ora_inizio or time.min,
+                evento.tipo,
+                evento.titolo,
+            )
+        )
+        context["eventi_agenda"] = eventi_agenda[:8]
         return context
 
     def get_success_url(self):
-        detail_url = reverse("pratiche:pratica_detail", kwargs={"pk": self.object.pk})
-        return with_next(detail_url, get_safe_next_url(self.request))
+        return get_safe_next_url(self.request) or reverse("pratiche:pratica_list")
 
 
 class PraticaDeleteView(LoginRequiredMixin, View):
@@ -1043,7 +1208,7 @@ class ComunicazionePraticaCreateView(LoginRequiredMixin, View):
         else:
             messages.error(request, "Controlla i dati della comunicazione.")
 
-        return redirect("pratiche:pratica_detail", pk=pratica.pk)
+        return redirect(pratica_section_return_url(request, pratica.pk, pos="comunicazioni"))
 
 
 class ComunicazionePraticaFileView(LoginRequiredMixin, View):
@@ -1093,6 +1258,12 @@ class ComunicazionePraticaPreviewView(LoginRequiredMixin, DetailView):
         with self.object.allegato.open("rb") as file_obj:
             context["email_preview"] = extract_eml_preview(file_obj)
 
+        context["cancel_url"] = pratica_section_return_url(
+            self.request,
+            self.object.pratica_id,
+            pos="comunicazioni",
+        )
+        context["next_url"] = get_safe_next_url(self.request)
         return context
 
 
@@ -1344,7 +1515,7 @@ class PraticaMacroCategoriaApplyView(LoginRequiredMixin, View):
 
         if not form.is_valid():
             messages.error(request, "Seleziona una macro-categoria valida.")
-            return redirect("pratiche:pratica_detail", pk=pratica.pk)
+            return redirect(categoria_return_url(request, pratica.pk))
 
         macro_categoria = form.cleaned_data["macro_categoria"]
         categorie = list(macro_categoria.categorie.filter(is_active=True))
@@ -1388,7 +1559,7 @@ class PraticaMacroCategoriaApplyView(LoginRequiredMixin, View):
         else:
             messages.info(request, "Macro-categoria collegata. Le categorie erano gia' presenti nella pratica.")
 
-        return redirect("pratiche:pratica_detail", pk=pratica.pk)
+        return redirect(categoria_return_url(request, pratica.pk))
 
 
 class TemplatePraticaListView(LoginRequiredMixin, ListView):
@@ -1533,10 +1704,12 @@ class PraticaCategoriaCreateView(LoginRequiredMixin, CreateView):
         context = super().get_context_data(**kwargs)
         context["pratica"] = self.pratica
         context["page_title"] = "Collega categoria"
+        context["cancel_url"] = categoria_return_url(self.request, self.pratica.pk)
+        context["next_url"] = get_safe_next_url(self.request)
         return context
 
     def get_success_url(self):
-        return reverse_lazy("pratiche:pratica_detail", kwargs={"pk": self.pratica.pk})
+        return categoria_return_url(self.request, self.pratica.pk)
 
 
 class PraticaCategoriaUpdateView(LoginRequiredMixin, UpdateView):
@@ -1568,10 +1741,20 @@ class PraticaCategoriaUpdateView(LoginRequiredMixin, UpdateView):
         context = super().get_context_data(**kwargs)
         context["pratica"] = self.object.pratica
         context["page_title"] = "Modifica categoria pratica"
+        context["cancel_url"] = categoria_return_url(self.request, self.object.pratica_id)
+        context["next_url"] = get_safe_next_url(self.request)
+        build_folder_file_entries(self.object)
+        self.object.allegato_entries = [
+            build_uploaded_file_entry(allegato)
+            for allegato in self.object.allegati_singoli.filter(is_active=True)
+        ]
+        append_category_detail_return_to_file_entries(self.request, self.object)
+        context["pratica_categoria"] = self.object
+        context["show_file_actions"] = True
         return context
 
     def get_success_url(self):
-        return reverse_lazy("pratiche:pratica_detail", kwargs={"pk": self.object.pratica_id})
+        return categoria_return_url(self.request, self.object.pratica_id)
 
 
 class PraticaCategoriaDeleteView(LoginRequiredMixin, View):
@@ -1596,7 +1779,7 @@ class PraticaCategoriaDeleteView(LoginRequiredMixin, View):
             )
 
         messages.success(request, "Categoria rimossa dalla pratica.")
-        return redirect("pratiche:pratica_detail", pk=pratica_pk)
+        return redirect(categoria_return_url(request, pratica_pk))
 
 
 class PraticaCategoriaFileView(LoginRequiredMixin, View):
@@ -1701,14 +1884,14 @@ class PraticaCategoriaFileUploadView(LoginRequiredMixin, View):
 
         if not folder_path:
             messages.error(request, "Collega prima una cartella valida alla categoria.")
-            return redirect("pratiche:pratica_detail", pk=kwargs["pratica_pk"])
+            return redirect(categoria_file_action_return_url(request, kwargs["pratica_pk"], pratica_categoria.pk))
 
         uploaded_files = request.FILES.getlist("file")
         description = (request.POST.get("descrizione") or "").strip()
 
         if not uploaded_files:
             messages.error(request, "Seleziona un file valido da aggiungere.")
-            return redirect("pratiche:pratica_detail", pk=kwargs["pratica_pk"])
+            return redirect(categoria_file_action_return_url(request, kwargs["pratica_pk"], pratica_categoria.pk))
 
         added_count = 0
 
@@ -1748,7 +1931,7 @@ class PraticaCategoriaFileUploadView(LoginRequiredMixin, View):
 
         if added_count:
             messages.success(request, f"{added_count} file aggiunti correttamente.")
-        return redirect("pratiche:pratica_detail", pk=kwargs["pratica_pk"])
+        return redirect(categoria_file_action_return_url(request, kwargs["pratica_pk"], pratica_categoria.pk))
 
 
 class PraticaCategoriaFileDescriptionView(LoginRequiredMixin, View):
@@ -1816,7 +1999,7 @@ class PraticaCategoriaFileDeleteView(LoginRequiredMixin, View):
             metadata.soft_delete(user=request.user)
 
         messages.success(request, "File eliminato correttamente.")
-        return redirect("pratiche:pratica_detail", pk=kwargs["pratica_pk"])
+        return redirect(categoria_file_action_return_url(request, kwargs["pratica_pk"], pratica_categoria.pk))
 
 
 class PraticaCategoriaFileUnlinkView(LoginRequiredMixin, View):
@@ -1856,7 +2039,7 @@ class PraticaCategoriaFileUnlinkView(LoginRequiredMixin, View):
             )
 
         messages.success(request, "File scollegato dalla pratica.")
-        return redirect("pratiche:pratica_detail", pk=kwargs["pratica_pk"])
+        return redirect(categoria_file_action_return_url(request, kwargs["pratica_pk"], pratica_categoria.pk))
 
 
 class PraticaCategoriaAllegatoUploadView(LoginRequiredMixin, View):
@@ -1867,7 +2050,9 @@ class PraticaCategoriaAllegatoUploadView(LoginRequiredMixin, View):
 
         if not uploaded_files:
             messages.error(request, "Seleziona un file valido da collegare.")
-            return redirect("pratiche:pratica_detail", pk=kwargs["pratica_pk"])
+            return redirect(
+                categoria_file_action_return_url(request, kwargs["pratica_pk"], pratica_categoria.pk)
+            )
 
         for uploaded_file in uploaded_files:
             PraticaCategoriaAllegato.objects.create(
@@ -1879,10 +2064,7 @@ class PraticaCategoriaAllegatoUploadView(LoginRequiredMixin, View):
             )
 
         messages.success(request, f"{len(uploaded_files)} file singoli collegati correttamente.")
-        return redirect(
-            reverse("pratiche:pratica_detail", kwargs={"pk": kwargs["pratica_pk"]})
-            + f"#category-detail-{pratica_categoria.pk}"
-        )
+        return redirect(categoria_file_action_return_url(request, kwargs["pratica_pk"], pratica_categoria.pk))
 
 
 class PraticaCategoriaAllegatoPickView(LoginRequiredMixin, View):
@@ -1903,8 +2085,7 @@ class PraticaCategoriaAllegatoPickView(LoginRequiredMixin, View):
         except FolderPickerError as exc:
             messages.error(request, f"Selettore file non disponibile: {exc}")
             return redirect(
-                reverse("pratiche:pratica_detail", kwargs={"pk": kwargs["pratica_pk"]})
-                + f"#category-detail-{pratica_categoria.pk}"
+                categoria_file_action_return_url(request, kwargs["pratica_pk"], pratica_categoria.pk)
             )
 
         selected_path = normalize_selected_path(selected_path)
@@ -1915,10 +2096,7 @@ class PraticaCategoriaAllegatoPickView(LoginRequiredMixin, View):
             except ValueError as exc:
                 messages.error(request, str(exc))
 
-        return redirect(
-            reverse("pratiche:pratica_detail", kwargs={"pk": kwargs["pratica_pk"]})
-            + f"#category-detail-{pratica_categoria.pk}"
-        )
+        return redirect(categoria_file_action_return_url(request, kwargs["pratica_pk"], pratica_categoria.pk))
 
 
 class PraticaCategoriaAllegatoFileView(LoginRequiredMixin, View):
@@ -2048,8 +2226,7 @@ class PraticaCategoriaAllegatoDeleteView(LoginRequiredMixin, View):
 
         messages.success(request, "File singolo scollegato correttamente.")
         return redirect(
-            reverse("pratiche:pratica_detail", kwargs={"pk": kwargs["pratica_pk"]})
-            + f"#category-detail-{kwargs['categoria_pk']}"
+            categoria_file_action_return_url(request, kwargs["pratica_pk"], kwargs["categoria_pk"])
         )
 
 
@@ -2485,10 +2662,11 @@ class TecnicoCreateView(LoginRequiredMixin, CreateView):
         context = super().get_context_data(**kwargs)
         context["pratica"] = self.pratica
         context["page_title"] = "Nuovo personale"
+        context["cancel_url"] = tecnico_success_url(self.request, self.pratica.pk)
         return context
 
     def get_success_url(self):
-        return reverse("pratiche:pratica_detail", kwargs={"pk": self.pratica.pk})
+        return tecnico_success_url(self.request, self.pratica.pk)
 
 
 class TecnicoUpdateView(LoginRequiredMixin, UpdateView):
@@ -2508,10 +2686,11 @@ class TecnicoUpdateView(LoginRequiredMixin, UpdateView):
         context = super().get_context_data(**kwargs)
         context["pratica"] = self.object.pratica
         context["page_title"] = "Modifica personale"
+        context["cancel_url"] = tecnico_success_url(self.request, self.object.pratica_id)
         return context
 
     def get_success_url(self):
-        return reverse("pratiche:pratica_detail", kwargs={"pk": self.object.pratica_id})
+        return tecnico_success_url(self.request, self.object.pratica_id)
 
 
 class TecnicoDeleteView(LoginRequiredMixin, View):
@@ -2525,4 +2704,4 @@ class TecnicoDeleteView(LoginRequiredMixin, View):
         pratica_pk = tecnico.pratica_id
         tecnico.soft_delete(user=request.user)
         messages.success(request, "Personale eliminato correttamente.")
-        return redirect("pratiche:pratica_detail", pk=pratica_pk)
+        return redirect(tecnico_success_url(request, pratica_pk))

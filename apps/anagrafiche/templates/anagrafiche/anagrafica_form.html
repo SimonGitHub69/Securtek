@@ -8,12 +8,172 @@
 {% block extra_css %}
 {{ block.super }}
 <style>
+.st-form-hero {
+    align-items: flex-start;
+    background: linear-gradient(135deg, rgba(32, 107, 196, 0.08) 0%, rgba(32, 107, 196, 0.02) 55%, transparent 100%);
+    border: 1px solid var(--tblr-border-color, #e6e8eb);
+    border-radius: 12px;
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 0;
+    padding: 1.15rem 1.25rem;
+}
+
+.st-form-hero-avatar {
+    align-items: center;
+    background: var(--tblr-primary-lt, #e8f1fc);
+    border-radius: 12px;
+    color: var(--tblr-primary, #206bc4);
+    display: inline-flex;
+    flex: 0 0 3.25rem;
+    font-size: 1.5rem;
+    height: 3.25rem;
+    justify-content: center;
+    width: 3.25rem;
+}
+
+.st-form-hero-title {
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.25;
+    margin: 0 0 0.25rem;
+}
+
+.st-form-hero-meta {
+    color: var(--tblr-secondary, #667085);
+    font-size: 0.875rem;
+    margin-bottom: 0.65rem;
+}
+
+.st-section-icon {
+    align-items: center;
+    border-radius: 8px;
+    display: inline-flex;
+    flex: 0 0 2rem;
+    font-size: 1rem;
+    height: 2rem;
+    justify-content: center;
+    margin-right: 0.55rem;
+    width: 2rem;
+}
+
+.st-section-icon.is-blue {
+    background: rgba(32, 107, 196, 0.12);
+    color: var(--tblr-primary, #206bc4);
+}
+
+.st-section-icon.is-cyan {
+    background: rgba(23, 162, 184, 0.14);
+    color: #0c8599;
+}
+
+.st-section-icon.is-green {
+    background: rgba(47, 179, 68, 0.14);
+    color: #2fb344;
+}
+
+.st-section-icon.is-purple {
+    background: rgba(132, 94, 247, 0.14);
+    color: #7048e8;
+}
+
+.st-section-count {
+    color: var(--tblr-secondary, #667085);
+    font-size: 0.8125rem;
+}
+
 .st-form-panel {
+    background: var(--tblr-bg-surface, #fff);
+    border: 1px solid var(--tblr-border-color, #e6e8eb);
+    border-left: 3px solid var(--tblr-primary, #206bc4);
+    border-radius: 10px;
+    box-shadow: 0 0.125rem 0.35rem rgba(15, 23, 42, 0.035);
+    margin-bottom: 0.65rem;
+    padding: 0.7rem 0.85rem 0.55rem;
+}
+
+.st-form-panel.is-contact {
+    border-left-color: #17a2b8;
+}
+
+.st-form-panel.is-address {
+    border-left-color: #2fb344;
+}
+
+.st-form-panel.is-person {
+    border-left-color: #845ef7;
+}
+
+.st-form-panel-title {
+    align-items: center;
+    color: var(--tblr-secondary, #667085);
+    display: flex;
+    font-size: 0.75rem;
+    font-weight: 600;
+    gap: 0.35rem;
+    letter-spacing: 0.02em;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+}
+
+.st-form-panel-title .js-formset-remove {
+    margin-left: auto;
+    text-transform: none;
+}
+
+.st-formset-delete {
+    display: none;
+}
+
+.st-form-panel .mb-3 {
+    margin-bottom: 0.55rem !important;
+}
+
+.st-form-panel .form-label {
+    margin-bottom: 0.2rem;
+}
+
+.st-form-panel .form-check.mb-3 {
+    min-height: calc(1.5em + 0.75rem + 2px);
+    padding-top: 1.55rem;
+}
+
+.st-form-empty {
+    background: var(--tblr-bg-surface-secondary, #f8fafc);
+    border: 1px dashed var(--tblr-border-color, #e6e8eb);
+    border-radius: 10px;
+    color: var(--tblr-secondary, #667085);
+    padding: 1.75rem 1.25rem;
+    text-align: center;
+}
+
+.st-form-empty .ti {
+    display: block;
+    font-size: 1.85rem;
+    margin-bottom: 0.45rem;
+    opacity: 0.45;
+}
+
+.st-identity-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+}
+
+.st-identity-block {
     background: var(--tblr-bg-surface-secondary, #f8fafc);
     border: 1px solid var(--tblr-border-color, #e6e8eb);
-    border-radius: 8px;
-    margin-bottom: 1.25rem;
+    border-radius: 10px;
     padding: 1rem;
+}
+
+.st-identity-block-title {
+    color: var(--tblr-secondary, #667085);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    margin-bottom: 0.85rem;
+    text-transform: uppercase;
 }
 
 .st-collapse-toggle .ti {
@@ -27,26 +187,70 @@
 .st-collapsible-section[hidden] {
     display: none !important;
 }
+
+.st-form-actions {
+    background: var(--tblr-bg-surface, #fff);
+    border: 1px solid var(--tblr-border-color, #e6e8eb);
+    border-radius: 10px;
+    box-shadow: 0 0.125rem 0.35rem rgba(15, 23, 42, 0.035);
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    margin-bottom: 1.5rem;
+    padding: 0.85rem 1.15rem;
+}
+
+@media (max-width: 768px) {
+    .st-identity-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .st-form-hero {
+        flex-direction: column;
+    }
+}
 </style>
 {% endblock %}
 
 {% block content %}
 
 <div class="page-header d-print-none mb-3">
-    <div class="row align-items-center">
+    <div class="row align-items-center g-3">
         <div class="col">
-            <h2 class="page-title">
-                {% if object %}Modifica anagrafica{% else %}Nuova anagrafica{% endif %}
-            </h2>
-            <div class="text-secondary">
-                Dati cliente, contatti, indirizzi e personale
+            <div class="st-form-hero">
+                <span class="st-form-hero-avatar">
+                    <i class="ti ti-building"></i>
+                </span>
+                <div class="flex-fill">
+                    <h2 class="st-form-hero-title">
+                        {% if object %}{{ object.ragione_sociale }}{% else %}Nuova anagrafica{% endif %}
+                    </h2>
+                    <div class="st-form-hero-meta">
+                        {% if object %}
+                            Modifica dati cliente, contatti, indirizzi e personale
+                        {% else %}
+                            Inserisci i dati del nuovo cliente
+                        {% endif %}
+                    </div>
+                    <div class="d-flex flex-wrap align-items-center gap-1">
+                        {% if object and object.partita_iva %}
+                            <span class="badge bg-azure-lt">P.IVA {{ object.partita_iva }}</span>
+                        {% endif %}
+                        {% if object and object.codice_fiscale %}
+                            <span class="badge bg-secondary-lt">CF {{ object.codice_fiscale }}</span>
+                        {% endif %}
+                        <span class="badge bg-cyan-lt">{{ contatto_formset.forms|length }} contatt{% if contatto_formset.forms|length == 1 %}o{% else %}i{% endif %}</span>
+                        <span class="badge bg-green-lt">{{ indirizzo_formset.forms|length }} indirizz{% if indirizzo_formset.forms|length == 1 %}o{% else %}i{% endif %}</span>
+                        <span class="badge bg-purple-lt">{{ personale_formset.forms|length }} personal{% if personale_formset.forms|length == 1 %}e{% else %}i{% endif %}</span>
+                    </div>
+                </div>
             </div>
         </div>
         <div class="col-auto">
-            <a href="{% if object %}{% url 'anagrafiche:anagrafica_detail' object.pk %}{% else %}{% url 'anagrafiche:anagrafica_list' %}{% endif %}"
+            <a href="{{ cancel_url }}"
                class="btn btn-outline-secondary">
                 <i class="ti ti-arrow-left"></i>
-                {% if object %}Scheda{% else %}Elenco{% endif %}
+                {% if next_url %}Torna alla pratica{% elif object %}Scheda{% else %}Elenco{% endif %}
             </a>
         </div>
     </div>
@@ -54,10 +258,16 @@
 
 <form method="post" autocomplete="off">
         {% csrf_token %}
+        {% if next_url %}
+            <input type="hidden" name="next" value="{{ next_url }}">
+        {% endif %}
 
         <div class="card mb-3">
             <div class="card-header">
-                <h3 class="card-title">Dati anagrafici</h3>
+                <h3 class="card-title mb-0 d-flex align-items-center">
+                    <span class="st-section-icon is-blue"><i class="ti ti-id"></i></span>
+                    Dati anagrafici
+                </h3>
             </div>
 
             <div class="card-body">
@@ -65,8 +275,9 @@
                     <div class="alert alert-danger">{{ form.non_field_errors }}</div>
                 {% endif %}
 
-                <div class="row">
-                    <div class="col-md-6">
+                <div class="st-identity-grid">
+                    <div class="st-identity-block">
+                        <div class="st-identity-block-title">Identificazione</div>
                         <div class="mb-3">
                             <label class="form-label" for="{{ form.ragione_sociale.id_for_label }}">
                                 {{ form.ragione_sociale.label }}
@@ -76,33 +287,34 @@
                                 <div class="invalid-feedback d-block">{{ form.ragione_sociale.errors|join:", " }}</div>
                             {% endif %}
                         </div>
-                    </div>
-
-                    <div class="col-md-3">
-                        <div class="mb-3">
-                            <label class="form-label" for="{{ form.partita_iva.id_for_label }}">
-                                {{ form.partita_iva.label }}
-                            </label>
-                            {{ form.partita_iva }}
-                            {% if form.partita_iva.errors %}
-                                <div class="invalid-feedback d-block">{{ form.partita_iva.errors|join:", " }}</div>
-                            {% endif %}
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-0">
+                                    <label class="form-label" for="{{ form.partita_iva.id_for_label }}">
+                                        {{ form.partita_iva.label }}
+                                    </label>
+                                    {{ form.partita_iva }}
+                                    {% if form.partita_iva.errors %}
+                                        <div class="invalid-feedback d-block">{{ form.partita_iva.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-0">
+                                    <label class="form-label" for="{{ form.codice_fiscale.id_for_label }}">
+                                        {{ form.codice_fiscale.label }}
+                                    </label>
+                                    {{ form.codice_fiscale }}
+                                    {% if form.codice_fiscale.errors %}
+                                        <div class="invalid-feedback d-block">{{ form.codice_fiscale.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="col-md-3">
-                        <div class="mb-3">
-                            <label class="form-label" for="{{ form.codice_fiscale.id_for_label }}">
-                                {{ form.codice_fiscale.label }}
-                            </label>
-                            {{ form.codice_fiscale }}
-                            {% if form.codice_fiscale.errors %}
-                                <div class="invalid-feedback d-block">{{ form.codice_fiscale.errors|join:", " }}</div>
-                            {% endif %}
-                        </div>
-                    </div>
-
-                    <div class="col-md-6">
+                    <div class="st-identity-block">
+                        <div class="st-identity-block-title">Recapiti principali</div>
                         <div class="mb-3">
                             <label class="form-label" for="{{ form.email.id_for_label }}">
                                 {{ form.email.label }}
@@ -112,10 +324,7 @@
                                 <div class="invalid-feedback d-block">{{ form.email.errors|join:", " }}</div>
                             {% endif %}
                         </div>
-                    </div>
-
-                    <div class="col-md-6">
-                        <div class="mb-3">
+                        <div class="mb-0">
                             <label class="form-label" for="{{ form.telefono.id_for_label }}">
                                 {{ form.telefono.label }}
                             </label>
@@ -131,11 +340,15 @@
 
         <div class="card mb-3">
             <div class="card-header">
-                <h3 class="card-title">Contatti</h3>
+                <h3 class="card-title mb-0 d-flex align-items-center">
+                    <span class="st-section-icon is-cyan"><i class="ti ti-address-book"></i></span>
+                    Contatti
+                    <span class="badge bg-cyan-lt ms-2">{{ contatto_formset.forms|length }}</span>
+                </h3>
                 <div class="card-actions">
-                    <button type="button" class="btn btn-outline-primary btn-sm" data-formset-add="contatti">
+                    <button type="button" class="btn btn-primary btn-sm" data-formset-add="contatti">
                         <i class="ti ti-plus"></i>
-                        Aggiungi contatto
+                        Aggiungi
                     </button>
                     <button type="button"
                             class="btn btn-icon btn-sm btn-outline-secondary st-collapse-toggle"
@@ -158,10 +371,24 @@
 
                 <div id="contattiRows">
                     {% for contatto_form in contatto_formset %}
-                    <div class="st-form-panel js-formset-row">
+                    <div class="st-form-panel is-contact js-formset-row{% if contatto_form.DELETE.value %} d-none{% endif %}">
+                        <div class="st-form-panel-title">
+                            <i class="ti ti-phone-call"></i>
+                            Contatto {% if contatto_form.instance.pk %}#{{ forloop.counter }}{% else %}nuovo{% endif %}
+                            {% if contatto_form.DELETE %}
+                                <button type="button"
+                                        class="btn btn-icon btn-outline-danger js-formset-remove"
+                                        title="Rimuovi contatto">
+                                    <i class="ti ti-trash"></i>
+                                </button>
+                            {% endif %}
+                        </div>
                         {% for hidden in contatto_form.hidden_fields %}
                             {{ hidden }}
                         {% endfor %}
+                        {% if contatto_form.DELETE %}
+                            <div class="st-formset-delete">{{ contatto_form.DELETE }}</div>
+                        {% endif %}
 
                         {% if contatto_form.non_field_errors %}
                             <div class="alert alert-danger">{{ contatto_form.non_field_errors }}</div>
@@ -210,28 +437,30 @@
                                     <span class="form-check-label">{{ contatto_form.principale.label }}</span>
                                 </label>
                             </div>
-
-                            <div class="col-12">
-                                <div class="mb-0">
-                                    <label class="form-label" for="{{ contatto_form.note.id_for_label }}">
-                                        {{ contatto_form.note.label }}
-                                    </label>
-                                    {{ contatto_form.note }}
-                                    {% if contatto_form.note.errors %}
-                                        <div class="invalid-feedback d-block">{{ contatto_form.note.errors|join:", " }}</div>
-                                    {% endif %}
-                                </div>
-                            </div>
                         </div>
                     </div>
                     {% endfor %}
                 </div>
 
                 <template id="contattiEmptyForm">
-                    <div class="st-form-panel js-formset-row">
+                    <div class="st-form-panel is-contact js-formset-row">
+                        <div class="st-form-panel-title">
+                            <i class="ti ti-phone-call"></i>
+                            Contatto nuovo
+                            {% if contatto_formset.empty_form.DELETE %}
+                                <button type="button"
+                                        class="btn btn-icon btn-outline-danger js-formset-remove"
+                                        title="Rimuovi contatto">
+                                    <i class="ti ti-trash"></i>
+                                </button>
+                            {% endif %}
+                        </div>
                         {% for hidden in contatto_formset.empty_form.hidden_fields %}
                             {{ hidden }}
                         {% endfor %}
+                        {% if contatto_formset.empty_form.DELETE %}
+                            <div class="st-formset-delete">{{ contatto_formset.empty_form.DELETE }}</div>
+                        {% endif %}
 
                         <div class="row align-items-end">
                             <div class="col-md-3">
@@ -267,15 +496,6 @@
                                     <span class="form-check-label">{{ contatto_formset.empty_form.principale.label }}</span>
                                 </label>
                             </div>
-
-                            <div class="col-12">
-                                <div class="mb-0">
-                                    <label class="form-label" for="{{ contatto_formset.empty_form.note.id_for_label }}">
-                                        {{ contatto_formset.empty_form.note.label }}
-                                    </label>
-                                    {{ contatto_formset.empty_form.note }}
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </template>
@@ -284,11 +504,15 @@
 
         <div class="card mb-3">
             <div class="card-header">
-                <h3 class="card-title">Indirizzi</h3>
+                <h3 class="card-title mb-0 d-flex align-items-center">
+                    <span class="st-section-icon is-green"><i class="ti ti-map-pin"></i></span>
+                    Indirizzi
+                    <span class="badge bg-green-lt ms-2">{{ indirizzo_formset.forms|length }}</span>
+                </h3>
                 <div class="card-actions">
-                    <button type="button" class="btn btn-outline-primary btn-sm" data-formset-add="indirizzi">
+                    <button type="button" class="btn btn-primary btn-sm" data-formset-add="indirizzi">
                         <i class="ti ti-plus"></i>
-                        Aggiungi indirizzo
+                        Aggiungi
                     </button>
                     <button type="button"
                             class="btn btn-icon btn-sm btn-outline-secondary st-collapse-toggle"
@@ -311,10 +535,24 @@
 
                 <div id="indirizziRows">
                     {% for indirizzo_form in indirizzo_formset %}
-                    <div class="st-form-panel js-formset-row js-indirizzo-row">
+                    <div class="st-form-panel is-address js-formset-row js-indirizzo-row{% if indirizzo_form.DELETE.value %} d-none{% endif %}">
+                        <div class="st-form-panel-title">
+                            <i class="ti ti-map-pin"></i>
+                            Indirizzo {% if indirizzo_form.instance.pk %}#{{ forloop.counter }}{% else %}nuovo{% endif %}
+                            {% if indirizzo_form.DELETE %}
+                                <button type="button"
+                                        class="btn btn-icon btn-outline-danger js-formset-remove"
+                                        title="Rimuovi indirizzo">
+                                    <i class="ti ti-trash"></i>
+                                </button>
+                            {% endif %}
+                        </div>
                         {% for hidden in indirizzo_form.hidden_fields %}
                             {{ hidden }}
                         {% endfor %}
+                        {% if indirizzo_form.DELETE %}
+                            <div class="st-formset-delete">{{ indirizzo_form.DELETE }}</div>
+                        {% endif %}
 
                         {% if indirizzo_form.non_field_errors %}
                             <div class="alert alert-danger">{{ indirizzo_form.non_field_errors }}</div>
@@ -411,28 +649,30 @@
                                     <span class="form-check-label">{{ indirizzo_form.principale.label }}</span>
                                 </label>
                             </div>
-
-                            <div class="col-12">
-                                <div class="mb-0">
-                                    <label class="form-label" for="{{ indirizzo_form.note.id_for_label }}">
-                                        {{ indirizzo_form.note.label }}
-                                    </label>
-                                    {{ indirizzo_form.note }}
-                                    {% if indirizzo_form.note.errors %}
-                                        <div class="invalid-feedback d-block">{{ indirizzo_form.note.errors|join:", " }}</div>
-                                    {% endif %}
-                                </div>
-                            </div>
                         </div>
                     </div>
                     {% endfor %}
                 </div>
 
                 <template id="indirizziEmptyForm">
-                    <div class="st-form-panel js-formset-row js-indirizzo-row">
+                    <div class="st-form-panel is-address js-formset-row js-indirizzo-row">
+                        <div class="st-form-panel-title">
+                            <i class="ti ti-map-pin"></i>
+                            Indirizzo nuovo
+                            {% if indirizzo_formset.empty_form.DELETE %}
+                                <button type="button"
+                                        class="btn btn-icon btn-outline-danger js-formset-remove"
+                                        title="Rimuovi indirizzo">
+                                    <i class="ti ti-trash"></i>
+                                </button>
+                            {% endif %}
+                        </div>
                         {% for hidden in indirizzo_formset.empty_form.hidden_fields %}
                             {{ hidden }}
                         {% endfor %}
+                        {% if indirizzo_formset.empty_form.DELETE %}
+                            <div class="st-formset-delete">{{ indirizzo_formset.empty_form.DELETE }}</div>
+                        {% endif %}
 
                         <div class="row align-items-end">
                             <div class="col-md-3">
@@ -504,15 +744,6 @@
                                     <span class="form-check-label">{{ indirizzo_formset.empty_form.principale.label }}</span>
                                 </label>
                             </div>
-
-                            <div class="col-12">
-                                <div class="mb-0">
-                                    <label class="form-label" for="{{ indirizzo_formset.empty_form.note.id_for_label }}">
-                                        {{ indirizzo_formset.empty_form.note.label }}
-                                    </label>
-                                    {{ indirizzo_formset.empty_form.note }}
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </template>
@@ -521,14 +752,15 @@
 
         <div class="card mb-3" id="personale">
             <div class="card-header">
-                <h3 class="card-title">
-                    <i class="ti ti-users me-1"></i>
+                <h3 class="card-title mb-0 d-flex align-items-center">
+                    <span class="st-section-icon is-purple"><i class="ti ti-users"></i></span>
                     Personale
+                    <span class="badge bg-purple-lt ms-2">{{ personale_formset.forms|length }}</span>
                 </h3>
                 <div class="card-actions">
-                    <button type="button" class="btn btn-outline-primary btn-sm" data-formset-add="personale">
+                    <button type="button" class="btn btn-primary btn-sm" data-formset-add="personale">
                         <i class="ti ti-plus"></i>
-                        Aggiungi personale
+                        Aggiungi
                     </button>
                     <button type="button"
                             class="btn btn-icon btn-sm btn-outline-secondary st-collapse-toggle"
@@ -551,7 +783,11 @@
 
                 <div id="personaleRows">
                     {% for personale_form in personale_formset %}
-                    <div class="st-form-panel js-formset-row">
+                    <div class="st-form-panel is-person js-formset-row">
+                        <div class="st-form-panel-title">
+                            <i class="ti ti-user"></i>
+                            Personale {% if personale_form.instance.pk %}#{{ forloop.counter }}{% else %}nuovo{% endif %}
+                        </div>
                         {% for hidden in personale_form.hidden_fields %}
                             {{ hidden }}
                         {% endfor %}
@@ -650,7 +886,11 @@
                 </div>
 
                 <template id="personaleEmptyForm">
-                    <div class="st-form-panel js-formset-row">
+                    <div class="st-form-panel is-person js-formset-row">
+                        <div class="st-form-panel-title">
+                            <i class="ti ti-user"></i>
+                            Personale nuovo
+                        </div>
                         {% for hidden in personale_formset.empty_form.hidden_fields %}
                             {{ hidden }}
                         {% endfor %}
@@ -724,8 +964,8 @@
             </div>
         </div>
 
-        <div class="d-flex justify-content-end gap-2 mb-4">
-            <a href="{% if object %}{% url 'anagrafiche:anagrafica_detail' object.pk %}{% else %}{% url 'anagrafiche:anagrafica_list' %}{% endif %}"
+        <div class="st-form-actions">
+            <a href="{{ cancel_url }}"
                class="btn btn-outline-secondary">
                 Annulla
             </a>
@@ -815,6 +1055,11 @@ document.addEventListener("DOMContentLoaded", function () {
         rows.insertAdjacentHTML("beforeend", html);
         totalForms.value = index + 1;
 
+        const emptyHint = rows.querySelector('.js-formset-empty[data-empty-for="' + prefix + '"]');
+        if (emptyHint) {
+            emptyHint.remove();
+        }
+
         const newRow = rows.lastElementChild;
 
         if (newRow && window.SecurtekDisableAutocomplete) {
@@ -844,6 +1089,28 @@ document.addEventListener("DOMContentLoaded", function () {
         button.addEventListener("click", function () {
             addFormsetRow(button.dataset.formsetAdd);
         });
+    });
+
+    document.addEventListener("click", function (event) {
+        const removeButton = event.target.closest(".js-formset-remove");
+        if (!removeButton) {
+            return;
+        }
+
+        const row = removeButton.closest(".js-formset-row");
+        if (!row) {
+            return;
+        }
+
+        const deleteInput = row.querySelector('input[name$="-DELETE"]');
+        if (deleteInput) {
+            deleteInput.checked = true;
+            row.classList.add("d-none");
+            row.hidden = true;
+            return;
+        }
+
+        row.remove();
     });
 });
 </script>

@@ -2,11 +2,18 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <!--
-  LaunchAgent: loop continuo. Intervallo e spegnimento da Parametri mail.
+  LaunchDaemon: loop continuo. Intervallo e spegnimento da Parametri mail.
+  Installare con: sudo ./deploy/macos/install-agenda-notifiche.sh --daemon
 -->
 <dict>
     <key>Label</key>
     <string>com.securtek.agenda-notifiche</string>
+
+    <key>UserName</key>
+    <string>__RUN_USER__</string>
+
+    <key>GroupName</key>
+    <string>__RUN_GROUP__</string>
 
     <key>ProgramArguments</key>
     <array>
@@ -22,6 +29,8 @@
         <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
         <key>DJANGO_SETTINGS_MODULE</key>
         <string>config.settings</string>
+        <key>HOME</key>
+        <string>__RUN_HOME__</string>
     </dict>
 
     <key>KeepAlive</key>

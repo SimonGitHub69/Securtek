@@ -11,7 +11,6 @@ class ContattoForm(forms.ModelForm):
             "valore",
             "descrizione",
             "principale",
-            "note",
         ]
         widgets = {
             "tipo": forms.Select(attrs={"class": "form-select"}),
@@ -28,13 +27,6 @@ class ContattoForm(forms.ModelForm):
                 }
             ),
             "principale": forms.CheckboxInput(attrs={"class": "form-check-input"}),
-            "note": forms.Textarea(
-                attrs={
-                    "class": "form-control",
-                    "rows": 3,
-                    "autocomplete": "off",
-                }
-            ),
         }
 
     def __init__(self, *args, **kwargs):
@@ -45,7 +37,7 @@ class ContattoForm(forms.ModelForm):
         cleaned_data = super().clean()
         has_details = any(
             cleaned_data.get(field_name)
-            for field_name in ["valore", "descrizione", "principale", "note"]
+            for field_name in ["valore", "descrizione", "principale"]
         )
 
         if has_details and not cleaned_data.get("valore"):

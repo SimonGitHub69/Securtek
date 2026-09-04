@@ -1,0 +1,381 @@
+{# Tabella categorie stile visione, con azioni di modifica. #}
+{% if macro_categorie_pratica or macro_categoria_apply_form %}
+    <div class="st-macro-panel mb-3">
+        <div class="row g-3 align-items-end">
+            <div class="col-lg-6">
+                <div class="text-secondary small mb-2">Macro-categorie collegate</div>
+                {% for collegamento_macro in macro_categorie_pratica %}
+                    <span class="badge bg-purple-lt me-1 mb-1">
+                        {{ collegamento_macro.macro_categoria.denominazione }}
+                    </span>
+                {% empty %}
+                    <span class="text-secondary small">Nessuna macro-categoria collegata</span>
+                {% endfor %}
+            </div>
+            <div class="col-lg-6">
+                <form method="post"
+                      action="{% url 'pratiche:pratica_macro_categoria_apply' object.pk %}"
+                      class="row g-2 align-items-end">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <div class="col">
+                        <label class="form-label small mb-1" for="{{ macro_categoria_apply_form.macro_categoria.id_for_label }}">
+                            Collega macro-categoria
+                        </label>
+                        {{ macro_categoria_apply_form.macro_categoria }}
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-outline-primary btn-sm">
+                            <i class="ti ti-link"></i>
+                            Applica
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endif %}
+
+{% if categorie_pratica %}
+    <div class="table-responsive">
+        <table class="table table-vcenter card-table mb-0">
+            <thead>
+                <tr>
+                    <th class="w-1"></th>
+                    <th>Categoria</th>
+                    <th>Macro-categoria</th>
+                    <th>Versione</th>
+                    <th>Note</th>
+                    <th>Cartella</th>
+                    <th class="text-end">Azioni</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for collegamento in categorie_pratica %}
+                    {% ifchanged collegamento.macro_categoria_id %}
+                        <tr class="st-category-group-header">
+                            <td colspan="7">
+                                <div class="st-macro-group-bar">
+                                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                                        <span class="st-macro-group-label">Macro-categoria</span>
+                                        {% if collegamento.macro_categoria %}
+                                            <span class="badge bg-purple-lt">{{ collegamento.macro_categoria.denominazione }}</span>
+                                        {% else %}
+                                            <span class="text-secondary">Senza macro-categoria</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endifchanged %}
+                    <tr>
+                        <td>
+                            <button type="button"
+                                    class="btn btn-icon btn-sm btn-outline-secondary st-category-toggle"
+                                    data-target="edit-category-detail-{{ collegamento.pk }}"
+                                    title="Mostra cartella e file">
+                                <i class="ti ti-chevron-right"></i>
+                            </button>
+                        </td>
+                        <td>
+                            <span class="badge bg-blue-lt">{{ collegamento.categoria.denominazione }}</span>
+                        </td>
+                        <td>
+                            {% if collegamento.macro_categoria %}
+                                <span class="badge bg-purple-lt">{{ collegamento.macro_categoria.denominazione }}</span>
+                            {% else %}
+                                <span class="text-secondary">-</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ collegamento.versione|default:"-" }}</td>
+                        <td class="st-category-note">
+                            {{ collegamento.note|linebreaksbr|default:"-" }}
+                        </td>
+                        <td>
+                            {% if collegamento.cartella %}
+                                {% if collegamento.cartella_is_link %}
+                                    <a href="{{ collegamento.cartella }}" target="_blank" rel="noopener">
+                                        {{ collegamento.cartella }}
+                                    </a>
+                                {% else %}
+                                    <div class="text-secondary small st-folder-path">{{ collegamento.cartella }}</div>
+                                    {% if collegamento.cartella_error %}
+                                        <span class="badge bg-red-lt">{{ collegamento.cartella_error }}</span>
+                                    {% elif collegamento.cartella_is_folder %}
+                                        <span class="badge bg-green-lt">Cartella collegata</span>
+                                    {% endif %}
+                                {% endif %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <div class="btn-list flex-nowrap justify-content-end">
+                                <a href="{% url 'pratiche:pratica_categoria_update' object.pk collegamento.pk %}?next={{ request.get_full_path|urlencode }}"
+                                   class="btn btn-icon btn-outline-primary"
+                                   title="Modifica">
+                                    <i class="ti ti-edit"></i>
+                                </a>
+                                <button type="button"
+                                        class="btn btn-icon btn-outline-danger js-delete-category"
+                                        title="Elimina"
+                                        data-delete-action="{% url 'pratiche:pratica_categoria_delete' object.pk collegamento.pk %}"
+                                        data-delete-name="{{ collegamento.categoria.denominazione }}{% if collegamento.versione %} - {{ collegamento.versione }}{% endif %}">
+                                    <i class="ti ti-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="st-category-detail" id="edit-category-detail-{{ collegamento.pk }}" hidden>
+                        <td colspan="7">
+                            <div class="st-category-detail-panel">
+                                            {% if collegamento.cartella_is_folder %}
+                                                <form method="post"
+                                                      action="{% url 'pratiche:pratica_categoria_file_upload' object.pk collegamento.pk %}"
+                                                      enctype="multipart/form-data"
+                                                      class="row g-2 align-items-end mb-3">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="next" value="{{ request.get_full_path }}#edit-category-detail-{{ collegamento.pk }}">
+                                                    <div class="col-lg-4">
+                                                        <label class="form-label small mb-1">Aggiungi nella cartella collegata</label>
+                                                        <input type="file"
+                                                               name="file"
+                                                               class="form-control form-control-sm"
+                                                               multiple
+                                                               accept=".doc,.docx,.htm,.html,.jpeg,.jpg,.pdf,.png,.txt,.xls,.xlsm,.xlsx"
+                                                               required>
+                                                    </div>
+                                                    <div class="col-lg-6">
+                                                        <label class="form-label small mb-1">Descrizione</label>
+                                                        <input type="text"
+                                                               name="descrizione"
+                                                               class="form-control form-control-sm"
+                                                               placeholder="Descrizione del file">
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <button type="submit" class="btn btn-sm btn-primary w-100">
+                                                            <i class="ti ti-upload"></i>
+                                                            Aggiungi
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            {% else %}
+                                                <form method="post"
+                                                      action="{% url 'pratiche:pratica_categoria_allegato_upload' object.pk collegamento.pk %}"
+                                                      enctype="multipart/form-data"
+                                                      class="row g-2 align-items-end mb-2">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="next" value="{{ request.get_full_path }}#edit-category-detail-{{ collegamento.pk }}">
+                                                    <div class="col-lg-4">
+                                                        <label class="form-label small mb-1">Collega file singolo</label>
+                                                        <input type="file"
+                                                               name="file"
+                                                               class="form-control form-control-sm"
+                                                               multiple
+                                                               accept=".doc,.docx,.htm,.html,.jpeg,.jpg,.pdf,.png,.txt,.xls,.xlsm,.xlsx"
+                                                               required>
+                                                    </div>
+                                                    <div class="col-lg-4">
+                                                        <label class="form-label small mb-1">Descrizione</label>
+                                                        <input type="text"
+                                                               name="descrizione"
+                                                               class="form-control form-control-sm"
+                                                               placeholder="Descrizione del file">
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <button type="submit" class="btn btn-sm btn-primary w-100">
+                                                            <i class="ti ti-paperclip"></i>
+                                                            Collega
+                                                        </button>
+                                                    </div>
+                                                    <div class="col-lg-2">
+                                                        <button type="submit"
+                                                                formaction="{% url 'pratiche:pratica_categoria_allegato_pick' object.pk collegamento.pk %}"
+                                                                formnovalidate
+                                                                class="btn btn-sm btn-outline-primary w-100"
+                                                                title="Seleziona dal disco con il selettore desktop">
+                                                            <i class="ti ti-file-plus"></i>
+                                                            Da disco
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                                <div class="text-secondary small mb-3">
+                                                    Senza cartella collegata puoi solo collegare file singoli.
+                                                </div>
+                                            {% endif %}
+
+                                            {% if collegamento.allegato_entries %}
+                                                <div class="table-responsive mt-2 mb-3">
+                                                    <table class="table table-vcenter table-sm mb-0">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>File singolo</th>
+                                                                <th>Descrizione</th>
+                                                                <th>Modificato il</th>
+                                                                <th>Tipo</th>
+                                                                <th>Dimensione</th>
+                                                                <th class="text-end">Azioni</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {% for allegato in collegamento.allegato_entries %}
+                                                                <tr>
+                                                                    <td>{{ allegato.name }}</td>
+                                                                    <td>{{ allegato.description|default:"-" }}</td>
+                                                                    <td>{{ allegato.modified_at }}</td>
+                                                                    <td><span class="badge bg-secondary-lt">{{ allegato.extension }}</span></td>
+                                                                    <td>{{ allegato.size_kb }} KB</td>
+                                                                    <td class="text-end st-file-actions">
+                                                                        <button type="button"
+                                                                                class="btn btn-icon btn-outline-primary js-open-pratica-file"
+                                                                                data-open-url="{% if allegato.open_app_url %}{{ allegato.open_app_url }}{% else %}{{ allegato.open_url }}{% endif %}"
+                                                                                data-native-open="{% if allegato.open_app_url %}1{% else %}0{% endif %}"
+                                                                                title="{% if allegato.open_app_url %}Apri con applicazione originale{% else %}Apri anteprima{% endif %}">
+                                                                            {% if allegato.open_app_url %}
+                                                                                {% with ext=allegato.extension|lower %}
+                                                                                    {% if ext == "doc" or ext == "docx" %}
+                                                                                        <i class="ti ti-file-type-doc text-blue"></i>
+                                                                                    {% elif ext == "xls" or ext == "xlsx" or ext == "xlsm" %}
+                                                                                        <i class="ti ti-file-type-xls text-green"></i>
+                                                                                    {% else %}
+                                                                                        <i class="ti ti-launch"></i>
+                                                                                    {% endif %}
+                                                                                {% endwith %}
+                                                                            {% else %}
+                                                                                <i class="ti ti-eye"></i>
+                                                                            {% endif %}
+                                                                        </button>
+                                                                        <button type="button"
+                                                                                class="btn btn-icon btn-outline-secondary js-delete-file"
+                                                                                title="Scollega file"
+                                                                                data-delete-action="{{ allegato.delete_url }}"
+                                                                                data-delete-file="{{ allegato.name }}"
+                                                                                data-delete-mode="unlink">
+                                                                            <i class="ti ti-unlink"></i>
+                                                                        </button>
+                                                                        <button type="button"
+                                                                                class="btn btn-icon btn-outline-secondary js-open-pratica-folder"
+                                                                                data-open-url="{{ allegato.open_folder_url }}"
+                                                                                title="Apri cartella di origine">
+                                                                            <i class="ti ti-folder-open"></i>
+                                                                        </button>
+                                                                    </td>
+                                                                </tr>
+                                                            {% endfor %}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            {% endif %}
+
+                                            {% if collegamento.file_entries %}
+                                                <div class="table-responsive mt-2">
+                                                    <table class="table table-vcenter table-sm mb-0">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Nome file</th>
+                                                                <th>Descrizione</th>
+                                                                <th>Creato il</th>
+                                                                <th>Modificato il</th>
+                                                                <th>Tipo</th>
+                                                                <th>Dimensione</th>
+                                                                <th class="text-end">Azioni</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {% for file in collegamento.file_entries %}
+                                                                <tr>
+                                                                    <td>{{ file.name }}</td>
+                                                                    <td>
+                                                                        <form method="post"
+                                                                              id="file-desc-{{ collegamento.pk }}-{{ forloop.counter0 }}"
+                                                                              action="{{ file.description_url }}"
+                                                                              class="st-file-description-form"
+                                                                              data-unsaved-guard="false">
+                                                                            {% csrf_token %}
+                                                                            <input type="hidden" name="file" value="{{ file.name }}">
+                                                                            <input type="hidden"
+                                                                                   name="next"
+                                                                                   value="{{ request.get_full_path }}#edit-edit-category-detail-{{ collegamento.pk }}">
+                                                                            <input type="text"
+                                                                                   name="descrizione"
+                                                                                   value="{{ file.description }}"
+                                                                                   data-original-value="{{ file.description }}"
+                                                                                   class="form-control form-control-sm js-file-description-input"
+                                                                                   placeholder="Aggiungi descrizione">
+                                                                        </form>
+                                                                    </td>
+                                                                    <td>{{ file.created_at }}</td>
+                                                                    <td>{{ file.modified_at }}</td>
+                                                                    <td>
+                                                                        <span class="badge bg-secondary-lt">{{ file.extension }}</span>
+                                                                    </td>
+                                                                    <td>{{ file.size_kb }} KB</td>
+                                                                    <td class="text-end st-file-actions">
+                                                                        <button type="button"
+                                                                                class="btn btn-icon btn-outline-primary js-open-pratica-file"
+                                                                                data-open-url="{% if file.open_app_url %}{{ file.open_app_url }}{% else %}{{ file.url }}{% endif %}"
+                                                                                data-native-open="{% if file.open_app_url %}1{% else %}0{% endif %}"
+                                                                                title="{% if file.open_app_url %}Apri con applicazione originale{% else %}Apri anteprima{% endif %}">
+                                                                            {% if file.open_app_url %}
+                                                                                {% with ext=file.extension|lower %}
+                                                                                    {% if ext == "doc" or ext == "docx" %}
+                                                                                        <i class="ti ti-file-type-doc text-blue"></i>
+                                                                                    {% elif ext == "xls" or ext == "xlsx" or ext == "xlsm" %}
+                                                                                        <i class="ti ti-file-type-xls text-green"></i>
+                                                                                    {% else %}
+                                                                                        <i class="ti ti-launch"></i>
+                                                                                    {% endif %}
+                                                                                {% endwith %}
+                                                                            {% else %}
+                                                                                <i class="ti ti-eye"></i>
+                                                                            {% endif %}
+                                                                        </button>
+                                                                        <button type="button"
+                                                                                class="btn btn-icon btn-outline-secondary js-delete-file"
+                                                                                title="Scollega file dalla pratica"
+                                                                                data-delete-action="{{ file.unlink_url }}"
+                                                                                data-delete-file="{{ file.name }}"
+                                                                                data-delete-mode="unlink">
+                                                                            <i class="ti ti-unlink"></i>
+                                                                        </button>
+                                                                        <button type="button"
+                                                                                class="btn btn-icon btn-outline-secondary js-open-pratica-folder"
+                                                                                data-open-url="{{ file.open_folder_url }}"
+                                                                                title="Apri cartella di origine">
+                                                                            <i class="ti ti-folder-open"></i>
+                                                                        </button>
+                                                                    </td>
+                                                                </tr>
+                                                            {% endfor %}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            {% elif collegamento.cartella_is_folder %}
+                                                <div class="text-secondary small mt-2">
+                                                    Nessun file nella cartella.
+                                                </div>
+                                            {% elif collegamento.cartella_is_link %}
+                                                <a href="{{ collegamento.cartella }}" target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm">
+                                                    <i class="ti ti-external-link"></i>
+                                                    Apri collegamento
+                                                </a>
+                                            {% elif collegamento.cartella_error %}
+                                                <span class="badge bg-red-lt">{{ collegamento.cartella_error }}</span>
+                                            {% else %}
+                                                <div class="text-secondary small">
+                                                    Nessuna cartella collegata.
+                                                </div>
+                                            {% endif %}
+                                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <div class="st-detail-empty">
+        <i class="ti ti-tags"></i>
+        <p class="mb-0">Nessuna categoria collegata</p>
+    </div>
+{% endif %}

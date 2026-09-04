@@ -1,11 +1,18 @@
 import ssl
+import time
+from datetime import time as dt_time
 
 from django.conf import settings
 from django.core.mail import EmailMessage, get_connection
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.agenda.models import ConfigurazioneNotificaEmail, EventoAgenda
+from apps.agenda.models import ConfigurazioneNotificaEmail, EventoAgenda, LogNotificaEmail
+
+
+SEND_WINDOW_MINUTES = 20
+SMTP_SEND_PAUSE_SECONDS = 2.0
+SMTP_MAX_ATTEMPTS = 3
 
 
 def parse_destinatari(text):
@@ -37,28 +44,74 @@ def get_event_recipients(evento):
     return sorted(recipients)
 
 
-def build_event_message(evento, base_url):
+DEFAULT_TEMPLATE_OGGETTO = "[Securtek] Promemoria {{data}} - {{titolo}}"
+DEFAULT_TEMPLATE_CORPO = (
+    "Promemoria: {{titolo}}\n"
+    "\n"
+    "Tipo: {{tipo}}\n"
+    "Pratica: {{pratica_codice}} - {{pratica_titolo}}\n"
+    "Cliente: {{cliente}}\n"
+    "Data: {{data}}\n"
+    "Ora: {{ora}}\n"
+    "\n"
+    "{{descrizione}}\n"
+    "\n"
+    "Apri pratica: {{url_pratica}}"
+)
+
+
+def build_event_context(evento, base_url):
     pratica = evento.pratica
     data_riferimento = evento.data_termine
-    lines = [
-        f"Promemoria: {evento.titolo}",
-        "",
-        f"Tipo: {evento.get_tipo_display()}",
-        f"Pratica: {pratica.codice} - {pratica.titolo}",
-        f"Cliente: {pratica.cliente}",
-        f"Data: {data_riferimento:%d/%m/%Y}",
-    ]
+    descrizione = (evento.descrizione or "").strip()
+    ora = evento.ora_inizio.strftime("%H:%M") if evento.ora_inizio else ""
+    data_notifica = evento.data_notifica
+    return {
+        "titolo": evento.titolo or "",
+        "tipo": evento.get_tipo_display(),
+        "pratica_codice": pratica.codice or "",
+        "pratica_titolo": pratica.titolo or "",
+        "cliente": str(pratica.cliente) if pratica.cliente_id else "",
+        "data": data_riferimento.strftime("%d/%m/%Y") if data_riferimento else "",
+        "ora": ora,
+        "descrizione": descrizione,
+        "url_pratica": f"{base_url}{reverse('pratiche:pratica_detail', kwargs={'pk': pratica.pk})}",
+        "giorni_preavviso": str(evento.giorni_preavviso or ""),
+        "data_notifica": data_notifica.strftime("%d/%m/%Y") if data_notifica else "",
+    }
 
-    if evento.ora_inizio:
-        lines.append(f"Ora: {evento.ora_inizio:%H:%M}")
 
-    if evento.descrizione:
-        lines.extend(["", evento.descrizione])
+def render_mail_template(template_text, context, fallback=""):
+    text = (template_text or "").strip() or fallback
+    for key, value in context.items():
+        text = text.replace("{{" + key + "}}", str(value))
+    # Evita righe vuote eccessive da {{ora}}/{{descrizione}} assenti.
+    while "\n\n\n" in text:
+        text = text.replace("\n\n\n", "\n\n")
+    return text.strip() + "\n"
 
-    pratica_url = f"{base_url}{reverse('pratiche:pratica_detail', kwargs={'pk': pratica.pk})}"
-    lines.extend(["", f"Apri pratica: {pratica_url}"])
 
-    return "\n".join(lines)
+def build_event_subject(evento, config=None, base_url=None):
+    config = config or ConfigurazioneNotificaEmail.get_solo()
+    base_url = base_url or get_site_base_url()
+    context = build_event_context(evento, base_url)
+    subject = render_mail_template(
+        config.template_oggetto,
+        context,
+        fallback=DEFAULT_TEMPLATE_OGGETTO,
+    ).strip()
+    return subject[:300] or DEFAULT_TEMPLATE_OGGETTO
+
+
+def build_event_message(evento, base_url=None, config=None):
+    config = config or ConfigurazioneNotificaEmail.get_solo()
+    base_url = base_url or get_site_base_url()
+    context = build_event_context(evento, base_url)
+    return render_mail_template(
+        config.template_corpo,
+        context,
+        fallback=DEFAULT_TEMPLATE_CORPO,
+    )
 
 
 def get_due_events(today=None):
@@ -76,10 +129,21 @@ def get_due_events(today=None):
 
     due_events = []
     for evento in queryset:
-        if evento.data_notifica == today:
+        # Include anche giorni saltati (Mac spento): data_notifica <= oggi
+        if evento.data_notifica and evento.data_notifica <= today:
             due_events.append(evento)
 
     return due_events
+
+
+def is_within_send_window(config, now=None, window_minutes=SEND_WINDOW_MINUTES):
+    """True se l'ora locale e' nella finestra [ora_invio, ora_invio + window)."""
+    now = timezone.localtime(now) if now else timezone.localtime()
+    target = config.ora_invio or dt_time(8, 0)
+    now_minutes = now.hour * 60 + now.minute
+    target_minutes = target.hour * 60 + target.minute
+    end_minutes = target_minutes + max(1, int(window_minutes))
+    return target_minutes <= now_minutes < end_minutes
 
 
 def format_smtp_error(exc, config=None):
@@ -93,7 +157,13 @@ def format_smtp_error(exc, config=None):
             "non la porta IMAP (143/993) o POP3 (110/995)."
         )
 
-    if "wrong_version_number" in lowered or "wrong version number" in lowered:
+    if "connection unexpectedly closed" in lowered or "connection reset" in lowered:
+        return (
+            "Il server SMTP ha chiuso la connessione durante l'invio. "
+            "Di solito e' un limite del provider: riprova, oppure invia in orari non di punta. "
+            f"Dettaglio tecnico: {raw}"
+        )
+
         porta = getattr(config, "porta", None)
         if porta == 587:
             return (
@@ -152,6 +222,7 @@ def get_smtp_connection(config):
         password=config.password or None,
         use_tls=config.usa_tls,
         use_ssl=config.usa_ssl,
+        timeout=60,
     )
     if not getattr(config, "verifica_certificato_ssl", True):
         context = ssl.create_default_context()
@@ -161,7 +232,90 @@ def get_smtp_connection(config):
     return connection
 
 
-def send_test_email(config=None, recipients=None):
+def is_smtp_connection_error(exc):
+    msg = str(exc).lower()
+    return any(
+        token in msg
+        for token in (
+            "connection unexpectedly closed",
+            "connection reset",
+            "broken pipe",
+            "server not connected",
+            "please run connect()",
+            "timed out",
+            "timeout",
+            "eof occurred",
+        )
+    )
+
+
+def send_smtp_message(config, *, subject, body, recipients, max_attempts=SMTP_MAX_ATTEMPTS):
+    """
+    Invio robusto: nuova connessione per tentativo, pause e retry su errori di rete/SMTP.
+    """
+    last_exc = None
+    for attempt in range(1, max_attempts + 1):
+        connection = None
+        try:
+            connection = get_smtp_connection(config)
+            connection.open()
+            message = EmailMessage(
+                subject=subject,
+                body=body,
+                from_email=config.mittente,
+                to=list(recipients),
+                connection=connection,
+            )
+            message.send(fail_silently=False)
+            return
+        except Exception as exc:
+            last_exc = exc
+            if attempt >= max_attempts or not is_smtp_connection_error(exc):
+                raise
+            time.sleep(SMTP_SEND_PAUSE_SECONDS * attempt)
+        finally:
+            if connection is not None:
+                try:
+                    connection.close()
+                except Exception:
+                    pass
+    if last_exc is not None:
+        raise last_exc
+
+
+def record_email_log(
+    *,
+    oggetto,
+    destinatari,
+    mittente="",
+    esito=LogNotificaEmail.Esito.OK,
+    tipo=LogNotificaEmail.Tipo.AUTOMATICA,
+    evento=None,
+    pratica=None,
+    errore="",
+    user=None,
+):
+    if isinstance(destinatari, (list, tuple, set)):
+        destinatari_text = ", ".join(sorted({str(item).strip() for item in destinatari if str(item).strip()}))
+    else:
+        destinatari_text = str(destinatari or "").strip()
+
+    return LogNotificaEmail.objects.create(
+        inviata_il=timezone.now(),
+        tipo=tipo,
+        esito=esito,
+        oggetto=(oggetto or "")[:300],
+        destinatari=destinatari_text,
+        mittente=(mittente or "")[:254],
+        errore=(errore or "")[:4000],
+        evento=evento,
+        pratica=pratica or (evento.pratica if evento else None),
+        created_by=user,
+        updated_by=user,
+    )
+
+
+def send_test_email(config=None, recipients=None, user=None):
     """Invia una email di prova con i parametri SMTP salvati."""
     config = config or ConfigurazioneNotificaEmail.get_solo()
     recipients = sorted(
@@ -172,74 +326,128 @@ def send_test_email(config=None, recipients=None):
         }
     )
 
+    subject = "[Securtek] Email di test"
     if not config.host or not config.porta or not config.mittente:
-        return {
-            "ok": False,
-            "error": "Configura almeno server SMTP, porta e mittente, poi salva.",
-            "recipients": recipients,
-        }
+        error = "Configura almeno server SMTP, porta e mittente, poi salva."
+        record_email_log(
+            oggetto=subject,
+            destinatari=recipients,
+            mittente=config.mittente,
+            esito=LogNotificaEmail.Esito.ERRORE,
+            tipo=LogNotificaEmail.Tipo.TEST,
+            errore=error,
+            user=user,
+        )
+        return {"ok": False, "error": error, "recipients": recipients}
 
     if config.porta in {110, 143, 993, 995}:
-        return {
-            "ok": False,
-            "error": (
-                f"La porta {config.porta} e' tipica di IMAP/POP3, non di SMTP. "
-                "Usa 587 (TLS) oppure 465 (SSL), poi salva e riprova."
-            ),
-            "recipients": recipients,
-        }
+        error = (
+            f"La porta {config.porta} e' tipica di IMAP/POP3, non di SMTP. "
+            "Usa 587 (TLS) oppure 465 (SSL), poi salva e riprova."
+        )
+        record_email_log(
+            oggetto=subject,
+            destinatari=recipients,
+            mittente=config.mittente,
+            esito=LogNotificaEmail.Esito.ERRORE,
+            tipo=LogNotificaEmail.Tipo.TEST,
+            errore=error,
+            user=user,
+        )
+        return {"ok": False, "error": error, "recipients": recipients}
 
     security_error = validate_smtp_security(config.porta, config.usa_tls, config.usa_ssl)
     if security_error:
-        return {
-            "ok": False,
-            "error": security_error,
-            "recipients": recipients,
-        }
+        record_email_log(
+            oggetto=subject,
+            destinatari=recipients,
+            mittente=config.mittente,
+            esito=LogNotificaEmail.Esito.ERRORE,
+            tipo=LogNotificaEmail.Tipo.TEST,
+            errore=security_error,
+            user=user,
+        )
+        return {"ok": False, "error": security_error, "recipients": recipients}
 
     if not recipients:
-        return {
-            "ok": False,
-            "error": "Indica un indirizzo email di destinazione.",
-            "recipients": [],
-        }
+        error = "Indica un indirizzo email di destinazione."
+        record_email_log(
+            oggetto=subject,
+            destinatari=[],
+            mittente=config.mittente,
+            esito=LogNotificaEmail.Esito.ERRORE,
+            tipo=LogNotificaEmail.Tipo.TEST,
+            errore=error,
+            user=user,
+        )
+        return {"ok": False, "error": error, "recipients": []}
 
-    subject = "[Securtek] Email di test"
     body = (
         "Questa e' un'email di prova inviata da Securtek.\n"
         "Se l'hai ricevuta, i parametri SMTP sono configurati correttamente.\n"
     )
 
     try:
-        connection = get_smtp_connection(config)
-        message = EmailMessage(
+        send_smtp_message(
+            config,
             subject=subject,
             body=body,
-            from_email=config.mittente,
-            to=recipients,
-            connection=connection,
+            recipients=recipients,
         )
-        message.send()
     except Exception as exc:
-        return {
-            "ok": False,
-            "error": format_smtp_error(exc, config),
-            "recipients": recipients,
-        }
+        error = format_smtp_error(exc, config)
+        record_email_log(
+            oggetto=subject,
+            destinatari=recipients,
+            mittente=config.mittente,
+            esito=LogNotificaEmail.Esito.ERRORE,
+            tipo=LogNotificaEmail.Tipo.TEST,
+            errore=error,
+            user=user,
+        )
+        return {"ok": False, "error": error, "recipients": recipients}
 
-    return {
-        "ok": True,
-        "error": None,
-        "recipients": recipients,
-    }
+    record_email_log(
+        oggetto=subject,
+        destinatari=recipients,
+        mittente=config.mittente,
+        esito=LogNotificaEmail.Esito.OK,
+        tipo=LogNotificaEmail.Tipo.TEST,
+        user=user,
+    )
+    return {"ok": True, "error": None, "recipients": recipients}
 
 
-def send_agenda_notifications(dry_run=False):
+def send_agenda_notifications(dry_run=False, force=False):
     config = ConfigurazioneNotificaEmail.get_solo()
+
+    if not config.servizio_attivo and not force and not dry_run:
+        return {
+            "skipped": "servizio_spento",
+            "due": 0,
+            "sent": 0,
+            "errors": 0,
+            "details": [],
+        }
 
     if not config.attiva:
         return {
             "skipped": "config_disattivata",
+            "due": 0,
+            "sent": 0,
+            "errors": 0,
+            "details": [],
+        }
+
+    # La finestra oraria deve coprire almeno un ciclo di controllo.
+    interval = max(1, int(getattr(config, "intervallo_controllo_minuti", None) or 15))
+    window_minutes = max(SEND_WINDOW_MINUTES, interval + 1)
+
+    if not force and not dry_run and not is_within_send_window(config, window_minutes=window_minutes):
+        ora = config.ora_invio or dt_time(8, 0)
+        return {
+            "skipped": "fuori_orario",
+            "ora_invio": ora.strftime("%H:%M"),
             "due": 0,
             "sent": 0,
             "errors": 0,
@@ -252,20 +460,25 @@ def send_agenda_notifications(dry_run=False):
     errors = 0
     details = []
 
-    connection = None
-    if not dry_run:
-        connection = get_smtp_connection(config)
-
-    for evento in due_events:
+    for index, evento in enumerate(due_events):
         recipients = get_event_recipients(evento)
+        subject = build_event_subject(evento, config=config, base_url=base_url)
+        body = build_event_message(evento, base_url=base_url, config=config)
 
         if not recipients:
             errors += 1
             details.append({"evento_id": evento.pk, "status": "nessun_destinatario"})
+            if not dry_run:
+                record_email_log(
+                    oggetto=subject,
+                    destinatari=[],
+                    mittente=config.mittente,
+                    esito=LogNotificaEmail.Esito.SALTATA,
+                    tipo=LogNotificaEmail.Tipo.AUTOMATICA,
+                    evento=evento,
+                    errore="Nessun destinatario disponibile",
+                )
             continue
-
-        subject = f"[Securtek] Promemoria {evento.data_termine:%d/%m/%Y} - {evento.titolo}"
-        body = build_event_message(evento, base_url)
 
         if dry_run:
             sent += 1
@@ -279,17 +492,27 @@ def send_agenda_notifications(dry_run=False):
                     "giorni_preavviso": evento.giorni_preavviso,
                 }
             )
+            record_email_log(
+                oggetto=subject,
+                destinatari=recipients,
+                mittente=config.mittente,
+                esito=LogNotificaEmail.Esito.DRY_RUN,
+                tipo=LogNotificaEmail.Tipo.AUTOMATICA,
+                evento=evento,
+            )
             continue
 
+        # Pausa tra un evento e il successivo: riduce i tagli del provider SMTP.
+        if index > 0:
+            time.sleep(SMTP_SEND_PAUSE_SECONDS)
+
         try:
-            message = EmailMessage(
+            send_smtp_message(
+                config,
                 subject=subject,
                 body=body,
-                from_email=config.mittente,
-                to=recipients,
-                connection=connection,
+                recipients=recipients,
             )
-            message.send()
             evento.notificato_il = timezone.now()
             evento.save(update_fields=["notificato_il", "updated_at"])
             sent += 1
@@ -303,9 +526,32 @@ def send_agenda_notifications(dry_run=False):
                     "giorni_preavviso": evento.giorni_preavviso,
                 }
             )
+            record_email_log(
+                oggetto=subject,
+                destinatari=recipients,
+                mittente=config.mittente,
+                esito=LogNotificaEmail.Esito.OK,
+                tipo=LogNotificaEmail.Tipo.AUTOMATICA,
+                evento=evento,
+            )
         except Exception as exc:
             errors += 1
-            details.append({"evento_id": evento.pk, "status": "error", "error": str(exc)})
+            error = format_smtp_error(exc, config)
+            details.append({"evento_id": evento.pk, "status": "error", "error": error})
+            record_email_log(
+                oggetto=subject,
+                destinatari=recipients,
+                mittente=config.mittente,
+                esito=LogNotificaEmail.Esito.ERRORE,
+                tipo=LogNotificaEmail.Tipo.AUTOMATICA,
+                evento=evento,
+                errore=error,
+            )
+
+    if not dry_run:
+        config.ultimo_invio_il = timezone.now()
+        config.ultimo_invio_esito = f"due={len(due_events)} sent={sent} errors={errors}"
+        config.save(update_fields=["ultimo_invio_il", "ultimo_invio_esito", "updated_at"])
 
     return {
         "due": len(due_events),

@@ -387,25 +387,31 @@ class SistemaView(TemplateView):
             {"label": "Esterni", "value": StudioTecnico.objects.filter(is_active=True).count()},
             {"label": "Incarichi", "value": IncaricoTecnico.objects.filter(is_active=True).count()},
         ]
-        context["system_links"] = [
-            {
-                "label": "Admin Django",
-                "description": "Gestione tecnica avanzata dei dati.",
-                "url": reverse("admin:index"),
-                "icon": "ti-shield-cog",
-            },
-            {
-                "label": "Parametri mail",
-                "description": "Configurazione notifiche per scadenze e agenda.",
-                "url": reverse("agenda:configurazione_email"),
-                "icon": "ti-mail-cog",
-            },
-            {
-                "label": "Template pratiche",
-                "description": "Categorie automatiche per tipologia pratica.",
-                "url": reverse("pratiche:template_pratica_list"),
-                "icon": "ti-template",
-            },
-        ]
+        context["system_links"] = []
+        if self.request.user.is_staff:
+            context["system_links"].append(
+                {
+                    "label": "Admin Django",
+                    "description": "Gestione tecnica avanzata dei dati.",
+                    "url": reverse("admin:index"),
+                    "icon": "ti-shield-cog",
+                }
+            )
+        context["system_links"].extend(
+            [
+                {
+                    "label": "Parametri mail",
+                    "description": "Configurazione notifiche per scadenze e agenda.",
+                    "url": reverse("agenda:configurazione_email"),
+                    "icon": "ti-mail-cog",
+                },
+                {
+                    "label": "Template pratiche",
+                    "description": "Categorie automatiche per tipologia pratica.",
+                    "url": reverse("pratiche:template_pratica_list"),
+                    "icon": "ti-template",
+                },
+            ]
+        )
 
         return context

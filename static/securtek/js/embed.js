@@ -31,20 +31,25 @@
             if (!link) {
                 return;
             }
-            var href = link.getAttribute("href");
-            if (!href || href.charAt(0) === "#" || href.indexOf("javascript:") === 0) {
+            var raw = link.getAttribute("href");
+            if (!raw || raw.charAt(0) === "#" || raw.indexOf("javascript:") === 0) {
                 return;
             }
             try {
-                var u = new URL(href, window.location.origin);
+                // Usa link.href (può essere già arricchito da scroll-hold con next+scroll).
+                var live = link.href || raw;
+                var u = new URL(live, window.location.origin);
                 if (u.origin !== window.location.origin) {
                     return;
                 }
                 if (u.searchParams.get("embed") === "1") {
                     return;
                 }
-                ev.preventDefault();
-                window.location.href = addEmbed(href);
+                var nextHref = addEmbed(live);
+                link.href = nextHref;
+                link.setAttribute("href", nextHref);
+                // Lascia navigare il browser: niente preventDefault, così non
+                // si perde lo scroll messo in next da scroll-hold.
             } catch (e) {
                 /* ignore */
             }

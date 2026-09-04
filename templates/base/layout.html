@@ -1,6 +1,6 @@
 {% load static %}
 <!doctype html>
-<html lang="it">
+<html lang="it"{% if restore_scroll_y is not None %} data-scroll-y="{{ restore_scroll_y }}"{% endif %}{% if request.GET.pos == "personale" or request.GET.focus == "personale" %} data-focus-personale="1"{% endif %}{% if request.GET.pos == "agenda" or request.GET.pos == "categorie" or request.GET.pos == "personale" or request.GET.pos == "comunicazioni" %} data-focus-section="{{ request.GET.pos }}"{% endif %}>
 
 <head>
 
@@ -34,18 +34,43 @@
                 if ("scrollRestoration" in history) {
                     history.scrollRestoration = "manual";
                 }
-                var holdRaw = sessionStorage.getItem("securtek:personale-return");
-                if (holdRaw) {
-                    var holdData = JSON.parse(holdRaw);
-                    var holdPath = String((holdData && holdData.path) || "").replace(/\/$/, "") || "/";
-                    var currentPath = String(location.pathname || "").replace(/\/$/, "") || "/";
-                    if (holdData && holdPath === currentPath) {
-                        document.documentElement.classList.add("st-hold-scroll");
-                        window.__securtekHoldScroll = holdData;
+                var root = document.documentElement;
+                var hashSection = "";
+                try {
+                    hashSection = (location.hash || "").replace("#", "");
+                    if (hashSection === "agenda" || hashSection === "categorie" || hashSection === "personale" || hashSection === "comunicazioni") {
+                        root.setAttribute("data-focus-section", hashSection);
+                        if (hashSection === "personale") {
+                            root.setAttribute("data-focus-personale", "1");
+                        }
+                        history.replaceState(null, "", location.pathname + location.search);
+                    }
+                } catch (hashError) {
+                    /* ignore */
+                }
+                var hasScroll =
+                    root.getAttribute("data-scroll-y") !== null ||
+                    root.getAttribute("data-focus-personale") === "1" ||
+                    root.getAttribute("data-focus-section");
+                if (!hasScroll) {
+                    try {
+                        var params = new URLSearchParams(location.search);
+                        hasScroll =
+                            params.has("scroll") ||
+                            params.get("pos") === "personale" ||
+                            params.get("pos") === "agenda" ||
+                            params.get("pos") === "categorie" ||
+                            params.get("pos") === "comunicazioni" ||
+                            params.get("focus") === "personale";
+                    } catch (queryError) {
+                        hasScroll = false;
                     }
                 }
+                if (hasScroll) {
+                    root.classList.add("st-hold-scroll");
+                }
             } catch (error) {
-                // ignore storage errors
+                // ignore
             }
         })();
     </script>
@@ -68,10 +93,10 @@
         href="{% static 'securtek/css/variables.css' %}">
 
     <link rel="stylesheet"
-        href="{% static 'securtek/css/style.css' %}">
+        href="{% static 'securtek/css/style.css' %}?v=20260904c">
 
     <link rel="stylesheet"
-        href="{% static 'securtek/css/scroll-hold.css' %}?v=20260903a">
+        href="{% static 'securtek/css/scroll-hold.css' %}?v=20260903h">
 
     <link rel="stylesheet"
         href="{% static 'securtek/css/sidebar.css' %}">
@@ -142,10 +167,10 @@
 <script src="{% static 'htmx.org/dist/htmx.min.js' %}"></script>
 
 <script src="{% static 'securtek/js/disable-autocomplete.js' %}?v=20260901g"></script>
-<script src="{% static 'securtek/js/scroll-hold.js' %}?v=20260903a"></script>
-<script src="{% static 'securtek/js/app.js' %}"></script>
+<script src="{% static 'securtek/js/scroll-hold.js' %}?v=20260904d"></script>
+<script src="{% static 'securtek/js/app.js' %}?v=20260904a"></script>
 {% if request.is_embed %}
-<script src="{% static 'securtek/js/embed.js' %}"></script>
+<script src="{% static 'securtek/js/embed.js' %}?v=20260903f"></script>
 {% else %}
 <script src="{% static 'securtek/js/multi-window.js' %}"></script>
 {% endif %}

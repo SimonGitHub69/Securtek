@@ -15,7 +15,6 @@ class IndirizzoForm(forms.ModelForm):
             "cap",
             "nazione",
             "principale",
-            "note",
         ]
         widgets = {
             "tipo": forms.Select(attrs={"class": "form-select"}),
@@ -58,13 +57,6 @@ class IndirizzoForm(forms.ModelForm):
                 }
             ),
             "principale": forms.CheckboxInput(attrs={"class": "form-check-input"}),
-            "note": forms.Textarea(
-                attrs={
-                    "class": "form-control",
-                    "rows": 3,
-                    "autocomplete": "off",
-                }
-            ),
         }
 
     def __init__(self, *args, **kwargs):
@@ -112,7 +104,6 @@ class IndirizzoForm(forms.ModelForm):
                 "comune",
                 "provincia",
                 "principale",
-                "note",
             ]
         )
 

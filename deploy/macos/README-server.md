@@ -100,7 +100,25 @@ chmod +x SecurtekApp.command
 
 Guida client: `deploy/macos/README-app.md`
 
+## 5. Notifiche email agenda (schedulate)
+
+Sul Mac Mini puoi far partire ogni giorno l’invio automatico dei promemoria
+calendario (preavviso eventi/lavori/scadenze).
+
+Guida completa: `deploy/macos/README-agenda-notifiche.md`
+
+Installazione consigliata (senza login):
+
+```bash
+chmod +x deploy/macos/run-agenda-notifiche.sh deploy/macos/install-agenda-notifiche.sh
+sudo ./deploy/macos/install-agenda-notifiche.sh --daemon
+```
+
+Prima configura SMTP e attiva le notifiche in **Agenda → Parametri mail**.
+
 ## Log
 
 - `logs/gunicorn.access.log`
 - `logs/gunicorn.error.log`
+- `logs/agenda-notifiche.log`
+- `logs/agenda-notifiche.err`

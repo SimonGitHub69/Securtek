@@ -68,7 +68,11 @@ Parametri mail
             <h2 class="page-title">Parametri mail notifiche</h2>
             <div class="text-secondary">Configurazione SMTP per notificare le scadenze del calendario lavori</div>
         </div>
-        <div class="col-auto">
+        <div class="col-auto d-flex gap-2">
+            <a href="{% url 'agenda:log_notifiche_email' %}" class="btn btn-outline-primary">
+                <i class="ti ti-mail-opened"></i>
+                Registro mail
+            </a>
             <a href="{% url 'dashboard:index' %}" class="btn btn-outline-secondary">
                 <i class="ti ti-arrow-left"></i>
                 Dashboard
@@ -76,6 +80,74 @@ Parametri mail
         </div>
     </div>
 </div>
+
+<div class="alert alert-info mb-3">
+    <div class="d-flex">
+        <div class="me-2"><i class="ti ti-clock-bolt"></i></div>
+        <div>
+            <div class="fw-semibold mb-1">Invio automatico su Mac Mini</div>
+            <div class="small mb-2">
+                Dopo aver attivato le notifiche e salvato SMTP, sul server Mac installa il servizio (una sola volta).
+                Intervallo e spegnimento si gestiscono da questa maschera.
+            </div>
+            <pre class="small mb-2 bg-dark text-light p-2 rounded">sudo ./deploy/macos/install-agenda-notifiche.sh --daemon</pre>
+            <div class="small mb-0">
+                Giorno di invio = data evento − giorni preavviso; orario = campo <strong>Ora invio automatico</strong>.
+                Guida: <code>deploy/macos/README-agenda-notifiche.md</code>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if servizio_status %}
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title mb-0">Servizio automatico</h3>
+        <div class="card-actions">
+            <span class="badge bg-{{ servizio_status.colore }}-lt">{{ servizio_status.etichetta }}</span>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="row align-items-start g-3">
+            <div class="col-lg-7">
+                <p class="mb-2">{{ servizio_status.dettaglio }}</p>
+                <div class="text-secondary small">
+                    Intervallo attuale:
+                    <strong>{{ servizio_status.intervallo_controllo_minuti }} min</strong>
+                    {% if servizio_status.ultimo_controllo_il %}
+                        · Ultimo controllo:
+                        <strong>{{ servizio_status.ultimo_controllo_il|date:"d/m/Y H:i" }}</strong>
+                    {% else %}
+                        · Nessun controllo registrato
+                    {% endif %}
+                    {% if servizio_status.launchd_loaded != None %}
+                        · launchd:
+                        {% if servizio_status.launchd_loaded %}<span class="text-success">caricato</span>{% else %}<span class="text-warning">non trovato</span>{% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col-lg-5 text-lg-end">
+                <form method="post" action="{% url 'agenda:configurazione_email_servizio' %}" class="d-inline">
+                    {% csrf_token %}
+                    {% if servizio_status.servizio_attivo %}
+                        <input type="hidden" name="action" value="off">
+                        <button type="submit" class="btn btn-outline-danger">
+                            <i class="ti ti-player-stop"></i>
+                            Spegni servizio
+                        </button>
+                    {% else %}
+                        <input type="hidden" name="action" value="on">
+                        <button type="submit" class="btn btn-success">
+                            <i class="ti ti-player-play"></i>
+                            Accendi servizio
+                        </button>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <div class="card">
     <form method="post" id="configurazione-email-form" autocomplete="off">
@@ -98,6 +170,32 @@ Parametri mail
                 </div>
 
                 <div class="col-md-3">
+                    <label class="form-check mb-3">
+                        {{ form.servizio_attivo }}
+                        <span class="form-check-label">{{ form.servizio_attivo.label }}</span>
+                    </label>
+                    {% if form.servizio_attivo.help_text %}
+                        <div class="form-text">{{ form.servizio_attivo.help_text }}</div>
+                    {% endif %}
+                    {% if form.servizio_attivo.errors %}
+                        <div class="invalid-feedback d-block">{{ form.servizio_attivo.errors|join:", " }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.intervallo_controllo_minuti.id_for_label }}">{{ form.intervallo_controllo_minuti.label }}</label>
+                        {{ form.intervallo_controllo_minuti }}
+                        {% if form.intervallo_controllo_minuti.help_text %}
+                            <div class="form-text">{{ form.intervallo_controllo_minuti.help_text }}</div>
+                        {% endif %}
+                        {% if form.intervallo_controllo_minuti.errors %}
+                            <div class="invalid-feedback d-block">{{ form.intervallo_controllo_minuti.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="col-md-3">
                     <div class="mb-3">
                         <label class="form-label" for="{{ form.giorni_preavviso.id_for_label }}">{{ form.giorni_preavviso.label }}</label>
                         {{ form.giorni_preavviso }}
@@ -106,6 +204,19 @@ Parametri mail
                         {% endif %}
                         {% if form.giorni_preavviso.errors %}
                             <div class="invalid-feedback d-block">{{ form.giorni_preavviso.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.ora_invio.id_for_label }}">{{ form.ora_invio.label }}</label>
+                        {{ form.ora_invio }}
+                        {% if form.ora_invio.help_text %}
+                            <div class="form-text">{{ form.ora_invio.help_text }}</div>
+                        {% endif %}
+                        {% if form.ora_invio.errors %}
+                            <div class="invalid-feedback d-block">{{ form.ora_invio.errors|join:", " }}</div>
                         {% endif %}
                     </div>
                 </div>
@@ -207,6 +318,43 @@ Parametri mail
                 </div>
 
                 <div class="col-12">
+                    <hr class="my-2">
+                    <h4 class="mb-2">Testo mail di preavviso</h4>
+                    <div class="text-secondary small mb-3">
+                        Usa i segnaposto tra doppie parentesi graffe, es.
+                        <code>{% verbatim %}{{titolo}}{% endverbatim %}</code>,
+                        <code>{% verbatim %}{{data}}{% endverbatim %}</code>,
+                        <code>{% verbatim %}{{url_pratica}}{% endverbatim %}</code>.
+                    </div>
+                </div>
+
+                <div class="col-12">
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.template_oggetto.id_for_label }}">{{ form.template_oggetto.label }}</label>
+                        {{ form.template_oggetto }}
+                        {% if form.template_oggetto.help_text %}
+                            <div class="form-text">{{ form.template_oggetto.help_text }}</div>
+                        {% endif %}
+                        {% if form.template_oggetto.errors %}
+                            <div class="invalid-feedback d-block">{{ form.template_oggetto.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="col-12">
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.template_corpo.id_for_label }}">{{ form.template_corpo.label }}</label>
+                        {{ form.template_corpo }}
+                        {% if form.template_corpo.help_text %}
+                            <div class="form-text">{{ form.template_corpo.help_text }}</div>
+                        {% endif %}
+                        {% if form.template_corpo.errors %}
+                            <div class="invalid-feedback d-block">{{ form.template_corpo.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="col-12">
                     <div class="mb-0">
                         <label class="form-label" for="{{ form.note.id_for_label }}">{{ form.note.label }}</label>
                         {{ form.note }}
@@ -230,6 +378,65 @@ Parametri mail
         </button>
     </div>
 </div>
+
+{% if object.ultimo_invio_il or recent_logs or log_count %}
+<div class="card mt-3">
+    <div class="card-header">
+        <h3 class="card-title">Ultime mail</h3>
+        <div class="card-actions">
+            {% if object.ultimo_invio_il %}
+                <span class="text-secondary small me-2">
+                    Ultimo job: {{ object.ultimo_invio_il|date:"d/m/Y H:i" }}
+                    {% if object.ultimo_invio_esito %}· {{ object.ultimo_invio_esito }}{% endif %}
+                </span>
+            {% endif %}
+            <a href="{% url 'agenda:log_notifiche_email' %}" class="btn btn-outline-secondary btn-sm">
+                Vedi tutto
+            </a>
+            {% if log_count %}
+                <button type="button" class="btn btn-outline-danger btn-sm" id="openClearLogModal">
+                    <i class="ti ti-trash"></i>
+                    Azzera Registro Mail
+                </button>
+            {% endif %}
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-vcenter card-table table-sm">
+            <thead>
+                <tr>
+                    <th>Data/ora</th>
+                    <th>Oggetto</th>
+                    <th>Destinatari</th>
+                    <th>Esito</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in recent_logs %}
+                    <tr>
+                        <td class="text-nowrap">{{ log.inviata_il|date:"d/m/Y H:i" }}</td>
+                        <td>{{ log.oggetto|truncatechars:60 }}</td>
+                        <td class="small">{{ log.destinatari|truncatechars:50 }}</td>
+                        <td>
+                            {% if log.esito == "ok" %}
+                                <span class="badge bg-green-lt">{{ log.get_esito_display }}</span>
+                            {% elif log.esito == "errore" %}
+                                <span class="badge bg-red-lt">{{ log.get_esito_display }}</span>
+                            {% else %}
+                                <span class="badge bg-orange-lt">{{ log.get_esito_display }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-secondary text-center py-3">Nessuna mail ancora registrata.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
 
 <div class="st-confirm" id="testMailModal" hidden>
     <div class="st-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="testMailTitle">
@@ -264,6 +471,32 @@ Parametri mail
     </div>
 </div>
 
+<div class="st-confirm" id="clearLogModal" hidden>
+    <div class="st-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="clearLogTitle">
+        <form method="post" action="{% url 'agenda:log_notifiche_email_clear' %}" id="clearLogForm">
+            {% csrf_token %}
+            <div class="st-confirm-body">
+                <div class="st-confirm-title" id="clearLogTitle">Azzera Registro Mail?</div>
+                <div class="st-confirm-text">
+                    Verranno rimosse tutte le
+                    <strong>{{ log_count }}</strong>
+                    voci del registro. L'operazione non elimina le configurazioni SMTP
+                    e non annulla le mail già inviate.
+                </div>
+            </div>
+            <div class="st-confirm-footer">
+                <button type="button" class="btn btn-outline-secondary" id="cancelClearLogModal">
+                    Annulla
+                </button>
+                <button type="submit" class="btn btn-danger">
+                    <i class="ti ti-trash"></i>
+                    Azzera registro
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -275,36 +508,63 @@ Parametri mail
     const cancelButton = document.getElementById("cancelTestMailModal");
     const emailInput = document.getElementById("id_destinatario_test");
 
-    if (!modal || !openButton || !cancelButton || !emailInput) {
-        return;
-    }
-
-    function openModal() {
-        modal.hidden = false;
-        window.setTimeout(function () {
-            emailInput.focus();
-            emailInput.select();
-        }, 0);
-    }
-
-    function closeModal() {
-        modal.hidden = true;
-    }
-
-    openButton.addEventListener("click", openModal);
-    cancelButton.addEventListener("click", closeModal);
-
-    modal.addEventListener("click", function (event) {
-        if (event.target === modal) {
-            closeModal();
+    if (modal && openButton && cancelButton && emailInput) {
+        function openModal() {
+            modal.hidden = false;
+            window.setTimeout(function () {
+                emailInput.focus();
+                emailInput.select();
+            }, 0);
         }
-    });
 
-    document.addEventListener("keydown", function (event) {
-        if (event.key === "Escape" && !modal.hidden) {
-            closeModal();
+        function closeModal() {
+            modal.hidden = true;
         }
-    });
+
+        openButton.addEventListener("click", openModal);
+        cancelButton.addEventListener("click", closeModal);
+
+        modal.addEventListener("click", function (event) {
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+
+        document.addEventListener("keydown", function (event) {
+            if (event.key === "Escape" && !modal.hidden) {
+                closeModal();
+            }
+        });
+    }
+
+    const clearModal = document.getElementById("clearLogModal");
+    const openClearButton = document.getElementById("openClearLogModal");
+    const cancelClearButton = document.getElementById("cancelClearLogModal");
+
+    if (clearModal && openClearButton && cancelClearButton) {
+        function openClearModal() {
+            clearModal.hidden = false;
+        }
+
+        function closeClearModal() {
+            clearModal.hidden = true;
+        }
+
+        openClearButton.addEventListener("click", openClearModal);
+        cancelClearButton.addEventListener("click", closeClearModal);
+
+        clearModal.addEventListener("click", function (event) {
+            if (event.target === clearModal) {
+                closeClearModal();
+            }
+        });
+
+        document.addEventListener("keydown", function (event) {
+            if (event.key === "Escape" && !clearModal.hidden) {
+                closeClearModal();
+            }
+        });
+    }
 })();
 </script>
 {% endblock %}

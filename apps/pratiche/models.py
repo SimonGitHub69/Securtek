@@ -148,12 +148,11 @@ class Pratica(BaseModel):
 
 
 class TemplatePratica(BaseModel):
-    tipologia = models.ForeignKey(
+    tipologia = models.OneToOneField(
         TipologiaPratica,
         on_delete=models.PROTECT,
         related_name="template_pratiche",
         verbose_name="Tipologia",
-        unique=True,
     )
     macro_categorie = models.ManyToManyField(
         MacroCategoriaPratica,

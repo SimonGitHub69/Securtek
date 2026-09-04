@@ -20,10 +20,6 @@ from django.conf.urls.static import static
 from django.urls import include, path
 from config.views import LogoutView, app_login_entry, app_version
 
-admin.site.site_header = "SECURTEK"
-admin.site.site_title = "SECURTEK"
-admin.site.index_title = "Amministrazione"
-
 urlpatterns = [
     path("version/", app_version, name="app_version"),
     path("login/", app_login_entry, name="app_login"),

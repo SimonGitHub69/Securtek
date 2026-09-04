@@ -15,6 +15,36 @@ html.st-sidebar-collapsed .page-wrapper {
     margin-left: 72px;
 }
 
+/* Margini pagina più stretti: più spazio utile a elenchi e maschere */
+.page-body {
+    margin-bottom: 0.75rem;
+    margin-top: 0.35rem;
+    padding-bottom: 0.75rem;
+    padding-top: 0.35rem;
+}
+
+.page-body > .container-xl {
+    max-width: none;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+}
+
+.page-header {
+    margin-bottom: 0.75rem !important;
+}
+
+.page-header.mb-3,
+.page-header.mb-4 {
+    margin-bottom: 0.75rem !important;
+}
+
+@media (min-width: 992px) {
+    .page-body > .container-xl {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+}
+
 .table.table-vcenter:not(.st-no-zebra) > tbody > tr:nth-of-type(even) > * {
     background-color: rgba(32, 107, 196, 0.06);
 }
@@ -29,4 +59,49 @@ html.st-sidebar-collapsed .page-wrapper {
 
 [data-bs-theme="dark"] .table.table-vcenter:not(.st-no-zebra) > tbody > tr:hover > * {
     background-color: rgba(255, 255, 255, 0.095);
+}
+
+/* Icone azione uniformi e leggibili (modifica / elimina / apri) */
+.btn.btn-icon {
+    align-items: center;
+    -webkit-appearance: none;
+    appearance: none;
+    display: inline-flex;
+    flex: 0 0 2.5rem;
+    height: 2.5rem;
+    justify-content: center;
+    line-height: 1;
+    min-width: 2.5rem;
+    padding: 0 !important;
+    vertical-align: middle;
+    width: 2.5rem;
+}
+
+.btn.btn-icon .ti {
+    display: block;
+    font-size: 1.35rem;
+    line-height: 1;
+    margin: 0;
+}
+
+.btn.btn-icon.btn-outline-primary,
+.btn.btn-icon.btn-outline-secondary,
+.btn.btn-icon.btn-outline-danger {
+    background-color: var(--tblr-bg-surface, #fff);
+}
+
+.btn.btn-icon.btn-sm {
+    flex-basis: 2.15rem;
+    height: 2.15rem;
+    min-width: 2.15rem;
+    width: 2.15rem;
+}
+
+.btn.btn-icon.btn-sm .ti {
+    font-size: 1.15rem;
+}
+
+.btn-list > form {
+    display: inline-flex;
+    margin: 0;
 }

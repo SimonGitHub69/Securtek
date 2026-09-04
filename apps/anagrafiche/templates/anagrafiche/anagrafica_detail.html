@@ -174,17 +174,17 @@
         </div>
         <div class="col-auto">
             <div class="btn-list">
-                <a href="{% url 'anagrafiche:personale_create' anagrafica.pk %}" class="btn btn-outline-primary">
+                <a href="{% url 'anagrafiche:personale_create' anagrafica.pk %}{% if next_url %}?next={{ next_url|urlencode }}{% endif %}" class="btn btn-outline-primary">
                     <i class="ti ti-users"></i>
                     Aggiungi personale
                 </a>
-                <a href="{% url 'anagrafiche:anagrafica_update' anagrafica.pk %}" class="btn btn-primary">
+                <a href="{% url 'anagrafiche:anagrafica_update' anagrafica.pk %}{% if next_url %}?next={{ next_url|urlencode }}{% endif %}" class="btn btn-primary">
                     <i class="ti ti-edit"></i>
                     Modifica
                 </a>
-                <a href="{% url 'anagrafiche:anagrafica_list' %}" class="btn btn-outline-secondary">
+                <a href="{{ back_url }}" class="btn btn-outline-secondary">
                     <i class="ti ti-arrow-left"></i>
-                    Elenco
+                    {{ back_label }}
                 </a>
             </div>
         </div>
@@ -450,7 +450,7 @@
                 <i class="ti ti-calendar"></i>
                 Calendario
             </a>
-            <a href="{% url 'agenda:evento_create' %}?cliente={{ anagrafica.pk }}" class="btn btn-primary btn-sm">
+            <a href="{% url 'agenda:evento_create' %}?cliente={{ anagrafica.pk }}&next={{ request.get_full_path|urlencode }}" class="btn btn-primary btn-sm">
                 <i class="ti ti-plus"></i>
                 Nuovo evento
             </a>
@@ -510,7 +510,7 @@
                                     <span class="badge bg-secondary-lt">{{ evento.get_stato_display }}</span>
                                 </td>
                                 <td class="text-end">
-                                    <a href="{% url 'agenda:evento_update' evento.pk %}"
+                                    <a href="{% url 'agenda:evento_update' evento.pk %}?next={{ request.get_full_path|urlencode }}"
                                        class="btn btn-icon btn-outline-primary"
                                        title="Modifica">
                                         <i class="ti ti-edit"></i>
@@ -586,13 +586,16 @@
                                 <td class="text-end">
                                     <div class="btn-list flex-nowrap justify-content-end">
                                         <a href="{% url 'anagrafiche:personale_update' anagrafica.pk tecnico.pk %}"
-                                           class="btn btn-outline-primary btn-sm">
+                                           class="btn btn-icon btn-outline-primary"
+                                           title="Modifica">
                                             <i class="ti ti-edit"></i>
                                         </a>
                                         <form method="post"
                                               action="{% url 'anagrafiche:personale_delete' anagrafica.pk tecnico.pk %}">
                                             {% csrf_token %}
-                                            <button type="submit" class="btn btn-outline-danger btn-sm">
+                                            <button type="submit"
+                                                    class="btn btn-icon btn-outline-danger"
+                                                    title="Elimina">
                                                 <i class="ti ti-trash"></i>
                                             </button>
                                         </form>
@@ -659,13 +662,16 @@
                                 </div>
                                 <div class="btn-list flex-nowrap">
                                     <a href="{% url 'anagrafiche:contatto_update' anagrafica.pk contatto.pk %}"
-                                       class="btn btn-outline-primary btn-sm">
+                                       class="btn btn-icon btn-outline-primary"
+                                       title="Modifica">
                                         <i class="ti ti-edit"></i>
                                     </a>
                                     <form method="post"
                                           action="{% url 'anagrafiche:contatto_delete' anagrafica.pk contatto.pk %}">
                                         {% csrf_token %}
-                                        <button type="submit" class="btn btn-outline-danger btn-sm">
+                                        <button type="submit"
+                                                class="btn btn-icon btn-outline-danger"
+                                                title="Elimina">
                                             <i class="ti ti-trash"></i>
                                         </button>
                                     </form>
@@ -730,13 +736,16 @@
                                 </div>
                                 <div class="btn-list flex-nowrap">
                                     <a href="{% url 'anagrafiche:indirizzo_update' anagrafica.pk indirizzo.pk %}"
-                                       class="btn btn-outline-primary btn-sm">
+                                       class="btn btn-icon btn-outline-primary"
+                                       title="Modifica">
                                         <i class="ti ti-edit"></i>
                                     </a>
                                     <form method="post"
                                           action="{% url 'anagrafiche:indirizzo_delete' anagrafica.pk indirizzo.pk %}">
                                         {% csrf_token %}
-                                        <button type="submit" class="btn btn-outline-danger btn-sm">
+                                        <button type="submit"
+                                                class="btn btn-icon btn-outline-danger"
+                                                title="Elimina">
                                             <i class="ti ti-trash"></i>
                                         </button>
                                     </form>

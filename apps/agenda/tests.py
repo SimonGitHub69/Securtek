@@ -88,6 +88,8 @@ class ConfigurazioneNotificaEmailFormTests(TestCase):
         form = ConfigurazioneNotificaEmailForm(
             data={
                 "attiva": False,
+                "servizio_attivo": True,
+                "intervallo_controllo_minuti": 15,
                 "host": "smtp.example.com",
                 "porta": 587,
                 "usa_tls": True,
@@ -98,6 +100,7 @@ class ConfigurazioneNotificaEmailFormTests(TestCase):
                 "mittente": "noreply@example.com",
                 "destinatari_default": "",
                 "giorni_preavviso": 7,
+                "ora_invio": "08:00",
                 "note": "",
             },
             instance=self.config,
@@ -112,6 +115,8 @@ class ConfigurazioneNotificaEmailFormTests(TestCase):
         form = ConfigurazioneNotificaEmailForm(
             data={
                 "attiva": False,
+                "servizio_attivo": True,
+                "intervallo_controllo_minuti": 15,
                 "host": "smtp.example.com",
                 "porta": 587,
                 "usa_tls": True,
@@ -122,6 +127,7 @@ class ConfigurazioneNotificaEmailFormTests(TestCase):
                 "mittente": "noreply@example.com",
                 "destinatari_default": "",
                 "giorni_preavviso": 7,
+                "ora_invio": "08:00",
                 "note": "",
             },
             instance=self.config,
@@ -149,6 +155,8 @@ class ConfigurazioneNotificaEmailViewTests(TestCase):
             reverse("agenda:configurazione_email"),
             {
                 "attiva": False,
+                "servizio_attivo": True,
+                "intervallo_controllo_minuti": 15,
                 "host": "smtp.example.com",
                 "porta": 587,
                 "usa_tls": True,
@@ -158,6 +166,7 @@ class ConfigurazioneNotificaEmailViewTests(TestCase):
                 "mittente": "noreply@example.com",
                 "destinatari_default": "",
                 "giorni_preavviso": 7,
+                "ora_invio": "08:00",
                 "note": "",
             },
         )

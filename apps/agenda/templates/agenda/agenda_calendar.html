@@ -171,7 +171,7 @@ Agenda
                     Torna all'anagrafica
                 </a>
             {% endif %}
-            <a href="{% url 'agenda:evento_create' %}{{ agenda_query_prefix }}" class="btn btn-primary">
+            <a href="{% url 'agenda:evento_create' %}{{ agenda_query_prefix }}{% if agenda_query_prefix %}&{% else %}?{% endif %}next={{ request.get_full_path|urlencode }}" class="btn btn-primary">
                 <i class="ti ti-plus"></i>
                 Nuovo evento
             </a>
@@ -260,7 +260,7 @@ Agenda
                                         {{ day.date|date:"j" }}
                                     </a>
                                     {% if day.in_month %}
-                                        <a href="{% url 'agenda:evento_create' %}?data={{ day.date|date:'Y-m-d' }}{{ agenda_query_suffix }}"
+                                        <a href="{% url 'agenda:evento_create' %}?data={{ day.date|date:'Y-m-d' }}{{ agenda_query_suffix }}&next={{ request.get_full_path|urlencode }}"
                                            class="btn btn-icon btn-sm btn-ghost-primary"
                                            title="Aggiungi">
                                             <i class="ti ti-plus"></i>
@@ -269,7 +269,7 @@ Agenda
                                 </div>
 
                                 {% for event in day.events %}
-                                    <a href="{% if event.is_pratica_scadenza %}{% url 'pratiche:pratica_detail' event.pratica.pk %}{% else %}{% url 'agenda:evento_update' event.pk %}{% endif %}"
+                                    <a href="{% if event.is_pratica_scadenza %}{% url 'pratiche:pratica_detail' event.pratica.pk %}{% else %}{% url 'agenda:evento_update' event.pk %}?next={{ request.get_full_path|urlencode }}{% endif %}"
                                        class="st-calendar-event {{ event.tipo }}"
                                        title="{{ event.pratica }}{% if not event.is_pratica_scadenza and event.notificato_il %} · Notifica inviata il {{ event.notificato_il|date:'d/m/Y H:i' }}{% endif %}">
                                         <span class="fw-bold">{{ event.get_tipo_display }}</span>
@@ -321,7 +321,7 @@ Agenda
                                         <i class="ti ti-folder"></i>
                                     </a>
                                 {% else %}
-                                    <a href="{% url 'agenda:evento_update' event.pk %}" class="btn btn-icon btn-outline-primary btn-sm" title="Modifica">
+                                    <a href="{% url 'agenda:evento_update' event.pk %}?next={{ request.get_full_path|urlencode }}" class="btn btn-icon btn-outline-primary btn-sm" title="Modifica">
                                         <i class="ti ti-edit"></i>
                                     </a>
                                     <button type="button"
@@ -352,6 +352,7 @@ Agenda
     <div class="st-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="deleteEventTitle">
         <form method="post" id="deleteEventForm">
             {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
 
             <div class="st-confirm-body">
                 <div class="st-confirm-icon">

@@ -1,0 +1,149 @@
+{% extends "base/layout.html" %}
+
+{% block page_title %}
+Registro mail
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">Registro mail inviate</h2>
+            <div class="text-secondary">
+                Storico notifiche agenda
+                {% if config.ora_invio %}
+                    · invio automatico alle {{ config.ora_invio|time:"H:i" }}
+                {% endif %}
+                {% if config.giorni_preavviso %}
+                    · preavviso default {{ config.giorni_preavviso }} gg
+                {% endif %}
+            </div>
+        </div>
+        <div class="col-auto d-flex gap-2">
+            <a href="{% url 'agenda:configurazione_email' %}" class="btn btn-outline-primary">
+                <i class="ti ti-mail-cog"></i>
+                Parametri mail
+            </a>
+            <a href="{% url 'agenda:calendar' %}" class="btn btn-outline-secondary">
+                <i class="ti ti-calendar"></i>
+                Agenda
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">Cerca</label>
+                <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Oggetto, destinatario, pratica">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Esito</label>
+                <select name="esito" class="form-select">
+                    <option value="">Tutti</option>
+                    {% for value, label in esito_choices %}
+                        <option value="{{ value }}" {% if esito == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Tipo</label>
+                <select name="tipo" class="form-select">
+                    <option value="">Tutti</option>
+                    {% for value, label in tipo_choices %}
+                        <option value="{{ value }}" {% if tipo == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="ti ti-search"></i>
+                    Filtra
+                </button>
+                <a href="{% url 'agenda:log_notifiche_email' %}" class="btn btn-outline-secondary">Reset</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+            <thead>
+                <tr>
+                    <th>Data/ora</th>
+                    <th>Oggetto</th>
+                    <th>Destinatari</th>
+                    <th>Tipo</th>
+                    <th>Esito</th>
+                    <th>Pratica</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                    <tr>
+                        <td class="text-nowrap">{{ log.inviata_il|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            <div class="fw-semibold">{{ log.oggetto }}</div>
+                            {% if log.errore %}
+                                <div class="text-danger small">{{ log.errore|truncatechars:120 }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% for email in log.destinatari_list %}
+                                <div class="small">{{ email }}</div>
+                            {% empty %}
+                                <span class="text-secondary">-</span>
+                            {% endfor %}
+                        </td>
+                        <td><span class="badge bg-secondary-lt">{{ log.get_tipo_display }}</span></td>
+                        <td>
+                            {% if log.esito == "ok" %}
+                                <span class="badge bg-green-lt">{{ log.get_esito_display }}</span>
+                            {% elif log.esito == "errore" %}
+                                <span class="badge bg-red-lt">{{ log.get_esito_display }}</span>
+                            {% else %}
+                                <span class="badge bg-orange-lt">{{ log.get_esito_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if log.pratica %}
+                                <a href="{% url 'pratiche:pratica_detail' log.pratica.pk %}" class="text-reset">
+                                    {{ log.pratica.codice }}
+                                </a>
+                            {% else %}
+                                <span class="text-secondary">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-secondary py-4">
+                            Nessuna mail registrata.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if page_obj.has_other_pages %}
+        <div class="card-footer d-flex justify-content-between">
+            <div class="text-secondary small">
+                Pagina {{ page_obj.number }} di {{ page_obj.paginator.num_pages }}
+            </div>
+            <div class="btn-list">
+                {% if page_obj.has_previous %}
+                    <a class="btn btn-outline-secondary btn-sm" href="?page={{ page_obj.previous_page_number }}{% if filter_query %}&{{ filter_query }}{% endif %}">Precedente</a>
+                {% endif %}
+                {% if page_obj.has_next %}
+                    <a class="btn btn-outline-secondary btn-sm" href="?page={{ page_obj.next_page_number }}{% if filter_query %}&{{ filter_query }}{% endif %}">Successiva</a>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+{% endblock %}

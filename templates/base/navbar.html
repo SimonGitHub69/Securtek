@@ -93,9 +93,7 @@
                         </div>
 
                         <small class="text-secondary">
-
-                            Amministratore
-
+                            {% if request.user.is_staff %}Amministratore{% else %}Utente{% endif %}
                         </small>
 
                     </div>
@@ -103,10 +101,11 @@
                 </a>
 
                 <div class="dropdown-menu dropdown-menu-end">
-
+                    {% if request.user.is_staff %}
                     <a class="dropdown-item" href="{% url 'admin:auth_user_change' request.user.pk %}">
                         Profilo
                     </a>
+                    {% endif %}
 
                     <a class="dropdown-item" href="{% url 'dashboard:sistema' %}">
                         Impostazioni
