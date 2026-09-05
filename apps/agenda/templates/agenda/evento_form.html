@@ -163,15 +163,61 @@
             </div>
         </div>
 
-        <div class="card-footer text-end">
-            <a href="{{ cancel_url }}" class="btn btn-secondary">Annulla</a>
-            <button type="submit" class="btn btn-primary">
-                <i class="ti ti-device-floppy"></i>
-                Salva
-            </button>
+        <div class="card-footer d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div>
+                {% if object.pk %}
+                    <button type="button"
+                            class="btn btn-outline-danger js-delete-event"
+                            data-delete-action="{% url 'agenda:evento_delete' object.pk %}"
+                            data-delete-name="{{ object.titolo }}">
+                        <i class="ti ti-trash"></i>
+                        Elimina
+                    </button>
+                {% endif %}
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <a href="{{ cancel_url }}" class="btn btn-secondary">Annulla</a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="ti ti-device-floppy"></i>
+                    Salva
+                </button>
+            </div>
         </div>
     </form>
 </div>
+
+{% if object.pk %}
+<div class="st-confirm" id="deleteEventModal" hidden>
+    <div class="st-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="deleteEventTitle">
+        <form method="post" id="deleteEventForm">
+            {% csrf_token %}
+            {% if next_url %}
+                <input type="hidden" name="next" value="{{ next_url }}">
+            {% elif request.GET.next %}
+                <input type="hidden" name="next" value="{{ request.GET.next }}">
+            {% endif %}
+
+            <div class="st-confirm-body">
+                <h3 class="mb-1" id="deleteEventTitle">Eliminare questo evento?</h3>
+                <div class="text-secondary">
+                    <span id="deleteEventName">{{ object.titolo }}</span>
+                    non sarà più visibile nel calendario lavori.
+                </div>
+            </div>
+
+            <div class="st-confirm-footer">
+                <button type="button" class="btn btn-outline-secondary js-delete-cancel">
+                    Annulla
+                </button>
+                <button type="submit" class="btn btn-danger">
+                    <i class="ti ti-trash"></i>
+                    Elimina
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
 
 <div class="st-confirm" id="tecniciModal" hidden>
     <div class="st-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="tecniciModalTitle">
@@ -372,6 +418,45 @@ document.addEventListener("DOMContentLoaded", function () {
         tecniciModal.addEventListener("click", function (event) {
             if (event.target === tecniciModal) {
                 closeModal();
+            }
+        });
+    }
+
+    const dataInizioField = document.getElementById("id_data_inizio");
+    const dataFineField = document.getElementById("id_data_fine");
+    if (dataInizioField && dataFineField) {
+        dataInizioField.addEventListener("change", function () {
+            if (dataInizioField.value) {
+                dataFineField.value = dataInizioField.value;
+            }
+        });
+    }
+
+    const deleteModal = document.getElementById("deleteEventModal");
+    const deleteForm = document.getElementById("deleteEventForm");
+    const deleteName = document.getElementById("deleteEventName");
+    const deleteCancel = deleteModal ? deleteModal.querySelector(".js-delete-cancel") : null;
+    if (deleteModal && deleteForm && deleteName && deleteCancel) {
+        function closeDeleteModal() {
+            deleteModal.hidden = true;
+            deleteForm.removeAttribute("action");
+        }
+        document.querySelectorAll(".js-delete-event").forEach(function (button) {
+            button.addEventListener("click", function () {
+                deleteForm.action = button.dataset.deleteAction;
+                deleteName.textContent = button.dataset.deleteName || "Evento selezionato";
+                deleteModal.hidden = false;
+            });
+        });
+        deleteCancel.addEventListener("click", closeDeleteModal);
+        deleteModal.addEventListener("click", function (event) {
+            if (event.target === deleteModal) {
+                closeDeleteModal();
+            }
+        });
+        document.addEventListener("keydown", function (event) {
+            if (event.key === "Escape" && !deleteModal.hidden) {
+                closeDeleteModal();
             }
         });
     }

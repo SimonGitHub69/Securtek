@@ -102,6 +102,21 @@
 
 .st-form-panel.is-person {
     border-left-color: #845ef7;
+    margin-bottom: 0.5rem;
+    padding: 0.5rem 0.75rem 0.35rem;
+}
+
+.st-form-panel.is-person .st-form-panel-title {
+    margin-bottom: 0.35rem;
+}
+
+.st-form-panel.is-person .mb-3 {
+    margin-bottom: 0.35rem !important;
+}
+
+.st-form-panel.is-person .row {
+    --bs-gutter-x: 0.65rem;
+    --bs-gutter-y: 0.15rem;
 }
 
 .st-form-panel-title {
@@ -123,6 +138,46 @@
 
 .st-formset-delete {
     display: none;
+}
+
+.st-confirm {
+    background: rgba(15, 23, 42, 0.45);
+    bottom: 0;
+    display: flex;
+    left: 0;
+    padding: 1rem;
+    position: fixed;
+    right: 0;
+    top: 0;
+    z-index: 1080;
+}
+
+.st-confirm[hidden] {
+    display: none;
+}
+
+.st-confirm-dialog {
+    background: var(--tblr-bg-surface, #fff);
+    border-radius: 8px;
+    box-shadow: 0 1rem 3rem rgba(15, 23, 42, 0.2);
+    margin: auto;
+    max-width: 480px;
+    overflow: hidden;
+    width: 100%;
+}
+
+.st-confirm-body {
+    padding: 1.25rem;
+}
+
+.st-confirm-footer {
+    align-items: center;
+    background: var(--tblr-bg-surface-secondary, #f8fafc);
+    border-top: 1px solid var(--tblr-border-color, #e6e8eb);
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    padding: 0.75rem 1.25rem;
 }
 
 .st-form-panel .mb-3 {
@@ -783,21 +838,31 @@
 
                 <div id="personaleRows">
                     {% for personale_form in personale_formset %}
-                    <div class="st-form-panel is-person js-formset-row">
+                    <div class="st-form-panel is-person js-formset-row{% if personale_form.DELETE.value %} d-none{% endif %}">
                         <div class="st-form-panel-title">
                             <i class="ti ti-user"></i>
                             Personale {% if personale_form.instance.pk %}#{{ forloop.counter }}{% else %}nuovo{% endif %}
+                            {% if personale_form.DELETE %}
+                                <button type="button"
+                                        class="btn btn-icon btn-outline-danger js-formset-remove"
+                                        title="Rimuovi personale">
+                                    <i class="ti ti-trash"></i>
+                                </button>
+                            {% endif %}
                         </div>
                         {% for hidden in personale_form.hidden_fields %}
                             {{ hidden }}
                         {% endfor %}
+                        {% if personale_form.DELETE %}
+                            <div class="st-formset-delete">{{ personale_form.DELETE }}</div>
+                        {% endif %}
 
                         {% if personale_form.non_field_errors %}
                             <div class="alert alert-danger">{{ personale_form.non_field_errors }}</div>
                         {% endif %}
 
-                        <div class="row align-items-end">
-                            <div class="col-md-3">
+                        <div class="row align-items-end g-2">
+                            <div class="col-6 col-md-3">
                                 <div class="mb-3">
                                     <label class="form-label" for="{{ personale_form.cognome.id_for_label }}">
                                         {{ personale_form.cognome.label }}
@@ -809,7 +874,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-md-3">
+                            <div class="col-6 col-md-3">
                                 <div class="mb-3">
                                     <label class="form-label" for="{{ personale_form.nome.id_for_label }}">
                                         {{ personale_form.nome.label }}
@@ -821,7 +886,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-md-3">
+                            <div class="col-6 col-md-3">
                                 <div class="mb-3">
                                     <label class="form-label" for="{{ personale_form.studio_appartenenza.id_for_label }}">
                                         {{ personale_form.studio_appartenenza.label }}
@@ -833,7 +898,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-md-3">
+                            <div class="col-6 col-md-3">
                                 <div class="mb-3">
                                     <label class="form-label" for="{{ personale_form.incarico.id_for_label }}">
                                         {{ personale_form.incarico.label }}
@@ -845,7 +910,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="mb-3">
                                     <label class="form-label" for="{{ personale_form.email.id_for_label }}">
                                         {{ personale_form.email.label }}
@@ -857,7 +922,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="mb-3">
                                     <label class="form-label" for="{{ personale_form.telefono.id_for_label }}">
                                         {{ personale_form.telefono.label }}
@@ -869,7 +934,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <div class="mb-3">
                                     <label class="form-label" for="{{ personale_form.note.id_for_label }}">
                                         {{ personale_form.note.label }}
@@ -890,13 +955,23 @@
                         <div class="st-form-panel-title">
                             <i class="ti ti-user"></i>
                             Personale nuovo
+                            {% if personale_formset.empty_form.DELETE %}
+                                <button type="button"
+                                        class="btn btn-icon btn-outline-danger js-formset-remove"
+                                        title="Rimuovi personale">
+                                    <i class="ti ti-trash"></i>
+                                </button>
+                            {% endif %}
                         </div>
                         {% for hidden in personale_formset.empty_form.hidden_fields %}
                             {{ hidden }}
                         {% endfor %}
+                        {% if personale_formset.empty_form.DELETE %}
+                            <div class="st-formset-delete">{{ personale_formset.empty_form.DELETE }}</div>
+                        {% endif %}
 
-                        <div class="row align-items-end">
-                            <div class="col-md-3">
+                        <div class="row align-items-end g-2">
+                            <div class="col-6 col-md-3">
                                 <div class="mb-3">
                                     <label class="form-label" for="{{ personale_formset.empty_form.cognome.id_for_label }}">
                                         {{ personale_formset.empty_form.cognome.label }}
@@ -905,7 +980,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-md-3">
+                            <div class="col-6 col-md-3">
                                 <div class="mb-3">
                                     <label class="form-label" for="{{ personale_formset.empty_form.nome.id_for_label }}">
                                         {{ personale_formset.empty_form.nome.label }}
@@ -914,7 +989,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-md-3">
+                            <div class="col-6 col-md-3">
                                 <div class="mb-3">
                                     <label class="form-label" for="{{ personale_formset.empty_form.studio_appartenenza.id_for_label }}">
                                         {{ personale_formset.empty_form.studio_appartenenza.label }}
@@ -923,7 +998,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-md-3">
+                            <div class="col-6 col-md-3">
                                 <div class="mb-3">
                                     <label class="form-label" for="{{ personale_formset.empty_form.incarico.id_for_label }}">
                                         {{ personale_formset.empty_form.incarico.label }}
@@ -932,7 +1007,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="mb-3">
                                     <label class="form-label" for="{{ personale_formset.empty_form.email.id_for_label }}">
                                         {{ personale_formset.empty_form.email.label }}
@@ -941,7 +1016,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="mb-3">
                                     <label class="form-label" for="{{ personale_formset.empty_form.telefono.id_for_label }}">
                                         {{ personale_formset.empty_form.telefono.label }}
@@ -950,7 +1025,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <div class="mb-3">
                                     <label class="form-label" for="{{ personale_formset.empty_form.note.id_for_label }}">
                                         {{ personale_formset.empty_form.note.label }}
@@ -976,6 +1051,26 @@
             </button>
         </div>
     </form>
+
+<div class="st-confirm" id="formsetDeleteModal" hidden>
+    <div class="st-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="formsetDeleteTitle">
+        <div class="st-confirm-body">
+            <h3 class="mb-1" id="formsetDeleteTitle">Eliminare questo elemento?</h3>
+            <div class="text-secondary" id="formsetDeleteText">
+                L'elemento verrà rimosso al salvataggio.
+            </div>
+        </div>
+        <div class="st-confirm-footer">
+            <button type="button" class="btn btn-outline-secondary" id="formsetDeleteCancel">
+                Annulla
+            </button>
+            <button type="button" class="btn btn-danger" id="formsetDeleteConfirm">
+                <i class="ti ti-trash"></i>
+                Elimina
+            </button>
+        </div>
+    </div>
+</div>
 
 {% endblock %}
 
@@ -1091,6 +1186,47 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 
+    const deleteModal = document.getElementById("formsetDeleteModal");
+    const deleteText = document.getElementById("formsetDeleteText");
+    const deleteCancel = document.getElementById("formsetDeleteCancel");
+    const deleteConfirm = document.getElementById("formsetDeleteConfirm");
+    let pendingDeleteRow = null;
+
+    function closeDeleteModal() {
+        if (deleteModal) {
+            deleteModal.hidden = true;
+        }
+        pendingDeleteRow = null;
+    }
+
+    function applyFormsetDelete(row) {
+        if (!row) {
+            return;
+        }
+        const deleteInput = row.querySelector('input[name$="-DELETE"]');
+        if (deleteInput) {
+            deleteInput.checked = true;
+            row.classList.add("d-none");
+            row.hidden = true;
+            return;
+        }
+        row.remove();
+    }
+
+    function openDeleteModal(row, button) {
+        pendingDeleteRow = row;
+        if (deleteText) {
+            const title = (button && button.getAttribute("title")) || "";
+            const kind = title.replace(/^Rimuovi\s+/i, "").trim();
+            deleteText.textContent = kind
+                ? "Confermi di eliminare questo " + kind + "? L'operazione sarà effettiva al salvataggio."
+                : "Confermi l'eliminazione? Diventerà effettiva al salvataggio.";
+        }
+        if (deleteModal) {
+            deleteModal.hidden = false;
+        }
+    }
+
     document.addEventListener("click", function (event) {
         const removeButton = event.target.closest(".js-formset-remove");
         if (!removeButton) {
@@ -1102,16 +1238,30 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
 
-        const deleteInput = row.querySelector('input[name$="-DELETE"]');
-        if (deleteInput) {
-            deleteInput.checked = true;
-            row.classList.add("d-none");
-            row.hidden = true;
-            return;
-        }
-
-        row.remove();
+        openDeleteModal(row, removeButton);
     });
+
+    if (deleteCancel) {
+        deleteCancel.addEventListener("click", closeDeleteModal);
+    }
+    if (deleteConfirm) {
+        deleteConfirm.addEventListener("click", function () {
+            applyFormsetDelete(pendingDeleteRow);
+            closeDeleteModal();
+        });
+    }
+    if (deleteModal) {
+        deleteModal.addEventListener("click", function (event) {
+            if (event.target === deleteModal) {
+                closeDeleteModal();
+            }
+        });
+        document.addEventListener("keydown", function (event) {
+            if (event.key === "Escape" && !deleteModal.hidden) {
+                closeDeleteModal();
+            }
+        });
+    }
 });
 </script>
 {% endblock %}

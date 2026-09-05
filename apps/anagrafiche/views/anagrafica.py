@@ -282,6 +282,12 @@ class AnagraficaFormsetMixin:
         formset.instance = self.object
         instances = formset.save(commit=False)
 
+        for obj in formset.deleted_objects:
+            if hasattr(obj, "soft_delete"):
+                obj.soft_delete(user=self.request.user)
+            else:
+                obj.delete()
+
         for instance in instances:
             if not (instance.nome or "").strip() and not (instance.cognome or "").strip():
                 continue

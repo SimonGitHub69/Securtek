@@ -77,6 +77,23 @@ Ogni evento viene notificato **una sola volta** (`notificato_il`).
 sudo ./deploy/macos/uninstall-agenda-notifiche.sh
 ```
 
+## Dopo un aggiornamento Securtek
+
+**Importante:** dopo `cp` / migrate / collectstatic non basta riavviare Gunicorn.
+Il daemon mail tiene il codice Python in memoria: senza riavvio continua a usare
+il testo fisso vecchio (sempre con “Apri pratica”) e **ignora** il modello in
+Parametri mail.
+
+```bash
+cd ~/Progetti/Securtek
+sudo launchctl kickstart -k system/com.securtek.gunicorn
+sudo launchctl kickstart -k system/com.securtek.agenda-notifiche
+# se fallisce:
+# sudo launchctl kickstart -k system/com.securtek.agenda-notifiche.daemon
+
+.venv/bin/python manage.py invia_notifiche_agenda --force --dry-run
+```
+
 ## Stato launchd
 
 ```bash

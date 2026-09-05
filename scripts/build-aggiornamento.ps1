@@ -39,6 +39,7 @@ $paths = @(
     "apps\anagrafiche\forms\anagrafica.py",
     "apps\anagrafiche\forms\contatto.py",
     "apps\anagrafiche\forms\indirizzo.py",
+    "apps\anagrafiche\forms\personale.py",
     "apps\anagrafiche\templates\anagrafiche\anagrafica_detail.html",
     "apps\anagrafiche\templates\anagrafiche\anagrafica_form.html",
     "apps\anagrafiche\templates\anagrafiche\personale_form.html",
@@ -134,11 +135,10 @@ Questo pacchetto allinea Mac Mini alla versione di sviluppo Windows
 (include pratiche/agenda/anagrafiche, UI maschere, icone azione,
 notifiche mail agenda, desktop helper, scroll, ecc.).
 
-Novita principali v0.2.20:
-- Parametri mail: modello oggetto e testo mail con segnaposto ({{titolo}}, {{data}}, …)
-- Azzera Registro Mail; anagrafica contatti/indirizzi; SMTP robusto; servizio/intervallo
-- Migrazioni agenda 0008 + pratiche 0023
-- Su Mac Mini: migrate + collectstatic + riavvio gunicorn (Ctrl+F5)
+Novita principali v0.2.23:
+- Agenda: date auto nuovo evento, sync data fine, Elimina in modifica evento
+- Anagrafica: cestini solo in modifica (con conferma); personale compatto; note su una riga
+- Fix hover icone cestino; riavvio obbligatorio daemon mail dopo update
 
 ## 1. Mac Mini (SERVER)
 
@@ -153,8 +153,12 @@ Novita principali v0.2.20:
    .venv/bin/python manage.py migrate
    .venv/bin/python manage.py collectstatic --noinput
    sudo launchctl kickstart -k system/com.securtek.gunicorn
+   sudo launchctl kickstart -k system/com.securtek.agenda-notifiche
 
-4. Notifiche mail agenda (consigliato):
+   Se il secondo kickstart fallisce (label diverso), prova:
+   sudo launchctl kickstart -k system/com.securtek.agenda-notifiche.daemon
+
+4. Se il daemon mail non e' ancora installato:
 
    chmod +x deploy/macos/run-agenda-notifiche.sh deploy/macos/install-agenda-notifiche.sh
    sudo ./deploy/macos/install-agenda-notifiche.sh --daemon
@@ -164,6 +168,9 @@ Novita principali v0.2.20:
    curl http://127.0.0.1:8000/version/
 
    Deve rispondere: "version": "$version"
+
+   Prova testo mail (deve rispettare Parametri mail, senza riga fissa):
+   .venv/bin/python manage.py invia_notifiche_agenda --force --dry-run
 
 ## 2. Login (staff / app)
 

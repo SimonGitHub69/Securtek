@@ -90,6 +90,39 @@ html.st-sidebar-collapsed .page-wrapper {
     background-color: var(--tblr-bg-surface, #fff);
 }
 
+.btn.btn-icon.btn-outline-primary:hover,
+.btn.btn-icon.btn-outline-primary:focus-visible,
+.btn.btn-icon.btn-outline-primary:active {
+    background-color: var(--tblr-primary, #206bc4);
+    color: #fff;
+}
+
+.btn.btn-icon.btn-outline-secondary:hover,
+.btn.btn-icon.btn-outline-secondary:focus-visible,
+.btn.btn-icon.btn-outline-secondary:active {
+    background-color: var(--tblr-secondary, #667382);
+    color: #fff;
+}
+
+.btn.btn-icon.btn-outline-danger:hover,
+.btn.btn-icon.btn-outline-danger:focus-visible,
+.btn.btn-icon.btn-outline-danger:active {
+    background-color: var(--tblr-danger, #d63939);
+    color: #fff;
+}
+
+.btn.btn-icon.btn-outline-primary:hover .ti,
+.btn.btn-icon.btn-outline-primary:focus-visible .ti,
+.btn.btn-icon.btn-outline-primary:active .ti,
+.btn.btn-icon.btn-outline-secondary:hover .ti,
+.btn.btn-icon.btn-outline-secondary:focus-visible .ti,
+.btn.btn-icon.btn-outline-secondary:active .ti,
+.btn.btn-icon.btn-outline-danger:hover .ti,
+.btn.btn-icon.btn-outline-danger:focus-visible .ti,
+.btn.btn-icon.btn-outline-danger:active .ti {
+    color: inherit;
+}
+
 .btn.btn-icon.btn-sm {
     flex-basis: 2.15rem;
     height: 2.15rem;

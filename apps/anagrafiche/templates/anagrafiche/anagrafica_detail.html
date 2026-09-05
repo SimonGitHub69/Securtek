@@ -584,22 +584,11 @@
                                 </td>
                                 <td>{{ tecnico.telefono|default:"-" }}</td>
                                 <td class="text-end">
-                                    <div class="btn-list flex-nowrap justify-content-end">
-                                        <a href="{% url 'anagrafiche:personale_update' anagrafica.pk tecnico.pk %}"
-                                           class="btn btn-icon btn-outline-primary"
-                                           title="Modifica">
-                                            <i class="ti ti-edit"></i>
-                                        </a>
-                                        <form method="post"
-                                              action="{% url 'anagrafiche:personale_delete' anagrafica.pk tecnico.pk %}">
-                                            {% csrf_token %}
-                                            <button type="submit"
-                                                    class="btn btn-icon btn-outline-danger"
-                                                    title="Elimina">
-                                                <i class="ti ti-trash"></i>
-                                            </button>
-                                        </form>
-                                    </div>
+                                    <a href="{% url 'anagrafiche:personale_update' anagrafica.pk tecnico.pk %}"
+                                       class="btn btn-icon btn-outline-primary"
+                                       title="Modifica">
+                                        <i class="ti ti-edit"></i>
+                                    </a>
                                 </td>
                             </tr>
                         {% endfor %}
@@ -666,15 +655,6 @@
                                        title="Modifica">
                                         <i class="ti ti-edit"></i>
                                     </a>
-                                    <form method="post"
-                                          action="{% url 'anagrafiche:contatto_delete' anagrafica.pk contatto.pk %}">
-                                        {% csrf_token %}
-                                        <button type="submit"
-                                                class="btn btn-icon btn-outline-danger"
-                                                title="Elimina">
-                                            <i class="ti ti-trash"></i>
-                                        </button>
-                                    </form>
                                 </div>
                             </div>
                         </div>
@@ -740,15 +720,6 @@
                                        title="Modifica">
                                         <i class="ti ti-edit"></i>
                                     </a>
-                                    <form method="post"
-                                          action="{% url 'anagrafiche:indirizzo_delete' anagrafica.pk indirizzo.pk %}">
-                                        {% csrf_token %}
-                                        <button type="submit"
-                                                class="btn btn-icon btn-outline-danger"
-                                                title="Elimina">
-                                            <i class="ti ti-trash"></i>
-                                        </button>
-                                    </form>
                                 </div>
                             </div>
                         </div>

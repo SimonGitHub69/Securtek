@@ -409,7 +409,15 @@ class EventoAgendaCreateView(LoginRequiredMixin, CreateView):
                 initial["pratica"] = pratiche[0].pk
 
         if data:
-            initial["data_inizio"] = data
+            try:
+                data_evento = date.fromisoformat(data)
+            except ValueError:
+                data_evento = timezone.localdate()
+        else:
+            data_evento = timezone.localdate()
+
+        initial["data_inizio"] = data_evento
+        initial["data_fine"] = data_evento
 
         return initial
 
