@@ -1,12 +1,42 @@
 {# Tabella categorie stile visione, con azioni di modifica. #}
+<style>
+.st-macro-linked-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+    padding-right: 0.25rem;
+}
+.st-macro-linked-badge .js-delete-macro-link {
+    width: 1.1rem;
+    height: 1.1rem;
+    min-width: 1.1rem;
+    line-height: 1;
+    border: 0;
+    opacity: 0.75;
+}
+.st-macro-linked-badge .js-delete-macro-link:hover {
+    opacity: 1;
+}
+.st-macro-linked-badge .js-delete-macro-link .ti {
+    font-size: 0.85rem;
+}
+</style>
 {% if macro_categorie_pratica or macro_categoria_apply_form %}
     <div class="st-macro-panel mb-3">
         <div class="row g-3 align-items-end">
             <div class="col-lg-6">
                 <div class="text-secondary small mb-2">Macro-categorie collegate</div>
                 {% for collegamento_macro in macro_categorie_pratica %}
-                    <span class="badge bg-purple-lt me-1 mb-1">
+                    <span class="badge bg-purple-lt me-1 mb-1 st-macro-linked-badge">
                         {{ collegamento_macro.macro_categoria.denominazione }}
+                        <button type="button"
+                                class="btn btn-icon btn-ghost-danger btn-sm ms-1 p-0 js-delete-macro-link"
+                                title="Rimuovi macro-categoria"
+                                aria-label="Rimuovi {{ collegamento_macro.macro_categoria.denominazione }}"
+                                data-delete-action="{% url 'pratiche:pratica_macro_categoria_delete' object.pk collegamento_macro.pk %}"
+                                data-delete-name="{{ collegamento_macro.macro_categoria.denominazione }}">
+                            <i class="ti ti-x"></i>
+                        </button>
                     </span>
                 {% empty %}
                     <span class="text-secondary small">Nessuna macro-categoria collegata</span>
@@ -351,8 +381,34 @@
                                                     </table>
                                                 </div>
                                             {% elif collegamento.cartella_is_folder %}
-                                                <div class="text-secondary small mt-2">
-                                                    Nessun file nella cartella.
+                                                <div class="js-client-folder-panel mt-2"
+                                                     data-cartella="{{ collegamento.cartella }}"
+                                                     data-preview-url="{% url 'pratiche:folder_preview' %}"
+                                                     {% if collegamento.client_file_actions %}
+                                                     data-unlink-url="{{ collegamento.client_file_actions.unlink_url }}"
+                                                     data-description-url="{{ collegamento.client_file_actions.description_url }}"
+                                                     {% endif %}>
+                                                    <script type="application/json" class="js-cfa-data">{{ collegamento.client_file_actions_json|default:"{}"|safe }}</script>
+                                                    <div class="js-client-folder-empty text-secondary small">
+                                                        Nessun file nella cartella.
+                                                    </div>
+                                                    <div class="table-responsive js-client-folder-table" hidden>
+                                                        <table class="table table-vcenter table-sm mb-0">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>Nome file</th>
+                                                                    <th>Descrizione</th>
+                                                                    <th>Creato il</th>
+                                                                    <th>Modificato il</th>
+                                                                    <th>Tipo</th>
+                                                                    <th>Dimensione</th>
+                                                                    <th class="text-end">Azioni</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody class="js-client-folder-rows"></tbody>
+                                                        </table>
+                                                    </div>
+                                                    <div class="js-client-folder-status text-secondary small mt-1" hidden></div>
                                                 </div>
                                             {% elif collegamento.cartella_is_link %}
                                                 <a href="{{ collegamento.cartella }}" target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm">

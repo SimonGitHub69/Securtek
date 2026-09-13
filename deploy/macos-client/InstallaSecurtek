@@ -1,0 +1,46 @@
+#!/bin/bash
+# Eseguibile di "Installa Securtek.app" — doppio clic, chiede l'URL, installa tutto.
+# Non aprire questo file a mano: usa l'app o InstallaSecurtek.command.
+
+export PATH="/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/usr/local/bin:${PATH:-}"
+
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [[ -d "${SELF_DIR}/../Resources" ]]; then
+  RES="$(cd "${SELF_DIR}/../Resources" && pwd)"
+  APP_ROOT="$(cd "${SELF_DIR}/../.." && pwd)"
+else
+  RES="${SELF_DIR}"
+  APP_ROOT="${SELF_DIR}"
+fi
+
+LOG_DIR="${HOME}/Library/Logs/Securtek"
+mkdir -p "${LOG_DIR}"
+LOG="${LOG_DIR}/install-client.log"
+
+{
+  echo "===== $(date '+%Y-%m-%d %H:%M:%S') Installa Securtek ====="
+  echo "RES=${RES}"
+} >> "${LOG}"
+
+xattr -dr com.apple.quarantine "${RES}" "${APP_ROOT}" 2>/dev/null || true
+perl -pi -e 's/\r\n?/\n/g' \
+  "${RES}/install-client.sh" \
+  "${RES}/securtek_desktop_helper.py" \
+  "${RES}/SecurtekLauncher.template" 2>/dev/null || true
+chmod +x "${RES}/install-client.sh" 2>/dev/null || true
+
+osascript >/dev/null 2>&1 <<'EOF' || true
+display notification "Avvio installazione guidata client…" with title "Securtek"
+EOF
+
+cd "${RES}" || exit 1
+/bin/bash "${RES}/install-client.sh" >> "${LOG}" 2>&1
+status=$?
+echo "exit=${status}" >> "${LOG}"
+
+if [[ "${status}" -ne 0 ]]; then
+  osascript >/dev/null 2>&1 <<EOF || true
+display alert "Securtek" message "Installazione non completata. Puoi riprovare oppure aprire il log in Libreria/Logs/Securtek/install-client.log" as critical buttons {"OK"} default button "OK"
+EOF
+fi
+exit "${status}"

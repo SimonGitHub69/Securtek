@@ -1,7 +1,7 @@
 (function () {
     "use strict";
 
-    // Stesso comportamento di LabRepair: logout solo chiudendo la finestra app (X).
+    // Logout solo alla chiusura della finestra app (X), non sulle navigazioni interne.
     let leavingPage = false;
     let closingWindow = false;
     let closingTimer = null;
@@ -9,14 +9,18 @@
     let suppressUnloadTimer = null;
     let sent = false;
 
-    function markLeavingPage() {
-        leavingPage = true;
+    function clearClosingFlag() {
         closingWindow = false;
-        suppressUnloadPrompt = false;
         if (closingTimer) {
             window.clearTimeout(closingTimer);
             closingTimer = null;
         }
+    }
+
+    function markLeavingPage() {
+        leavingPage = true;
+        suppressUnloadPrompt = false;
+        clearClosingFlag();
         if (suppressUnloadTimer) {
             window.clearTimeout(suppressUnloadTimer);
             suppressUnloadTimer = null;
@@ -25,7 +29,7 @@
 
     function suppressUnload(durationMs) {
         suppressUnloadPrompt = true;
-        closingWindow = false;
+        clearClosingFlag();
         if (suppressUnloadTimer) {
             window.clearTimeout(suppressUnloadTimer);
         }
@@ -37,13 +41,14 @@
 
     function sendLogout(logoutUrl) {
         const silentUrl = logoutUrl + (logoutUrl.indexOf("?") >= 0 ? "&" : "?") + "silent=1";
-
         try {
-            navigator.sendBeacon(silentUrl, "");
+            if (navigator.sendBeacon) {
+                navigator.sendBeacon(silentUrl, "");
+                return;
+            }
         } catch (error) {
-            // ignore
+            // fallback sotto
         }
-
         try {
             fetch(silentUrl, {
                 method: "GET",
@@ -101,12 +106,22 @@
             }
         }, true);
 
+        // Indietro/avanti browser: navigazione interna, non chiusura finestra.
+        window.addEventListener("popstate", function () {
+            markLeavingPage();
+        });
+
         window.addEventListener("pageshow", function () {
             leavingPage = false;
-            closingWindow = false;
-            if (closingTimer) {
-                window.clearTimeout(closingTimer);
-                closingTimer = null;
+            sent = false;
+            clearClosingFlag();
+        });
+
+        // Se l'utente annulla la chiusura o la pagina resta in primo piano, non logout.
+        window.addEventListener("focus", clearClosingFlag);
+        document.addEventListener("visibilitychange", function () {
+            if (document.visibilityState === "visible") {
+                clearClosingFlag();
             }
         });
 
@@ -119,18 +134,23 @@
             if (closingTimer) {
                 window.clearTimeout(closingTimer);
             }
-            // Tempo per confermare la chiusura senza perdere il flag.
+            // Finestra breve: basta per il dialogo di conferma; poi il flag decade.
             closingTimer = window.setTimeout(function () {
                 closingWindow = false;
                 closingTimer = null;
-            }, 30000);
+            }, 2500);
 
             event.preventDefault();
             event.returnValue = " ";
             return event.returnValue;
         });
 
-        window.addEventListener("pagehide", function () {
+        window.addEventListener("pagehide", function (event) {
+            if (event.persisted) {
+                clearClosingFlag();
+                return;
+            }
+
             if (leavingPage || suppressUnloadPrompt) {
                 leavingPage = false;
                 return;

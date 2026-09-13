@@ -1,30 +1,37 @@
 Securtek — installazione client Mac
 ====================================
 
-Se il doppio clic su InstallClient.command dice che non hai i privilegi:
+Modo semplice (consigliato)
+---------------------------
+Usa lo zip autoinstallante:
 
-1. Apri Terminale (Spotlight: scrivi "Terminale")
-2. Incolla questi comandi (una riga alla volta):
+  dist/Securtek-client-mac-vVERSION.zip
 
-   cd ~/Downloads/macos-client
-   chmod +x InstallClient.command install-client.sh
-   xattr -dr com.apple.quarantine .
-   bash install-client.sh
-
-3. Inserisci l URL del Mac Mini (es. http://192.168.2.76:8000)
+1. Copia lo zip sul Mac client e estrailo.
+2. Doppio clic su "Installa Securtek".
+   Se macOS blocca: tasto destro → Apri → Apri.
+3. Segui le finestre guidate:
+   - controllo Python (se manca: Installa strumenti Apple)
+   - controllo Edge/Chrome
+   - URL del Mac Mini
 4. Securtek.app comparira sul Desktop
 
-Se il doppio clic su Securtek.app non fa niente:
+File unico (AirDrop): InstallaSecurtek.command
+  Se dice che non hai i privilegi:
 
-   chmod +x ~/Desktop/Securtek.app/Contents/MacOS/Securtek
-   xattr -cr ~/Desktop/Securtek.app
-   ~/Desktop/Securtek.app/Contents/MacOS/Securtek
+  bash ~/Downloads/InstallaSecurtek.command
 
-   (oppure: bash repair-app.sh nella cartella macos-client)
+Se manca Python
+---------------
+Nell installer premi "Installa strumenti Apple", conferma nella
+finestra Apple, attendi, poi "Continua".
+Oppure installa Python da https://www.python.org/downloads/
+e rilancia l installer.
 
-   Serve Microsoft Edge o Google Chrome — Safari non apre Securtek come app.
+Verifica helper:
 
-   Log errori: ~/Library/Logs/Securtek/app-launch.log
+  curl http://127.0.0.1:18765/health
 
-Se la cartella e in un altro posto, sostituisci la prima riga, es.:
-   cd ~/Desktop/macos-client
+Log installer:
+
+  ~/Library/Logs/Securtek/install-client.log

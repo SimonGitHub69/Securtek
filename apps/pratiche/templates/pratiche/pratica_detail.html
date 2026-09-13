@@ -1142,8 +1142,34 @@
                                                     </table>
                                                 </div>
                                             {% elif collegamento.cartella_is_folder %}
-                                                <div class="text-secondary small mt-2">
-                                                    Nessun file nella cartella.
+                                                <div class="js-client-folder-panel mt-2"
+                                                     data-cartella="{{ collegamento.cartella }}"
+                                                     data-preview-url="{% url 'pratiche:folder_preview' %}"
+                                                     {% if collegamento.client_file_actions %}
+                                                     data-unlink-url="{{ collegamento.client_file_actions.unlink_url }}"
+                                                     data-description-url="{{ collegamento.client_file_actions.description_url }}"
+                                                     {% endif %}>
+                                                    <script type="application/json" class="js-cfa-data">{{ collegamento.client_file_actions_json|default:"{}"|safe }}</script>
+                                                    <div class="js-client-folder-empty text-secondary small">
+                                                        Nessun file nella cartella.
+                                                    </div>
+                                                    <div class="table-responsive js-client-folder-table" hidden>
+                                                        <table class="table table-vcenter table-sm mb-0">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>Nome file</th>
+                                                                    <th>Descrizione</th>
+                                                                    <th>Creato il</th>
+                                                                    <th>Modificato il</th>
+                                                                    <th>Tipo</th>
+                                                                    <th>Dimensione</th>
+                                                                    <th class="text-end">Azioni</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody class="js-client-folder-rows"></tbody>
+                                                        </table>
+                                                    </div>
+                                                    <div class="js-client-folder-status text-secondary small mt-1" hidden></div>
                                                 </div>
                                             {% elif collegamento.cartella_is_link %}
                                                 <a href="{{ collegamento.cartella }}" target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm">
@@ -1359,7 +1385,9 @@
 
 {% block extra_js %}
 {{ block.super }}
-<script src="{% static 'securtek/js/desktop-open.js' %}?v=20260711" defer></script>
+<script src="{% static 'securtek/js/desktop-folder.js' %}?v=20260913f"></script>
+<script src="{% static 'securtek/js/desktop-open.js' %}?v=20260913c"></script>
+<script src="{% static 'securtek/js/client-folder-panels.js' %}?v=20260913d"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     const modalElement = document.getElementById("deleteTecnicoModal");
@@ -1509,8 +1537,41 @@ document.addEventListener("DOMContentLoaded", function () {
             window.SecurtekUI.showToast(message, type);
             return;
         }
-
-        window.alert(message);
+        if (window.SecurtekToast && typeof window.SecurtekToast.show === "function") {
+            window.SecurtekToast.show(message, type);
+            return;
+        }
+        let toast = document.getElementById("st-action-toast");
+        if (!toast) {
+            toast = document.createElement("div");
+            toast.id = "st-action-toast";
+            toast.setAttribute("role", "status");
+            toast.setAttribute("aria-live", "polite");
+            toast.style.cssText = [
+                "position:fixed",
+                "right:1rem",
+                "bottom:1rem",
+                "z-index:1090",
+                "max-width:24rem",
+                "padding:0.75rem 1rem",
+                "border-radius:8px",
+                "box-shadow:0 0.5rem 1.5rem rgba(15,23,42,0.18)",
+                "font-size:0.875rem",
+                "line-height:1.4",
+                "display:none",
+            ].join(";");
+            document.body.appendChild(toast);
+        }
+        const isError = type === "error";
+        toast.textContent = message || "";
+        toast.style.display = "block";
+        toast.style.background = isError ? "#fde8e8" : "#e8f5ec";
+        toast.style.color = isError ? "#9b1c1c" : "#1a5632";
+        toast.style.border = isError ? "1px solid #f8b4b4" : "1px solid #b7e1c1";
+        window.clearTimeout(toast._hideTimeout);
+        toast._hideTimeout = window.setTimeout(function () {
+            toast.style.display = "none";
+        }, isError ? 6000 : 3000);
     }
 
     function setFileModalSubmitting(submitting) {

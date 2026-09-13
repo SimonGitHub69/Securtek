@@ -119,21 +119,22 @@ Dopo il riavvio Gunicorn, su ciascun utente Django:
 Sui client (Windows / iMac) basta riaprire Securtek e Ctrl+F5.
 Non serve reinstallare l'app Desktop per questo aggiornamento.
 
-## 3. Mac client (iMac) — solo se serve anche l'helper cartelle
+## 3. Mac client (iMac) — installer autoinstallante
 
-1. Copia deploy/macos-client/ sul Mac client.
-2. Terminale:
+Zip dedicato: dist/Securtek-client-mac-v${VERSION}.zip
+File unico: dist/InstallaSecurtek-v${VERSION}.command
 
-   cd ~/Downloads/macos-client
-   bash install-client.sh
-
+1. Copia lo zip sul Mac client, estrai, doppio clic su "Installa Securtek".
+   Se macOS blocca: tasto destro → Apri → Apri.
+2. Inserisci l'URL del Mini (es. http://192.168.2.76:8000).
 3. Verifica helper:
 
    curl http://127.0.0.1:18765/health
 
-   "version": 3
-
 4. Ricarica Securtek con Cmd+Shift+R.
+
+Alternativa: copia deploy/macos-client/ e lancia bash InstallClient.command
+Per rigenerare lo zip: ./scripts/build-macos-client-installer.sh
 
 ## Note
 
@@ -147,3 +148,7 @@ mkdir -p "$(dirname "$ZIP_PATH")"
 
 echo "Pacchetto: $DEST"
 echo "Zip:       $ZIP_PATH"
+
+echo
+echo "Installer client Mac..."
+"$ROOT/scripts/build-macos-client-installer.sh"

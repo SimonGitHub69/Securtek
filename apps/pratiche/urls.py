@@ -45,6 +45,7 @@ from apps.pratiche.views import (
     PraticaDetailView,
     PraticaListView,
     PraticaMacroCategoriaApplyView,
+    PraticaMacroCategoriaDeleteView,
     PraticaUpdateView,
     StudioTecnicoCreateView,
     StudioTecnicoDeleteView,
@@ -110,6 +111,11 @@ urlpatterns = [
     path("incarichi/<int:pk>/elimina/", IncaricoTecnicoDeleteView.as_view(), name="incarico_tecnico_delete"),
     path("<int:pratica_pk>/categorie/nuova/", PraticaCategoriaCreateView.as_view(), name="pratica_categoria_create"),
     path("<int:pratica_pk>/macro-categorie/applica/", PraticaMacroCategoriaApplyView.as_view(), name="pratica_macro_categoria_apply"),
+    path(
+        "<int:pratica_pk>/macro-categorie/<int:pk>/elimina/",
+        PraticaMacroCategoriaDeleteView.as_view(),
+        name="pratica_macro_categoria_delete",
+    ),
     path(
         "<int:pratica_pk>/categorie/<int:pk>/modifica/",
         PraticaCategoriaUpdateView.as_view(),

@@ -1,9 +1,10 @@
 #!/bin/bash
 # Installer postazione Mac CLIENT (niente Django/PostgreSQL).
-# Installa: helper cartelle (LaunchAgent al login) + Securtek.app sul Desktop.
+# Guida interattiva: controlli, Python, URL server, Securtek.app + helper cartelle.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
+export PATH="/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/usr/local/bin:${PATH:-}"
 DEFAULT_ORIGIN="${SECURTEK_ORIGIN:-http://192.168.2.76:8000}"
 BROWSER="${BROWSER:-edge}"
 LABEL="com.securtek.desktop-helper"
@@ -13,6 +14,20 @@ HELPER_DIR="${APP_SUPPORT}/desktop-helper"
 LOG_DIR="${HOME}/Library/Logs/Securtek"
 PLIST_DST="${HOME}/Library/LaunchAgents/${LABEL}.plist"
 APP_OUT="${HOME}/Desktop/Securtek.app"
+INSTALL_LOG="${LOG_DIR}/install-client.log"
+
+mkdir -p "${LOG_DIR}"
+xattr -dr com.apple.quarantine "${HERE}" 2>/dev/null || true
+
+log() {
+  printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >> "${INSTALL_LOG}"
+  echo "$*"
+}
+
+as_escape() {
+  # Escape per stringhe AppleScript tra virgolette doppie.
+  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
 
 read_securtek_version() {
   local candidate line
@@ -52,6 +67,59 @@ reveal_app() {
   fi
 }
 
+notify() {
+  local message
+  message="$(as_escape "$1")"
+  osascript >/dev/null 2>&1 <<EOF || true
+display notification "${message}" with title "Securtek"
+EOF
+}
+
+alert() {
+  local message
+  message="$(as_escape "$1")"
+  osascript >/dev/null 2>&1 <<EOF || echo "$1" >&2
+display alert "Securtek" message "${message}" as critical
+EOF
+}
+
+info() {
+  local message
+  message="$(as_escape "$1")"
+  osascript >/dev/null 2>&1 <<EOF || echo "$1"
+display dialog "${message}" buttons {"OK"} default button "OK" with title "Securtek ${SECURTEK_VERSION_LABEL}"
+EOF
+}
+
+ask_choice() {
+  # Uso: ask_choice "messaggio" "Btn1" "Btn2" ["Btn3"]
+  # Stampa il testo del bottone premuto, oppure stringa vuota se annullato.
+  local message b1 b2 b3
+  message="$(as_escape "$1")"
+  b1="$(as_escape "$2")"
+  b2="$(as_escape "$3")"
+  b3="$(as_escape "${4:-}")"
+  if [[ -n "${4:-}" ]]; then
+    osascript 2>/dev/null <<EOF || true
+try
+  set r to display dialog "${message}" buttons {"${b1}", "${b2}", "${b3}"} default button "${b3}" cancel button "${b1}" with title "Securtek ${SECURTEK_VERSION_LABEL}"
+  return button returned of r
+on error
+  return ""
+end try
+EOF
+  else
+    osascript 2>/dev/null <<EOF || true
+try
+  set r to display dialog "${message}" buttons {"${b1}", "${b2}"} default button "${b2}" cancel button "${b1}" with title "Securtek ${SECURTEK_VERSION_LABEL}"
+  return button returned of r
+on error
+  return ""
+end try
+EOF
+  fi
+}
+
 create_securtek_app() {
   local origin="$1"
   local browser="${2:-edge}"
@@ -88,7 +156,7 @@ EOF
 
   local template="${HERE}/SecurtekLauncher.template"
   if [[ ! -f "${template}" ]]; then
-    alert "SecurtekLauncher.template mancante nella cartella macos-client."
+    alert "File SecurtekLauncher.template mancante. Ricopia lo zip installer e riprova."
     return 1
   fi
   cp "${template}" "${APP_OUT}/Contents/MacOS/Securtek"
@@ -110,16 +178,11 @@ strip_cr() {
   done
 }
 
-alert() {
-  local message="$1"
-  osascript -e "display alert \"Securtek\" message \"${message}\" as critical" 2>/dev/null || echo "${message}" >&2
-}
-
-info() {
-  local message="$1"
-  osascript <<EOF >/dev/null 2>&1 || echo "${message}"
-display dialog "${message}" buttons {"OK"} default button "OK" with title "Securtek"
-EOF
+python_ok() {
+  local bin="$1"
+  [[ -n "${bin}" && -x "${bin}" ]] || return 1
+  "${bin}" -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 9) else 1)" >/dev/null 2>&1 || return 1
+  return 0
 }
 
 find_python() {
@@ -127,10 +190,11 @@ find_python() {
   for candidate in \
     "$(command -v python3 2>/dev/null || true)" \
     /usr/bin/python3 \
+    /Library/Frameworks/Python.framework/Versions/Current/bin/python3 \
     /opt/homebrew/bin/python3 \
     /usr/local/bin/python3
   do
-    if [[ -n "${candidate}" && -x "${candidate}" ]]; then
+    if python_ok "${candidate}"; then
       printf '%s' "${candidate}"
       return 0
     fi
@@ -139,15 +203,169 @@ find_python() {
 }
 
 find_helper_src() {
-  if [[ -f "${HERE}/../../scripts/securtek_desktop_helper.py" ]]; then
-    printf '%s' "${HERE}/../../scripts/securtek_desktop_helper.py"
-    return 0
-  fi
   if [[ -f "${HERE}/securtek_desktop_helper.py" ]]; then
     printf '%s' "${HERE}/securtek_desktop_helper.py"
     return 0
   fi
+  if [[ -f "${HERE}/../../scripts/securtek_desktop_helper.py" ]]; then
+    printf '%s' "${HERE}/../../scripts/securtek_desktop_helper.py"
+    return 0
+  fi
   return 1
+}
+
+helper_health_ok() {
+  if command -v curl >/dev/null 2>&1 && curl -fsS "http://127.0.0.1:18765/health" >/tmp/securtek-helper-health.json; then
+    return 0
+  fi
+  local py
+  py="$(find_python || true)"
+  if [[ -n "${py}" ]] && "${py}" - <<'PY' >/tmp/securtek-helper-health.json 2>/dev/null
+import urllib.request
+urllib.request.urlopen("http://127.0.0.1:18765/health", timeout=3).read()
+PY
+  then
+    return 0
+  fi
+  return 1
+}
+
+detect_browser() {
+  if [[ -d "/Applications/Microsoft Edge.app" ]]; then
+    printf '%s' "edge"
+    return 0
+  fi
+  if [[ -d "/Applications/Google Chrome.app" ]]; then
+    printf '%s' "chrome"
+    return 0
+  fi
+  return 1
+}
+
+ensure_browser() {
+  local found
+  found="$(detect_browser || true)"
+  if [[ -n "${found}" ]]; then
+    BROWSER="${found}"
+    return 0
+  fi
+
+  local choice
+  choice="$(ask_choice \
+    "Per aprire Securtek serve Microsoft Edge (consigliato) oppure Google Chrome. Safari non e supportato.
+
+Installa uno dei due browser e poi premi Riprova, oppure continua solo per creare l icona (Scegli cartella potra funzionare comunque)." \
+    "Annulla" "Apri download Edge" "Continua comunque")"
+
+  case "${choice}" in
+    "Apri download Edge")
+      open "https://www.microsoft.com/edge" 2>/dev/null || true
+      choice="$(ask_choice \
+        "Dopo aver installato Edge o Chrome, premi Riprova." \
+        "Annulla" "Continua comunque" "Riprova")"
+      if [[ "${choice}" == "Riprova" ]]; then
+        found="$(detect_browser || true)"
+        if [[ -n "${found}" ]]; then
+          BROWSER="${found}"
+          return 0
+        fi
+        alert "Browser ancora non trovato. Puoi installarlo dopo e rilanciare Securtek.app."
+        return 0
+      fi
+      if [[ "${choice}" == "Continua comunque" ]]; then
+        return 0
+      fi
+      return 1
+      ;;
+    "Continua comunque")
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+ensure_python() {
+  local py choice
+  py="$(find_python || true)"
+  if [[ -n "${py}" ]]; then
+    printf '%s' "${py}"
+    return 0
+  fi
+
+  while true; do
+    choice="$(ask_choice \
+      "Manca Python 3 (serve per Scegli cartella / Apri cartella).
+
+Passo consigliato:
+1) Premi Installa strumenti Apple
+2) Nella finestra Apple conferma Installa
+3) Attendi la fine (puo richiedere alcuni minuti)
+4) Torna qui e premi Continua
+
+In alternativa puoi installare Python da python.org." \
+      "Annulla" "Apri python.org" "Installa strumenti Apple")"
+
+    case "${choice}" in
+      "")
+        return 1
+        ;;
+      "Apri python.org")
+        open "https://www.python.org/downloads/" 2>/dev/null || true
+        info "Scarica l installer macOS di Python 3, installalo, poi premi OK e Continua."
+        ;;
+      "Installa strumenti Apple")
+        notify "Apertura installazione strumenti Apple…"
+        if ! xcode-select --install 2>/tmp/securtek-xcode-select.err; then
+          if grep -qi "already installed" /tmp/securtek-xcode-select.err 2>/dev/null; then
+            info "Gli strumenti Apple risultano gia installati, ma python3 non e utilizzabile. Prova Apri python.org oppure Riprova dopo un riavvio."
+          else
+            info "Se non e comparsa la finestra Apple, apri Terminale e lancia: xcode-select --install"
+          fi
+        else
+          info "Conferma Installa nella finestra Apple e attendi il completamento."
+        fi
+        ;;
+      *)
+        return 1
+        ;;
+    esac
+
+    while true; do
+      choice="$(ask_choice \
+        "Quando l installazione di Python / strumenti Apple e terminata, premi Continua.
+
+Se non hai ancora finito, attendi e poi premi Continua." \
+        "Annulla" "Apri guida" "Continua")"
+      case "${choice}" in
+        "Continua")
+          py="$(find_python || true)"
+          if [[ -n "${py}" ]]; then
+            info "Python trovato: ${py}"
+            printf '%s' "${py}"
+            return 0
+          fi
+          choice="$(ask_choice \
+            "Python 3 non e ancora disponibile.
+
+Premi Riprova dopo qualche minuto, oppure Apri python.org per installarlo manualmente." \
+            "Annulla" "Apri python.org" "Riprova")"
+          if [[ "${choice}" == "Apri python.org" ]]; then
+            open "https://www.python.org/downloads/" 2>/dev/null || true
+          elif [[ "${choice}" != "Riprova" ]]; then
+            return 1
+          fi
+          ;;
+        "Apri guida")
+          open "https://www.python.org/downloads/" 2>/dev/null || true
+          ;;
+        *)
+          return 1
+          ;;
+      esac
+    done
+  done
 }
 
 ask_origin() {
@@ -155,10 +373,13 @@ ask_origin() {
     printf '%s' "${SECURTEK_ORIGIN}"
     return 0
   fi
-  local result
-  result="$(osascript <<EOF
+  local result default_esc
+  default_esc="$(as_escape "${DEFAULT_ORIGIN}")"
+  result="$(osascript 2>/dev/null <<EOF || true
 try
-  set dlg to display dialog "URL del server Securtek (Mac Mini):" default answer "${DEFAULT_ORIGIN}" with title "Installazione client Securtek" buttons {"Annulla", "Installa"} default button "Installa" cancel button "Annulla"
+  set dlg to display dialog "Inserisci l URL del Mac Mini server Securtek (stessa rete di questo Mac).
+
+Esempio: http://192.168.2.76:8000" default answer "${default_esc}" with title "Securtek ${SECURTEK_VERSION_LABEL}" buttons {"Annulla", "Avanti"} default button "Avanti" cancel button "Annulla"
   return text returned of dlg
 on error
   return ""
@@ -168,45 +389,125 @@ EOF
   printf '%s' "${result}"
 }
 
-strip_cr "${HERE}/install-client.sh" "${HERE}/InstallClient.command" "${HERE}/securtek_desktop_helper.py" || true
+check_server() {
+  local origin="$1"
+  if ! command -v curl >/dev/null 2>&1; then
+    return 0
+  fi
+  if curl -fsS --connect-timeout 3 --max-time 5 "${origin}/version/" >/tmp/securtek-server-version.json 2>/dev/null; then
+    return 0
+  fi
+  local choice
+  choice="$(ask_choice \
+    "Non riesco a raggiungere il server:
+${origin}
 
-ORIGIN="$(ask_origin)"
-ORIGIN="${ORIGIN%"${ORIGIN##*[![:space:]]}"}"
-ORIGIN="${ORIGIN#"${ORIGIN%%[![:space:]]*}"}"
-ORIGIN="${ORIGIN%/}"
+Controlla:
+• Mac Mini acceso e Securtek avviato
+• Questo Mac sulla stessa rete
+• URL corretto (porta 8000)
 
-if [[ -z "${ORIGIN}" ]]; then
-  echo "Installazione annullata."
+Puoi correggere l URL oppure continuare lo stesso." \
+    "Annulla" "Correggi URL" "Continua lo stesso")"
+  case "${choice}" in
+    "Continua lo stesso") return 0 ;;
+    "Correggi URL") return 2 ;;
+    *) return 1 ;;
+  esac
+}
+
+strip_cr \
+  "${HERE}/install-client.sh" \
+  "${HERE}/InstallClient.command" \
+  "${HERE}/securtek_desktop_helper.py" \
+  "${HERE}/SecurtekLauncher.template" \
+  "${HERE}/InstallaSecurtek" || true
+
+{
+  echo "===== $(date '+%Y-%m-%d %H:%M:%S') install-client ${SECURTEK_VERSION_LABEL} ====="
+} >> "${INSTALL_LOG}"
+
+welcome="$(ask_choice \
+  "Installazione client Securtek ${SECURTEK_VERSION_LABEL}
+
+Questo programma:
+1) crea Securtek.app sul Desktop
+2) installa l helper per Scegli / Apri cartella
+3) lo avvia automaticamente al login
+
+Requisiti: stessa rete del Mac Mini, Edge o Chrome, Python 3.
+
+Continuare?" \
+  "Annulla" "Installa")"
+
+if [[ "${welcome}" != "Installa" ]]; then
+  log "Installazione annullata dall utente (welcome)."
   exit 1
 fi
 
-if [[ ! "${ORIGIN}" =~ ^https?:// ]]; then
-  alert "URL non valido. Usa ad esempio http://192.168.2.76:8000"
+notify "Controllo Python…"
+PYTHON3="$(ensure_python || true)"
+if [[ -z "${PYTHON3}" ]]; then
+  alert "Installazione interrotta: Python 3 non disponibile. Rilancia l installer dopo averlo installato."
   exit 1
 fi
+log "Python: ${PYTHON3}"
 
-APP_OUT="$(resolve_desktop_dir)/Securtek.app"
-create_securtek_app "${ORIGIN}" "${BROWSER}"
-echo "App creata: ${APP_OUT}"
-reveal_app
-
-if [[ "${SECURTEK_APP_ONLY:-}" == "1" ]]; then
-  info "Securtek.app ${SECURTEK_VERSION_LABEL} creata sul Desktop (${ORIGIN}). Per Scegli cartella esegui InstallClient.command."
-  exit 0
+if ! ensure_browser; then
+  log "Installazione annullata (browser)."
+  exit 1
 fi
+log "Browser preferito: ${BROWSER}"
+
+while true; do
+  ORIGIN="$(ask_origin)"
+  ORIGIN="${ORIGIN%"${ORIGIN##*[![:space:]]}"}"
+  ORIGIN="${ORIGIN#"${ORIGIN%%[![:space:]]*}"}"
+  ORIGIN="${ORIGIN%/}"
+
+  if [[ -z "${ORIGIN}" ]]; then
+    log "Installazione annullata (URL)."
+    exit 1
+  fi
+
+  if [[ ! "${ORIGIN}" =~ ^https?:// ]]; then
+    alert "URL non valido. Usa ad esempio http://192.168.2.76:8000"
+    continue
+  fi
+
+  notify "Verifica connessione al server…"
+  check_rc=0
+  check_server "${ORIGIN}" || check_rc=$?
+  if [[ "${check_rc}" -eq 0 ]]; then
+    break
+  fi
+  if [[ "${check_rc}" -eq 2 ]]; then
+    continue
+  fi
+  log "Installazione annullata (server non raggiungibile)."
+  exit 1
+done
 
 HELPER_SRC="$(find_helper_src || true)"
 if [[ -z "${HELPER_SRC}" ]]; then
-  alert "Helper non trovato. Securtek.app e sul Desktop; copia securtek_desktop_helper.py accanto a InstallClient e rilancia."
+  alert "File helper mancante nell installer. Ricopia lo zip Securtek-client-mac e riprova."
   exit 1
 fi
 
-PYTHON3="$(find_python || true)"
-if [[ -z "${PYTHON3}" ]]; then
-  alert "Python 3 non trovato. Securtek.app e sul Desktop. Per Scegli cartella installa Python (xcode-select --install) e rilancia InstallClient."
-  exit 1
+notify "Creazione Securtek.app…"
+APP_OUT="$(resolve_desktop_dir)/Securtek.app"
+create_securtek_app "${ORIGIN}" "${BROWSER}"
+log "App creata: ${APP_OUT}"
+reveal_app
+
+if [[ "${SECURTEK_APP_ONLY:-}" == "1" ]]; then
+  info "Securtek.app ${SECURTEK_VERSION_LABEL} creata sul Desktop (${ORIGIN}).
+
+Per abilitare Scegli cartella rilancia l installer completo (senza modalita solo-app)."
+  exit 0
 fi
 
+notify "Installazione helper cartelle…"
 strip_cr "${HELPER_SRC}" || true
 
 mkdir -p "${HELPER_DIR}" "${LOG_DIR}" "${HOME}/Library/LaunchAgents"
@@ -265,23 +566,61 @@ launchctl kickstart -k "${DOMAIN}/${LABEL}" 2>/dev/null || true
 
 sleep 1
 HEALTH_OK=0
-if curl -fsS "http://127.0.0.1:18765/health" >/tmp/securtek-helper-health.json; then
+if helper_health_ok; then
   HEALTH_OK=1
 fi
 
-echo "Server: ${ORIGIN}"
-echo "Securtek: ${SECURTEK_VERSION_LABEL}"
-echo "Python: ${PYTHON3}"
-echo "Helper: ${HELPER_DIR}/securtek_desktop_helper.py"
-echo "App:    ${APP_OUT}"
+# Secondo tentativo breve se l helper sta ancora avviandosi.
+if [[ "${HEALTH_OK}" -ne 1 ]]; then
+  sleep 2
+  if helper_health_ok; then
+    HEALTH_OK=1
+  fi
+fi
+
+log "Server: ${ORIGIN}"
+log "Securtek: ${SECURTEK_VERSION_LABEL}"
+log "Python: ${PYTHON3}"
+log "Helper: ${HELPER_DIR}/securtek_desktop_helper.py"
+log "App:    ${APP_OUT}"
 
 if [[ "${HEALTH_OK}" -eq 1 ]]; then
-  echo "OK — helper in ascolto su http://127.0.0.1:18765/"
-  info "Client Securtek ${SECURTEK_VERSION_LABEL} installato. Securtek.app sul Desktop (${ORIGIN})."
+  log "OK — helper in ascolto su http://127.0.0.1:18765/"
   reveal_app
-else
-  echo "ATTENZIONE: helper non risponde. Log: ${LOG_DIR}/desktop-helper.err.log" >&2
-  alert "Securtek.app e stata creata sul Desktop, ma l helper cartelle non risponde. Apri l app e controlla ${LOG_DIR}/desktop-helper.err.log oppure rilancia InstallClient."
-  reveal_app
-  exit 1
+  info "Installazione completata (${SECURTEK_VERSION_LABEL}).
+
+• Securtek.app e sul Desktop (evidenziata nel Finder)
+• Helper cartelle attivo
+• Server: ${ORIGIN}
+
+Apri Securtek.app dal Desktop (non usare Safari).
+Alla prima Scegli cartella, se macOS chiede Controlla Finder, premi Consenti."
+  exit 0
 fi
+
+log "ATTENZIONE: helper non risponde. Log: ${LOG_DIR}/desktop-helper.err.log"
+reveal_app
+choice="$(ask_choice \
+  "Securtek.app e stata creata, ma l helper cartelle non risponde.
+
+Puoi:
+• riprovare ad avviare l helper
+• aprire il log errori
+• chiudere e rilanciare piu tardi l installer" \
+  "Chiudi" "Apri log" "Riprova helper")"
+
+if [[ "${choice}" == "Apri log" ]]; then
+  open -R "${LOG_DIR}/desktop-helper.err.log" 2>/dev/null || open "${LOG_DIR}" 2>/dev/null || true
+fi
+
+if [[ "${choice}" == "Riprova helper" ]]; then
+  launchctl kickstart -k "${DOMAIN}/${LABEL}" 2>/dev/null || true
+  sleep 2
+  if helper_health_ok; then
+    info "Helper ora attivo. Puoi aprire Securtek.app dal Desktop."
+    exit 0
+  fi
+  alert "Helper ancora non attivo. Controlla ${LOG_DIR}/desktop-helper.err.log oppure rilancia l installer."
+fi
+
+exit 1

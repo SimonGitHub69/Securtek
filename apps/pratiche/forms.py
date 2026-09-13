@@ -277,7 +277,8 @@ class PraticaCategoriaForm(forms.ModelForm):
         self.fields["macro_categoria"].required = False
         self.fields["categoria"].queryset = CategoriaPratica.objects.filter(is_active=True)
         self.fields["cartella"].help_text = (
-            "Inserisci un percorso cartella accessibile dal server locale oppure un link web."
+            "Usa Scegli per selezionare una cartella sul Mac/PC (anche /Volumes e Synology). "
+            "In alternativa inserisci un percorso locale o un link web."
         )
         if self.instance.pk and self.instance.origine_template:
             self.fields["macro_categoria"].widget = forms.HiddenInput()
@@ -285,6 +286,10 @@ class PraticaCategoriaForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+        cartella = (cleaned_data.get("cartella") or "").strip()
+        if cartella == "/Volume" or cartella.startswith("/Volume/"):
+            cartella = "/Volumes" + cartella[len("/Volume") :]
+            cleaned_data["cartella"] = cartella.rstrip("/") if len(cartella) > 3 else cartella
         pratica = self.pratica or getattr(self.instance, "pratica", None)
         macro_categoria = cleaned_data.get("macro_categoria")
         categoria = cleaned_data.get("categoria")

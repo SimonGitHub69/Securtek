@@ -1,5 +1,5 @@
 #!/bin/bash
-# Launcher Securtek.app — usa open -a (affidabile su macOS) con log errori.
+# Launcher Securtek.app — apre Edge/Chrome in modalita app verso il Mini.
 ORIGIN="__ORIGIN__"
 BROWSER="__BROWSER__"
 LOG_DIR="${HOME}/Library/Logs/Securtek"
@@ -30,19 +30,6 @@ APP_ARGS=(
   --disable-features=TranslateUI,InsecureDownloadWarnings,BlockInsecurePrivateNetworkRequests,PrivateNetworkAccessSendPreflights,PrivateNetworkAccessRespectPreflightResults
 )
 
-launch_via_open() {
-  local app_name="$1"
-  if [[ ! -d "/Applications/${app_name}.app" ]]; then
-    return 1
-  fi
-  log "open -a \"${app_name}\" -> ${LOGIN}"
-  if open -a "${app_name}" --args "${APP_ARGS[@]}" >> "${LOG}" 2>&1; then
-    return 0
-  fi
-  log "open -a \"${app_name}\" fallito"
-  return 1
-}
-
 launch_via_bin() {
   local bin="$1"
   local label="$2"
@@ -50,24 +37,42 @@ launch_via_bin() {
     return 1
   fi
   log "bin ${label} -> ${LOGIN}"
+  # Chiudi eventuali istanze SecurtekApp dello stesso profilo (evita profilo bloccato).
+  pkill -f -- "--user-data-dir=${PROFILE}" 2>/dev/null || true
+  sleep 0.3
   "${bin}" "${APP_ARGS[@]}" >> "${LOG}" 2>&1 &
-  sleep 0.5
+  sleep 0.8
   return 0
 }
 
+launch_via_open() {
+  local app_name="$1"
+  if [[ ! -d "/Applications/${app_name}.app" ]]; then
+    return 1
+  fi
+  log "open -a \"${app_name}\" -> ${LOGIN}"
+  if open -na "${app_name}" --args "${APP_ARGS[@]}" >> "${LOG}" 2>&1; then
+    return 0
+  fi
+  log "open -a \"${app_name}\" fallito"
+  return 1
+}
+
 FAILED=1
+# Preferisci il binario diretto: su macOS "open -a" a volte ignora gli argomenti
+# se il browser e gia aperto.
 case "${BROWSER}" in
   chrome)
-    launch_via_open "Google Chrome" && FAILED=0
-    [[ "${FAILED}" -eq 1 ]] && launch_via_open "Microsoft Edge" && FAILED=0
-    [[ "${FAILED}" -eq 1 ]] && launch_via_bin "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" "Chrome" && FAILED=0
+    launch_via_bin "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" "Chrome" && FAILED=0
     [[ "${FAILED}" -eq 1 ]] && launch_via_bin "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge" "Edge" && FAILED=0
+    [[ "${FAILED}" -eq 1 ]] && launch_via_open "Google Chrome" && FAILED=0
+    [[ "${FAILED}" -eq 1 ]] && launch_via_open "Microsoft Edge" && FAILED=0
     ;;
   *)
-    launch_via_open "Microsoft Edge" && FAILED=0
-    [[ "${FAILED}" -eq 1 ]] && launch_via_open "Google Chrome" && FAILED=0
-    [[ "${FAILED}" -eq 1 ]] && launch_via_bin "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge" "Edge" && FAILED=0
+    launch_via_bin "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge" "Edge" && FAILED=0
     [[ "${FAILED}" -eq 1 ]] && launch_via_bin "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" "Chrome" && FAILED=0
+    [[ "${FAILED}" -eq 1 ]] && launch_via_open "Microsoft Edge" && FAILED=0
+    [[ "${FAILED}" -eq 1 ]] && launch_via_open "Google Chrome" && FAILED=0
     ;;
 esac
 
@@ -76,5 +81,15 @@ if [[ "${FAILED}" -eq 1 ]]; then
   alert "Installa Microsoft Edge o Google Chrome. Safari non apre Securtek come app. Log: ${LOG}"
   exit 1
 fi
+
+# Avviso utile se il browser non raggiunge la LAN (tipico su macOS Sequoia).
+osascript >/dev/null 2>&1 <<EOF || true
+delay 2
+try
+  do shell script "curl -fsS --connect-timeout 2 --max-time 3 '${ORIGIN}/version/'"
+on error
+  display alert "Securtek" message "Se compare Impossibile raggiungere il sito: apri Impostazioni di Sistema → Privacy e sicurezza → Rete locale e attiva Microsoft Edge (o Chrome). Poi chiudi e riapri Securtek.app. Server: ${ORIGIN}" as critical
+end try
+EOF
 
 exit 0

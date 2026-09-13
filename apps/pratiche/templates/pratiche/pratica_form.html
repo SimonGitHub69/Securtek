@@ -1225,6 +1225,42 @@ Pratica
         </form>
     </div>
 </div>
+
+<div class="st-confirm" id="deleteMacroLinkModal" hidden>
+    <div class="st-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="deleteMacroLinkTitle">
+        <form method="post" id="deleteMacroLinkForm">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+
+            <div class="st-confirm-body">
+                <div class="st-confirm-icon">
+                    <i class="ti ti-unlink"></i>
+                </div>
+
+                <div>
+                    <div class="st-confirm-title" id="deleteMacroLinkTitle">
+                        Rimuovere questa macro-categoria?
+                    </div>
+                    <div class="st-confirm-text">
+                        <span class="st-confirm-name" id="deleteMacroLinkName">Macro-categoria selezionata</span>
+                        verrà scollegata dalla pratica insieme alle relative categorie.
+                        I file nelle cartelle restano sul disco.
+                    </div>
+                </div>
+            </div>
+
+            <div class="st-confirm-footer">
+                <button type="button" class="btn btn-outline-secondary js-delete-macro-link-cancel">
+                    Annulla
+                </button>
+                <button type="submit" class="btn btn-danger">
+                    <i class="ti ti-trash"></i>
+                    Rimuovi
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endif %}
 
 {% if object %}
@@ -1364,7 +1400,8 @@ Pratica
 
 {% block extra_js %}
 {{ block.super }}
-<script src="{% static 'securtek/js/desktop-folder.js' %}?v=20260902g"></script>
+<script src="{% static 'securtek/js/desktop-folder.js' %}?v=20260913f"></script>
+<script src="{% static 'securtek/js/client-folder-panels.js' %}?v=20260913d"></script>
 <script src="{% static 'securtek/js/desktop-open.js' %}?v=20260711" defer></script>
 <script>
 /* Handler cartelle: fuori dal blocco principale, così funziona anche se altro JS fallisce. */
@@ -1460,9 +1497,20 @@ Pratica
 
         window.SecurtekDesktopFolder.pickFolder(
             button.dataset.pickerUrl,
-            "Seleziona cartella pratica"
-        ).then(function (selectedPath) {
+            "Seleziona cartella pratica",
+            cartellaInput.value || "/Volumes"
+        ).then(function (result) {
+            var selectedPath = typeof result === "string" ? result : (result && result.path) || "";
+            if (window.SecurtekDesktopFolder.normalizeClientPath) {
+                selectedPath = window.SecurtekDesktopFolder.normalizeClientPath(selectedPath);
+            }
+            var pickedFiles = result && result.files ? result.files : null;
             if (selectedPath) {
+                var row = cartellaInput.closest("tr.js-formset-row");
+                if (row && pickedFiles && pickedFiles.length) {
+                    row._pendingPickFiles = pickedFiles;
+                    row._pendingPickTruncated = !!(result && result.truncated);
+                }
                 cartellaInput.value = selectedPath;
                 cartellaInput.dispatchEvent(new Event("input", { bubbles: true }));
                 cartellaInput.dispatchEvent(new Event("change", { bubbles: true }));
@@ -2299,11 +2347,45 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function showActionToast(message, type) {
+        if (window.SecurtekUI && typeof window.SecurtekUI.showToast === "function") {
+            window.SecurtekUI.showToast(message, type);
+            return;
+        }
         if (window.SecurtekToast && typeof window.SecurtekToast.show === "function") {
             window.SecurtekToast.show(message, type);
             return;
         }
-        window.alert(message);
+        let toast = document.getElementById("st-action-toast");
+        if (!toast) {
+            toast = document.createElement("div");
+            toast.id = "st-action-toast";
+            toast.setAttribute("role", "status");
+            toast.setAttribute("aria-live", "polite");
+            toast.style.cssText = [
+                "position:fixed",
+                "right:1rem",
+                "bottom:1rem",
+                "z-index:1090",
+                "max-width:24rem",
+                "padding:0.75rem 1rem",
+                "border-radius:8px",
+                "box-shadow:0 0.5rem 1.5rem rgba(15,23,42,0.18)",
+                "font-size:0.875rem",
+                "line-height:1.4",
+                "display:none",
+            ].join(";");
+            document.body.appendChild(toast);
+        }
+        const isError = type === "error";
+        toast.textContent = message || "";
+        toast.style.display = "block";
+        toast.style.background = isError ? "#fde8e8" : "#e8f5ec";
+        toast.style.color = isError ? "#9b1c1c" : "#1a5632";
+        toast.style.border = isError ? "1px solid #f8b4b4" : "1px solid #b7e1c1";
+        window.clearTimeout(toast._hideTimeout);
+        toast._hideTimeout = window.setTimeout(function () {
+            toast.style.display = "none";
+        }, isError ? 6000 : 3000);
     }
 
     if (categoryModalElement && categoryForm && categoryNameElement && categoryCancelButton) {
@@ -2362,6 +2444,38 @@ document.addEventListener("DOMContentLoaded", function () {
         categoryModalElement.addEventListener("click", function (event) {
             if (event.target === categoryModalElement) {
                 closeCategoryModal();
+            }
+        });
+    }
+
+    const macroLinkModalElement = document.getElementById("deleteMacroLinkModal");
+    const macroLinkForm = document.getElementById("deleteMacroLinkForm");
+    const macroLinkNameElement = document.getElementById("deleteMacroLinkName");
+    const macroLinkCancelButton = macroLinkModalElement
+        ? macroLinkModalElement.querySelector(".js-delete-macro-link-cancel")
+        : null;
+
+    function closeMacroLinkModal() {
+        if (!macroLinkModalElement || !macroLinkForm) {
+            return;
+        }
+        macroLinkModalElement.hidden = true;
+        macroLinkForm.removeAttribute("action");
+    }
+
+    if (macroLinkModalElement && macroLinkForm && macroLinkNameElement && macroLinkCancelButton) {
+        document.querySelectorAll(".js-delete-macro-link").forEach(function (button) {
+            button.addEventListener("click", function () {
+                macroLinkForm.action = button.dataset.deleteAction;
+                macroLinkNameElement.textContent = button.dataset.deleteName || "Macro-categoria selezionata";
+                macroLinkModalElement.hidden = false;
+            });
+        });
+
+        macroLinkCancelButton.addEventListener("click", closeMacroLinkModal);
+        macroLinkModalElement.addEventListener("click", function (event) {
+            if (event.target === macroLinkModalElement) {
+                closeMacroLinkModal();
             }
         });
     }
@@ -2693,6 +2807,14 @@ document.addEventListener("DOMContentLoaded", function () {
                            title="${nativeOpen ? "Apri con applicazione originale" : "Apri anteprima"}">
                        <i class="ti ${nativeOpen ? nativeOpenIconClass(extension) : "ti-eye"}"></i>
                    </button>`
+                : revealLocalPath
+                ? `<button type="button"
+                           class="btn btn-icon btn-outline-primary btn-sm js-inline-open-file"
+                           data-open-path="${escapeHtml(revealLocalPath)}"
+                           data-native-open="1"
+                           title="Apri file">
+                       <i class="ti ${nativeOpenIconClass(extension)}"></i>
+                   </button>`
                 : `<button type="button"
                            class="btn btn-icon btn-outline-secondary btn-sm"
                            disabled
@@ -2994,6 +3116,31 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
 
+        if (row._pendingPickFiles && row._pendingPickFiles.length) {
+            const pending = row._pendingPickFiles;
+            const pendingTruncated = row._pendingPickTruncated;
+            row._pendingPickFiles = null;
+            row._pendingPickTruncated = false;
+            row._folderPreviewFiles = pending.map(function (file) {
+                return {
+                    ...file,
+                    folder_path: folderPath,
+                    reveal_local_path: file.full_path || "",
+                    nativeOpen: ["DOC", "DOCX", "XLS", "XLSX", "XLSM"].includes(file.extension),
+                    source: "helper_folder"
+                };
+            });
+            renderCombinedRowPreview(row);
+            if (pendingTruncated) {
+                setRowPreviewMessage(
+                    previewRow,
+                    "Mostrati i primi 500 file. La cartella ne contiene di più.",
+                    false
+                );
+            }
+            return;
+        }
+
         try {
             const helper = window.SecurtekDesktopFolder;
             const data = helper && helper.fetchFolderPreview
@@ -3130,11 +3277,41 @@ document.addEventListener("DOMContentLoaded", function () {
     document.addEventListener("click", async function (event) {
         const button = event.target.closest(".js-inline-open-file");
 
-        if (!button || !button.dataset.openUrl) {
+        if (!button || (!button.dataset.openUrl && !button.dataset.openPath)) {
             return;
         }
 
         const previewRow = button.closest(".js-category-preview-row");
+        const localPath = (button.dataset.openPath || "").trim();
+
+        if (localPath && window.SecurtekDesktopFolder && window.SecurtekDesktopFolder.openFile) {
+            try {
+                await window.SecurtekDesktopFolder.openFile(localPath);
+                if (previewRow) {
+                    setRowPreviewMessage(previewRow, "File aperto.", false);
+                } else {
+                    setInlinePreviewMessage("File aperto.", false);
+                }
+            } catch (error) {
+                const msg = (error && error.message) || "Impossibile aprire il file.";
+                if (previewRow) {
+                    setRowPreviewMessage(previewRow, msg);
+                } else {
+                    setInlinePreviewMessage(msg);
+                }
+            }
+            return;
+        }
+
+        if (!button.dataset.openUrl) {
+            const msg = "Impossibile aprire il file.";
+            if (previewRow) {
+                setRowPreviewMessage(previewRow, msg);
+            } else {
+                setInlinePreviewMessage(msg);
+            }
+            return;
+        }
 
         if (button.dataset.nativeOpen === "1") {
             try {

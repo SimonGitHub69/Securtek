@@ -82,6 +82,11 @@ $paths = @(
     "scripts\BuildAggiornamento.command",
     "scripts\build-aggiornamento.bat",
     "scripts\build-aggiornamento.ps1",
+    "scripts\build-macos-client-installer.py",
+    "scripts\build-macos-client-installer.ps1",
+    "scripts\build-macos-client-installer.bat",
+    "scripts\build-macos-client-installer.sh",
+    "scripts\BuildMacosClientInstaller.command",
     # Static
     "static\securtek\css\admin-password-toggle.css",
     "static\securtek\css\multi-window.css",
@@ -92,8 +97,10 @@ $paths = @(
     "static\securtek\js\app.js",
     "static\securtek\js\desktop-folder.js",
     "static\securtek\js\desktop-open.js",
+    "static\securtek\js\client-folder-panels.js",
     "static\securtek\js\disable-autocomplete.js",
     "static\securtek\js\embed.js",
+    "static\securtek\js\logout-on-close.js",
     "static\securtek\js\multi-window.js",
     "static\securtek\js\scroll-hold.js",
     # Templates base
@@ -135,10 +142,10 @@ Questo pacchetto allinea Mac Mini alla versione di sviluppo Windows
 (include pratiche/agenda/anagrafiche, UI maschere, icone azione,
 notifiche mail agenda, desktop helper, scroll, ecc.).
 
-Novita principali v0.2.23:
-- Agenda: date auto nuovo evento, sync data fine, Elimina in modifica evento
-- Anagrafica: cestini solo in modifica (con conferma); personale compatto; note su una riga
-- Fix hover icone cestino; riavvio obbligatorio daemon mail dopo update
+Novita principali v0.2.38:
+- Aggiungi su /Volumes: dopo scrittura i file compaiono subito in tabella
+- Messaggio chiaro se helper assente/vecchio + pulsante Ricarica elenco
+- Fallback: mostra anche file gia' registrati in Securtek se SMB non elenca
 
 ## 1. Mac Mini (SERVER)
 
@@ -181,19 +188,26 @@ Dopo il riavvio Gunicorn, su ciascun utente Django:
 
 Sui client (Windows / iMac) basta riaprire Securtek e Ctrl+F5.
 
-## 3. Mac client (iMac) — solo se serve anche l'helper cartelle
+## 3. Mac client (iMac) — installer autoinstallante
 
-1. Copia deploy/macos-client/ sul Mac client.
-2. Terminale:
+Zip dedicato (consigliato): dist/Securtek-client-mac-v$version.zip
+File unico: dist/InstallaSecurtek-v$version.command
 
-   cd ~/Downloads/macos-client
-   bash install-client.sh
-
+1. Copia lo zip sul Mac client, estrai, doppio clic su "Installa Securtek".
+   Se macOS blocca: tasto destro → Apri → Apri.
+2. Inserisci l'URL del Mini (es. http://192.168.2.76:8000).
 3. Verifica helper:
 
    curl http://127.0.0.1:18765/health
 
 4. Ricarica Securtek con Ctrl+F5.
+
+Alternativa cartella: copia deploy/macos-client/ e lancia
+bash InstallClient.command
+
+Per rigenerare lo zip da Windows:
+
+   scripts\\build-macos-client-installer.bat
 
 ## Note
 
@@ -234,3 +248,7 @@ $fileCount = (Get-ChildItem $dest -Recurse -File | Measure-Object).Count
 Write-Host "File:      $fileCount"
 $zipSize = (Get-Item $zipPath).Length
 Write-Host ("Size:      {0:N0} bytes" -f $zipSize)
+
+Write-Host ""
+Write-Host "Installer client Mac..."
+& (Join-Path $PSScriptRoot "build-macos-client-installer.ps1")

@@ -1,3 +1,4 @@
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import TemplateView
 from django.conf import settings
 from django.db import connection
@@ -258,7 +259,7 @@ def count_agenda_items():
     return eventi_agenda + scadenze_pratiche
 
 
-class DashboardView(TemplateView):
+class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = "dashboard/index.html"
 
     def get_context_data(self, **kwargs):
@@ -279,7 +280,7 @@ class DashboardView(TemplateView):
         return context
 
 
-class DocumentiView(TemplateView):
+class DocumentiView(LoginRequiredMixin, TemplateView):
     template_name = "dashboard/documenti.html"
 
     def get_context_data(self, **kwargs):
@@ -348,7 +349,7 @@ class DocumentiView(TemplateView):
         return context
 
 
-class SistemaView(TemplateView):
+class SistemaView(LoginRequiredMixin, TemplateView):
     template_name = "dashboard/sistema.html"
 
     def get_context_data(self, **kwargs):

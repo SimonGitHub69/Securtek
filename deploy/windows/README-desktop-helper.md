@@ -34,8 +34,8 @@ Poi in Securtek → Modifica pratica → Categorie:
 
 ## macOS client (altro Mac in rete, non il Mini)
 
-Copia `deploy/macos-client/` sul Mac e fai doppio clic su **InstallClient.command**.
-Vedi `deploy/macos-client/README.md`.
+Copia `dist/Securtek-client-mac-v*.zip` sul Mac, estrai e fai doppio clic su
+**Installa Securtek**. Vedi `deploy/macos-client/README.md`.
 
 Avvio manuale (debug):
 

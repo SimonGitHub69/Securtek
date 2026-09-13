@@ -200,13 +200,16 @@
                     <form method="post"
                           action="{% url 'pratiche:pratica_categoria_file_upload' pratica.pk pratica_categoria.pk %}"
                           enctype="multipart/form-data"
-                          class="row g-2 align-items-end mb-3">
+                          id="folder-upload-form"
+                          class="row g-2 align-items-end mb-3 js-folder-upload-form"
+                          data-client-path="{% if pratica_categoria.cartella %}{{ pratica_categoria.cartella }}{% endif %}">
                         {% csrf_token %}
                         {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
                         <div class="col-lg-4">
                             <label class="form-label small mb-1">Aggiungi nella cartella collegata</label>
                             <input type="file"
                                    name="file"
+                                   id="folder-upload-input"
                                    class="form-control form-control-sm"
                                    multiple
                                    accept=".doc,.docx,.htm,.html,.jpeg,.jpg,.pdf,.png,.txt,.xls,.xlsm,.xlsx"
@@ -220,7 +223,7 @@
                                    placeholder="Descrizione del file">
                         </div>
                         <div class="col-lg-3">
-                            <button type="submit" class="btn btn-sm btn-primary w-100">
+                            <button type="submit" class="btn btn-sm btn-primary w-100" id="folder-upload-submit">
                                 <i class="ti ti-upload"></i>
                                 Aggiungi
                             </button>
@@ -264,10 +267,15 @@
                                 </button>
                                 <form method="post"
                                       action="{% url 'pratiche:pratica_categoria_allegato_pick' pratica.pk pratica_categoria.pk %}"
-                                      class="flex-fill">
+                                      class="flex-fill"
+                                      id="allegato-pick-form">
                                     {% csrf_token %}
                                     {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
-                                    <button type="submit" class="btn btn-sm btn-outline-primary w-100" title="Seleziona dal disco con il selettore desktop">
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-primary w-100 js-pick-allegato-disk"
+                                            data-upload-url="{% url 'pratiche:pratica_categoria_allegato_upload' pratica.pk pratica_categoria.pk %}"
+                                            data-descrizione-input="allegato-descrizione"
+                                            title="Seleziona dal disco con il selettore desktop">
                                         <i class="ti ti-file-plus"></i>
                                         Da disco
                                     </button>
@@ -344,7 +352,7 @@
                 {% endif %}
 
                 {% if pratica_categoria.file_entries %}
-                    <div class="table-responsive mt-2">
+                    <div class="table-responsive mt-2" id="serverFolderFiles">
                         <table class="table table-vcenter table-sm mb-0">
                             <thead>
                                 <tr>
@@ -421,9 +429,34 @@
                             </tbody>
                         </table>
                     </div>
-                {% elif pratica_categoria.cartella_is_folder %}
-                    <div class="text-secondary small mt-2">Nessun file nella cartella.</div>
                 {% endif %}
+
+                <div class="table-responsive mt-2" id="clientFolderFiles" hidden>
+                    <table class="table table-vcenter table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>Nome file</th>
+                                <th>Descrizione</th>
+                                <th>Creato il</th>
+                                <th>Modificato il</th>
+                                <th>Tipo</th>
+                                <th>Dimensione</th>
+                                <th class="text-end">Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody id="clientFolderFileRows"></tbody>
+                    </table>
+                </div>
+
+                <div class="text-secondary small mt-2"
+                     id="folderEmptyMessage"
+                     {% if pratica_categoria.file_entries %}hidden{% elif not pratica_categoria.cartella_is_folder %}hidden{% endif %}>
+                    Nessun file nella cartella.
+                    <button type="button" class="btn btn-link btn-sm p-0 align-baseline ms-1" id="reloadClientFolderBtn">
+                        Ricarica elenco
+                    </button>
+                </div>
+                <div class="alert alert-warning mt-2" id="folderHelperStatus" hidden></div>
         </div>
     {% endif %}
 
@@ -469,14 +502,17 @@
         </form>
     </div>
 </div>
+{% if client_folder_actions %}
+{{ client_folder_actions|json_script:"client-folder-actions" }}
+{% endif %}
 {% endif %}
 
 {% endblock %}
 
 {% block extra_js %}
 {{ block.super }}
-<script src="{% static 'securtek/js/desktop-folder.js' %}?v=20260902g"></script>
-<script src="{% static 'securtek/js/desktop-open.js' %}?v=20260711" defer></script>
+<script src="{% static 'securtek/js/desktop-folder.js' %}?v=20260913g"></script>
+<script src="{% static 'securtek/js/desktop-open.js' %}?v=20260913c"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     const cartellaInput = document.getElementById("id_cartella");
@@ -492,12 +528,63 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function showActionToast(msg, type) {
+        if (window.SecurtekUI && typeof window.SecurtekUI.showToast === "function") {
+            window.SecurtekUI.showToast(msg, type);
+            return;
+        }
         if (window.SecurtekToast && typeof window.SecurtekToast.show === "function") {
             window.SecurtekToast.show(msg, type);
             return;
         }
-        window.alert(msg);
+        // Fallback toast in-page (mai alert nativo del browser)
+        let toast = document.getElementById("st-action-toast");
+        if (!toast) {
+            toast = document.createElement("div");
+            toast.id = "st-action-toast";
+            toast.setAttribute("role", "status");
+            toast.setAttribute("aria-live", "polite");
+            toast.style.cssText = [
+                "position:fixed",
+                "right:1rem",
+                "bottom:1rem",
+                "z-index:1090",
+                "max-width:24rem",
+                "padding:0.75rem 1rem",
+                "border-radius:8px",
+                "box-shadow:0 0.5rem 1.5rem rgba(15,23,42,0.18)",
+                "font-size:0.875rem",
+                "line-height:1.4",
+                "display:none",
+            ].join(";");
+            document.body.appendChild(toast);
+        }
+        const isError = type === "error";
+        toast.textContent = msg || "";
+        toast.style.display = "block";
+        toast.style.background = isError ? "#fde8e8" : "#e8f5ec";
+        toast.style.color = isError ? "#9b1c1c" : "#1a5632";
+        toast.style.border = isError ? "1px solid #f8b4b4" : "1px solid #b7e1c1";
+        window.clearTimeout(toast._hideTimeout);
+        toast._hideTimeout = window.setTimeout(function () {
+            toast.style.display = "none";
+        }, isError ? 6000 : 3000);
     }
+
+    function readClientFolderActions() {
+        const node = document.getElementById("client-folder-actions");
+        if (!node) {
+            return { unlink_url: "", description_url: "", scollegati: [], descriptions: {} };
+        }
+        try {
+            return JSON.parse(node.textContent || "{}");
+        } catch (error) {
+            return { unlink_url: "", description_url: "", scollegati: [], descriptions: {} };
+        }
+    }
+
+    const clientFolderActions = readClientFolderActions();
+    const scollegatiSet = new Set(clientFolderActions.scollegati || []);
+    const descriptionsMap = clientFolderActions.descriptions || {};
 
     const fileModalElement = document.getElementById("deleteFileModal");
     const fileForm = document.getElementById("deleteFileForm");
@@ -526,25 +613,34 @@ document.addEventListener("DOMContentLoaded", function () {
         pendingUnlinkFileButton = null;
     }
 
+    function openUnlinkModal(button) {
+        if (!fileModalElement || !fileForm || !fileNameElement || !fileInput) {
+            return;
+        }
+        const fileName = button.dataset.deleteFile || "File selezionato";
+        fileForm.action = button.dataset.deleteAction || "";
+        fileInput.value = fileName;
+        fileNameElement.textContent = fileName;
+        pendingUnlinkFileButton = button;
+        if (fileTitleElement) {
+            fileTitleElement.textContent = "Scollegare questo file?";
+        }
+        if (fileTextElement) {
+            fileTextElement.textContent = fileName + " non sarà più visibile nella pratica, ma resterà nella cartella.";
+        }
+        if (fileSubmitTextElement) {
+            fileSubmitTextElement.textContent = "Scollega";
+        }
+        fileModalElement.hidden = false;
+    }
+
     if (fileModalElement && fileForm && fileNameElement && fileInput && fileCancelButton) {
-        document.querySelectorAll(".js-delete-file").forEach(function (button) {
-            button.addEventListener("click", function () {
-                const fileName = button.dataset.deleteFile || "File selezionato";
-                fileForm.action = button.dataset.deleteAction;
-                fileInput.value = fileName;
-                fileNameElement.textContent = fileName;
-                pendingUnlinkFileButton = button;
-                if (fileTitleElement) {
-                    fileTitleElement.textContent = "Scollegare questo file?";
-                }
-                if (fileTextElement) {
-                    fileTextElement.textContent = fileName + " non sarà più visibile nella pratica, ma resterà nella cartella.";
-                }
-                if (fileSubmitTextElement) {
-                    fileSubmitTextElement.textContent = "Scollega";
-                }
-                fileModalElement.hidden = false;
-            });
+        document.addEventListener("click", function (event) {
+            const button = event.target.closest(".js-delete-file");
+            if (!button) {
+                return;
+            }
+            openUnlinkModal(button);
         });
 
         fileForm.addEventListener("submit", function (event) {
@@ -578,8 +674,22 @@ document.addEventListener("DOMContentLoaded", function () {
                 })
                 .then(function (data) {
                     const row = unlinkButton ? unlinkButton.closest("tr") : null;
+                    const fileName = unlinkButton ? (unlinkButton.dataset.deleteFile || "") : "";
+                    if (fileName) {
+                        scollegatiSet.add(fileName);
+                    }
                     if (row) {
                         row.remove();
+                    }
+                    const rows = document.getElementById("clientFolderFileRows");
+                    const wrap = document.getElementById("clientFolderFiles");
+                    const emptyMsg = document.getElementById("folderEmptyMessage");
+                    const serverWrap = document.getElementById("serverFolderFiles");
+                    if (rows && wrap && !rows.children.length) {
+                        wrap.hidden = true;
+                        if (emptyMsg) {
+                            emptyMsg.hidden = Boolean(serverWrap);
+                        }
                     }
                     closeFileModal(true);
                     showActionToast(data.message || "File scollegato dalla pratica.", "success");
@@ -657,6 +767,11 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     const hasFolderPreview = Boolean(preview && previewRows);
+    const clientFilesWrap = document.getElementById("clientFolderFiles");
+    const clientFilesRows = document.getElementById("clientFolderFileRows");
+    const folderEmptyMessage = document.getElementById("folderEmptyMessage");
+    const serverFilesWrap = document.getElementById("serverFolderFiles");
+    const hasServerFiles = Boolean(serverFilesWrap);
 
     function nativeOpenIconClass(extension) {
         const ext = (extension || "").toLowerCase();
@@ -669,11 +784,197 @@ document.addEventListener("DOMContentLoaded", function () {
         return "ti-launch";
     }
 
+    function isOfficeExtension(extension) {
+        const ext = (extension || "").toLowerCase();
+        return ["doc", "docx", "xls", "xlsx", "xlsm"].indexOf(ext) >= 0;
+    }
+
     function setMessage(text, isWarning = true) {
         message.textContent = text;
         message.hidden = !text;
         message.classList.toggle("alert-warning", isWarning);
         message.classList.toggle("alert-info", !isWarning);
+    }
+
+    function bindDescriptionForm(form) {
+        const input = form.querySelector(".js-file-description-input");
+        if (!input) {
+            return;
+        }
+        async function saveIfChanged() {
+            const currentValue = input.value.trim();
+            const originalValue = (input.dataset.originalValue || "").trim();
+            if (currentValue === originalValue || form._saving) {
+                return;
+            }
+            form._saving = true;
+            form.classList.remove("is-saved", "is-error");
+            try {
+                const formData = new FormData(form);
+                formData.set("descrizione", input.value);
+                const response = await fetch(form.action, {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": getCsrfToken(),
+                        "X-Requested-With": "XMLHttpRequest",
+                        "Accept": "application/json",
+                    },
+                    body: formData,
+                });
+                const data = await response.json().catch(function () { return {}; });
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || "Impossibile salvare la descrizione.");
+                }
+                const savedValue = typeof data.descrizione === "string" ? data.descrizione : currentValue;
+                input.value = savedValue;
+                input.dataset.originalValue = savedValue;
+                descriptionsMap[formData.get("file")] = savedValue;
+                form.classList.add("is-saved");
+            } catch (error) {
+                form.classList.add("is-error");
+            } finally {
+                form._saving = false;
+            }
+        }
+        input.addEventListener("blur", saveIfChanged);
+        input.addEventListener("keydown", function (event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                saveIfChanged();
+            }
+        });
+    }
+
+    function renderClientFolderFiles(files) {
+        if (!clientFilesRows || !clientFilesWrap) {
+            return;
+        }
+
+        const helper = window.SecurtekDesktopFolder;
+        const visibleFiles = (files || []).filter(function (file) {
+            return !scollegatiSet.has(file.name || "");
+        });
+
+        clientFilesRows.innerHTML = "";
+        visibleFiles.forEach(function (file) {
+            const row = document.createElement("tr");
+            const nameCell = document.createElement("td");
+            const descriptionCell = document.createElement("td");
+            const createdCell = document.createElement("td");
+            const modifiedCell = document.createElement("td");
+            const typeCell = document.createElement("td");
+            const sizeCell = document.createElement("td");
+            const actionsCell = document.createElement("td");
+            const badge = document.createElement("span");
+            const fileName = file.name || "";
+            const extension = file.extension || "-";
+            const fullPath = file.full_path || "";
+
+            nameCell.textContent = fileName || "-";
+            createdCell.textContent = file.created_at || "-";
+            modifiedCell.textContent = file.modified_at || "-";
+            badge.className = "badge bg-secondary-lt";
+            badge.textContent = extension;
+            typeCell.appendChild(badge);
+            sizeCell.textContent = `${file.size_kb || 0} KB`;
+            actionsCell.className = "text-end st-file-actions";
+
+            if (clientFolderActions.description_url && fileName) {
+                const form = document.createElement("form");
+                form.method = "post";
+                form.action = clientFolderActions.description_url;
+                form.className = "st-file-description-form";
+                form.setAttribute("data-unsaved-guard", "false");
+                const csrf = document.createElement("input");
+                csrf.type = "hidden";
+                csrf.name = "csrfmiddlewaretoken";
+                csrf.value = getCsrfToken();
+                const fileHidden = document.createElement("input");
+                fileHidden.type = "hidden";
+                fileHidden.name = "file";
+                fileHidden.value = fileName;
+                const descInput = document.createElement("input");
+                descInput.type = "text";
+                descInput.name = "descrizione";
+                descInput.className = "form-control form-control-sm js-file-description-input";
+                descInput.placeholder = "Aggiungi descrizione";
+                const existingDescription = descriptionsMap[fileName] || file.description || "";
+                descInput.value = existingDescription;
+                descInput.dataset.originalValue = existingDescription;
+                form.appendChild(csrf);
+                form.appendChild(fileHidden);
+                form.appendChild(descInput);
+                descriptionCell.appendChild(form);
+                bindDescriptionForm(form);
+            } else {
+                descriptionCell.textContent = descriptionsMap[fileName] || file.description || "-";
+            }
+
+            if (fullPath && helper && helper.openFile) {
+                const openButton = document.createElement("button");
+                openButton.type = "button";
+                openButton.className = "btn btn-icon btn-outline-primary js-client-open-file";
+                const office = isOfficeExtension(extension);
+                openButton.title = office ? "Apri con applicazione originale" : "Apri file";
+                openButton.innerHTML = `<i class="ti ${office ? nativeOpenIconClass(extension) : "ti-eye"}"></i>`;
+                openButton.addEventListener("click", function () {
+                    helper.openFile(fullPath).then(function () {
+                        setMessage(office ? "File aperto con l'applicazione originale." : "File aperto.", false);
+                    }).catch(function (error) {
+                        setMessage((error && error.message) || "Impossibile aprire il file.");
+                    });
+                });
+                actionsCell.appendChild(openButton);
+            }
+
+            if (clientFolderActions.unlink_url && fileName) {
+                const unlinkButton = document.createElement("button");
+                unlinkButton.type = "button";
+                unlinkButton.className = "btn btn-icon btn-outline-secondary js-delete-file";
+                unlinkButton.title = "Scollega file dalla pratica";
+                unlinkButton.dataset.deleteAction = clientFolderActions.unlink_url;
+                unlinkButton.dataset.deleteFile = fileName;
+                unlinkButton.dataset.deleteMode = "unlink";
+                unlinkButton.innerHTML = '<i class="ti ti-unlink"></i>';
+                actionsCell.appendChild(unlinkButton);
+            }
+
+            if (fullPath && helper && helper.revealFile) {
+                const revealButton = document.createElement("button");
+                revealButton.type = "button";
+                revealButton.className = "btn btn-icon btn-outline-secondary js-client-reveal-file";
+                revealButton.title = "Apri cartella di origine";
+                revealButton.innerHTML = '<i class="ti ti-folder-open"></i>';
+                revealButton.addEventListener("click", function () {
+                    helper.revealFile(fullPath).catch(function (error) {
+                        setMessage((error && error.message) || "Impossibile mostrare il file.");
+                    });
+                });
+                actionsCell.appendChild(revealButton);
+            }
+
+            if (!actionsCell.children.length) {
+                actionsCell.textContent = "-";
+            }
+
+            row.appendChild(nameCell);
+            row.appendChild(descriptionCell);
+            row.appendChild(createdCell);
+            row.appendChild(modifiedCell);
+            row.appendChild(typeCell);
+            row.appendChild(sizeCell);
+            row.appendChild(actionsCell);
+            clientFilesRows.appendChild(row);
+        });
+
+        const hasClientFiles = visibleFiles.length > 0;
+        clientFilesWrap.hidden = !hasClientFiles;
+        if (hasClientFiles && serverFilesWrap) {
+            serverFilesWrap.hidden = true;
+        }
+        if (folderEmptyMessage) {
+            folderEmptyMessage.hidden = hasClientFiles || hasServerFiles;
+        }
     }
 
     function renderFiles(files) {
@@ -691,8 +992,10 @@ document.addEventListener("DOMContentLoaded", function () {
             const typeCell = document.createElement("td");
             const sizeCell = document.createElement("td");
             const actionsCell = document.createElement("td");
-            const fileOpenButton = document.createElement("button");
             const badge = document.createElement("span");
+            const helper = window.SecurtekDesktopFolder;
+            const fullPath = file.full_path || "";
+            const extension = file.extension || "";
 
             nameCell.textContent = file.name;
             createdCell.textContent = file.created_at;
@@ -701,9 +1004,25 @@ document.addEventListener("DOMContentLoaded", function () {
             badge.textContent = file.extension;
             typeCell.appendChild(badge);
             sizeCell.textContent = `${file.size_kb} KB`;
-            actionsCell.className = "text-end";
+            actionsCell.className = "text-end st-file-actions";
 
-            if (file.preview_open_url) {
+            if (fullPath && helper && helper.openFile) {
+                const openButton = document.createElement("button");
+                openButton.type = "button";
+                openButton.className = "btn btn-icon btn-outline-primary btn-sm";
+                const office = isOfficeExtension(extension);
+                openButton.title = office ? "Apri con applicazione originale" : "Apri file";
+                openButton.innerHTML = `<i class="ti ${office ? nativeOpenIconClass(extension) : "ti-eye"}"></i>`;
+                openButton.addEventListener("click", function () {
+                    helper.openFile(fullPath).then(function () {
+                        setMessage(office ? "File aperto con l'applicazione originale." : "File aperto.", false);
+                    }).catch(function (error) {
+                        setMessage((error && error.message) || "Impossibile aprire il file.");
+                    });
+                });
+                actionsCell.appendChild(openButton);
+            } else if (file.preview_open_url) {
+                const fileOpenButton = document.createElement("button");
                 const nativeOpen = ["DOC", "DOCX", "XLS", "XLSX", "XLSM"].includes(file.extension);
                 fileOpenButton.type = "button";
                 fileOpenButton.className = "btn btn-icon btn-outline-primary btn-sm";
@@ -712,7 +1031,23 @@ document.addEventListener("DOMContentLoaded", function () {
                 fileOpenButton.dataset.nativeOpen = nativeOpen ? "1" : "0";
                 fileOpenButton.innerHTML = `<i class="ti ${nativeOpen ? nativeOpenIconClass(file.extension) : "ti-eye"}"></i>`;
                 actionsCell.appendChild(fileOpenButton);
-            } else {
+            }
+
+            if (fullPath && helper && helper.revealFile) {
+                const revealButton = document.createElement("button");
+                revealButton.type = "button";
+                revealButton.className = "btn btn-icon btn-outline-secondary btn-sm";
+                revealButton.title = "Apri cartella di origine";
+                revealButton.innerHTML = '<i class="ti ti-folder-open"></i>';
+                revealButton.addEventListener("click", function () {
+                    helper.revealFile(fullPath).catch(function (error) {
+                        setMessage((error && error.message) || "Impossibile mostrare il file.");
+                    });
+                });
+                actionsCell.appendChild(revealButton);
+            }
+
+            if (!actionsCell.children.length) {
                 actionsCell.textContent = "-";
             }
 
@@ -759,8 +1094,86 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
+    function joinFolderFile(folder, name) {
+        const base = (folder || "").replace(/[\\/]+$/, "");
+        const sep = base.indexOf("\\") >= 0 ? "\\" : "/";
+        return base + sep + (name || "");
+    }
+
+    function filesFromRegistered(folder) {
+        const registered = clientFolderActions.registered || [];
+        return registered.map(function (item) {
+            const name = item.name || "";
+            return {
+                name: name,
+                description: item.description || descriptionsMap[name] || "",
+                extension: (name.split(".").pop() || "-").toUpperCase(),
+                size_kb: 0,
+                created_at: "-",
+                modified_at: "-",
+                full_path: joinFolderFile(folder, name),
+            };
+        });
+    }
+
+    function mergeFolderFiles(listed, folder) {
+        const byName = {};
+        (listed || []).forEach(function (file) {
+            byName[file.name] = file;
+        });
+        filesFromRegistered(folder).forEach(function (file) {
+            if (!byName[file.name]) {
+                byName[file.name] = file;
+            } else if (!byName[file.name].description && file.description) {
+                byName[file.name].description = file.description;
+            }
+        });
+        return Object.keys(byName).sort().map(function (key) {
+            return byName[key];
+        });
+    }
+
+    async function ensureHelperReady() {
+        const helper = window.SecurtekDesktopFolder;
+        const statusEl = document.getElementById("folderHelperStatus");
+        if (!helper || !helper.helperHealth) {
+            if (statusEl) {
+                statusEl.hidden = false;
+                statusEl.textContent = "Script helper non caricato. Ricarica la pagina con Cmd+Shift+R.";
+            }
+            return null;
+        }
+        const health = await helper.helperHealth();
+        if (!health) {
+            if (statusEl) {
+                statusEl.hidden = false;
+                statusEl.textContent =
+                    "Helper cartelle non attivo su questo Mac. Installa/riavvia Securtek-client-mac (health su 127.0.0.1:18765) poi ricarica.";
+            }
+            return null;
+        }
+        if (Number(health.version || 0) < 12) {
+            if (statusEl) {
+                statusEl.hidden = false;
+                statusEl.textContent =
+                    "Helper troppo vecchio (v" + health.version + "). Installa Securtek-client-mac-v0.2.37+ e verifica version >= 13.";
+            }
+            return null;
+        }
+        if (statusEl) {
+            statusEl.hidden = true;
+            statusEl.textContent = "";
+        }
+        return helper;
+    }
+
     async function refreshPreview() {
-        const value = cartellaInput.value.trim();
+        const value = (window.SecurtekDesktopFolder && window.SecurtekDesktopFolder.normalizeClientPath)
+            ? window.SecurtekDesktopFolder.normalizeClientPath(cartellaInput.value.trim())
+            : cartellaInput.value.trim();
+        if (value && value !== cartellaInput.value.trim()) {
+            cartellaInput.value = value;
+        }
         setMessage("");
 
         if (hasFolderPreview) {
@@ -769,42 +1182,61 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         if (!value) {
-            return;
-        }
-
-        if (!hasFolderPreview) {
+            renderClientFolderFiles([]);
+            if (folderEmptyMessage) {
+                folderEmptyMessage.hidden = true;
+            }
             return;
         }
 
         try {
-            const helper = window.SecurtekDesktopFolder;
-            const data = helper && helper.fetchFolderPreview
-                ? await helper.fetchFolderPreview(chooseButton.dataset.previewUrl, value)
-                : await fetch(`${chooseButton.dataset.previewUrl}?path=${encodeURIComponent(value)}`, {
-                    headers: {"X-Requested-With": "XMLHttpRequest"},
-                }).then(function (response) {
-                    return response.json();
-                });
+            const helper = await ensureHelperReady();
+            if (!helper || !helper.fetchFolderPreview || !chooseButton.dataset.previewUrl) {
+                const fallback = mergeFolderFiles([], value);
+                renderClientFolderFiles(fallback);
+                if (!fallback.length) {
+                    setMessage("Helper non disponibile: non posso leggere /Volumes da questo browser.");
+                }
+                return;
+            }
+
+            const data = await helper.fetchFolderPreview(chooseButton.dataset.previewUrl, value);
 
             if (data.error) {
                 setMessage(data.error || "Impossibile leggere la cartella.");
+                renderClientFolderFiles(mergeFolderFiles([], value));
                 return;
             }
 
             if (data.is_link) {
                 setMessage("Il valore inserito è un link: sarà apribile dalla scheda pratica.", false);
+                renderClientFolderFiles([]);
                 return;
             }
 
-            renderFiles(data.files || []);
+            const files = mergeFolderFiles(data.files || [], value);
+            renderFiles(files);
+            renderClientFolderFiles(files);
 
-            if (!data.files || data.files.length === 0) {
-                setMessage("Nessun file trovato nella cartella.", false);
+            if (files.length === 0) {
+                if (folderEmptyMessage) {
+                    folderEmptyMessage.hidden = hasServerFiles;
+                }
+                if (!hasServerFiles) {
+                    setMessage(
+                        "Nessun file letto in questa cartella. Se e' /Volumes: apri tmp1 in Finder, verifica helper v13+, poi Aggiungi un file o Ricarica elenco.",
+                        true
+                    );
+                }
             } else if (data.truncated) {
                 setMessage("Mostrati i primi 500 file. La cartella ne contiene di più.", false);
+            } else if (!(data.files || []).length && files.length) {
+                setMessage("Elenco da file gia' registrati in Securtek (la condivisione non e' stata letta).", false);
             }
         } catch (error) {
-            setMessage((error && error.message) || "Impossibile leggere l'anteprima della cartella.");
+            const fallback = mergeFolderFiles([], value);
+            renderClientFolderFiles(fallback);
+            setMessage((error && error.message) || "Impossibile leggere la cartella.");
         }
     }
 
@@ -818,10 +1250,27 @@ document.addEventListener("DOMContentLoaded", function () {
 
         window.SecurtekDesktopFolder.pickFolder(
             chooseButton.dataset.pickerUrl,
-            "Seleziona cartella pratica"
-        ).then(function (selectedPath) {
+            "Seleziona cartella pratica",
+            cartellaInput.value || "/Volumes"
+        ).then(function (result) {
+            var selectedPath = typeof result === "string" ? result : (result && result.path) || "";
+            if (window.SecurtekDesktopFolder.normalizeClientPath) {
+                selectedPath = window.SecurtekDesktopFolder.normalizeClientPath(selectedPath);
+            }
+            var pickedFiles = result && result.files ? result.files : null;
             if (selectedPath) {
                 cartellaInput.value = selectedPath;
+                const merged = mergeFolderFiles(pickedFiles || [], selectedPath);
+                if (merged.length) {
+                    renderFiles(merged);
+                    renderClientFolderFiles(merged);
+                    setMessage(result.truncated ? "Mostrati i primi 500 file. La cartella ne contiene di più." : "", false);
+                    var filesSection = document.getElementById("clientFolderFiles") || document.getElementById("folderPreview");
+                    if (filesSection && filesSection.scrollIntoView) {
+                        filesSection.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                    }
+                    return;
+                }
                 return refreshPreview();
             }
             setMessage("");
@@ -855,7 +1304,190 @@ document.addEventListener("DOMContentLoaded", function () {
 
     cartellaInput.addEventListener("change", refreshPreview);
     cartellaInput.addEventListener("blur", refreshPreview);
+    const reloadBtn = document.getElementById("reloadClientFolderBtn");
+    if (reloadBtn) {
+        reloadBtn.addEventListener("click", function () {
+            refreshPreview();
+        });
+    }
     refreshPreview();
+
+    function looksLikeLocalPath(value) {
+        const text = (value || "").trim();
+        if (!text) {
+            return false;
+        }
+        if (/^[A-Za-z]:[\\/]/.test(text) || text.indexOf("\\\\") === 0) {
+            return true;
+        }
+        return text.indexOf("/") === 0 || text.indexOf("~/") === 0;
+    }
+
+    function buildLocalFileEntries(folder, fileList, description) {
+        return Array.from(fileList || []).map(function (file) {
+            const name = file.name || "";
+            return {
+                name: name,
+                description: description || "",
+                extension: (name.split(".").pop() || "-").toUpperCase(),
+                size_kb: Math.max(1, Math.round((file.size || 0) / 1024)),
+                created_at: "-",
+                modified_at: "-",
+                full_path: joinFolderFile(folder, name),
+            };
+        });
+    }
+
+    const folderUploadForm = document.getElementById("folder-upload-form");
+    if (folderUploadForm) {
+        folderUploadForm.addEventListener("submit", async function (event) {
+            const folderPathRaw = (cartellaInput.value || folderUploadForm.dataset.clientPath || "").trim();
+            const folderPath = (window.SecurtekDesktopFolder && window.SecurtekDesktopFolder.normalizeClientPath)
+                ? window.SecurtekDesktopFolder.normalizeClientPath(folderPathRaw)
+                : folderPathRaw;
+            if (!looksLikeLocalPath(folderPath)) {
+                return;
+            }
+            event.preventDefault();
+            event.stopPropagation();
+
+            const helper = await ensureHelperReady();
+            const fileInput = document.getElementById("folder-upload-input");
+            const submitBtn = document.getElementById("folder-upload-submit");
+            const files = Array.from((fileInput && fileInput.files) || []);
+            const description = (folderUploadForm.querySelector('[name="descrizione"]') || {}).value || "";
+
+            if (!files.length) {
+                showActionToast("Seleziona almeno un file (es. prova.pdf), poi premi Aggiungi.", "error");
+                return;
+            }
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+            }
+
+            try {
+                const writtenNames = [];
+                const writtenEntries = [];
+
+                if (helper && helper.writeFile && helper.fileToBase64) {
+                    for (let i = 0; i < files.length; i++) {
+                        const file = files[i];
+                        const contentB64 = await helper.fileToBase64(file);
+                        await helper.writeFile(folderPath, file.name, contentB64);
+                        writtenNames.push(file.name);
+                        writtenEntries.push(buildLocalFileEntries(folderPath, [file], description)[0]);
+                        if (!scollegatiSet.has(file.name)) {
+                            descriptionsMap[file.name] = description;
+                        }
+                        clientFolderActions.registered = (clientFolderActions.registered || []).concat([
+                            { name: file.name, description: description },
+                        ]);
+                    }
+                } else {
+                    throw new Error("Helper non disponibile: aggiorna InstallClient sul Mac (serve version >= 12).");
+                }
+
+                const formData = new FormData();
+                formData.append("csrfmiddlewaretoken", getCsrfToken());
+                formData.append("client_written", "1");
+                formData.append("descrizione", description);
+                const nextInput = folderUploadForm.querySelector('[name="next"]');
+                if (nextInput) {
+                    formData.append("next", nextInput.value);
+                }
+                writtenNames.forEach(function (name) {
+                    formData.append("file_name", name);
+                });
+                const response = await fetch(folderUploadForm.action, {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": getCsrfToken(),
+                        "X-Requested-With": "XMLHttpRequest",
+                        "Accept": "application/json",
+                    },
+                    body: formData,
+                    credentials: "same-origin",
+                });
+                const data = await response.json().catch(function () { return {}; });
+                if (!response.ok || data.success === false) {
+                    throw new Error(data.error || "File scritti sul Mac ma non registrati in Securtek.");
+                }
+
+                showActionToast(data.message || "File aggiunti nella cartella.", "success");
+                if (fileInput) {
+                    fileInput.value = "";
+                }
+                // Mostra subito i file appena aggiunti, anche se list-folder SMB resta vuoto.
+                renderClientFolderFiles(mergeFolderFiles(writtenEntries, folderPath));
+                setMessage("", false);
+                try {
+                    await refreshPreview();
+                } catch (ignore) {
+                    // ignore
+                }
+            } catch (error) {
+                showActionToast((error && error.message) || "Impossibile aggiungere i file nella cartella.", "error");
+                setMessage((error && error.message) || "Impossibile aggiungere i file nella cartella.");
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                }
+            }
+        });
+    }
+
+    document.querySelectorAll(".js-pick-allegato-disk").forEach(function (button) {
+        button.addEventListener("click", async function () {
+            const helper = await ensureHelperReady();
+            if (!helper || !helper.pickFile || !helper.readFile || !helper.base64ToBlob) {
+                showActionToast("Helper non disponibile: aggiorna InstallClient sul Mac.", "error");
+                return;
+            }
+            button.disabled = true;
+            try {
+                const picked = await helper.pickFile(
+                    "Seleziona file da collegare",
+                    (cartellaInput && cartellaInput.value) || "/Volumes"
+                );
+                if (!picked || picked.cancelled || !picked.path) {
+                    return;
+                }
+                const read = await helper.readFile(picked.path);
+                const blob = helper.base64ToBlob(read.content_b64);
+                const formData = new FormData();
+                formData.append("csrfmiddlewaretoken", getCsrfToken());
+                formData.append("file", blob, read.name || picked.name || "file");
+                const descId = button.dataset.descrizioneInput;
+                const descInput = descId ? document.getElementById(descId) : null;
+                formData.append("descrizione", descInput ? descInput.value : "");
+                const nextInput = document.querySelector('#allegato-pick-form [name="next"], #allegato-upload-form [name="next"]');
+                if (nextInput) {
+                    formData.append("next", nextInput.value);
+                }
+                const response = await fetch(button.dataset.uploadUrl, {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": getCsrfToken(),
+                        "X-Requested-With": "XMLHttpRequest",
+                        "Accept": "application/json",
+                    },
+                    body: formData,
+                    credentials: "same-origin",
+                });
+                if (!response.ok) {
+                    const data = await response.json().catch(function () { return {}; });
+                    throw new Error(data.error || "Impossibile collegare il file.");
+                }
+                showActionToast("File singolo collegato correttamente.", "success");
+                window.location.reload();
+            } catch (error) {
+                showActionToast((error && error.message) || "Impossibile selezionare il file.", "error");
+            } finally {
+                button.disabled = false;
+            }
+        });
+    });
 });
 </script>
 {% endblock %}

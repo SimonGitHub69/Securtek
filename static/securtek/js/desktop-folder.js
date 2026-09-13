@@ -63,30 +63,55 @@
     }
 
     function helperHealth() {
-        return fetchJson(HELPER_BASE + "/health", { method: "GET", mode: "cors" }, 1500)
+        return fetchJson(HELPER_BASE + "/health", { method: "GET", mode: "cors" }, 4000)
             .then(function (result) {
-                return !!(result.response.ok && result.data && result.data.ok);
+                if (!(result.response.ok && result.data && result.data.ok)) {
+                    return null;
+                }
+                return result.data;
             })
             .catch(function () {
-                return false;
+                return null;
             });
     }
 
-    function pickViaHelper(title) {
+    function normalizeClientPath(pathValue) {
+        var text = String(pathValue || "").trim();
+        if (!text) {
+            return "";
+        }
+        if (text === "/Volume" || text.indexOf("/Volume/") === 0) {
+            text = "/Volumes" + text.slice("/Volume".length);
+        }
+        if (text.length > 3 && text.slice(-1) === "/" && text.indexOf("://") < 0) {
+            text = text.replace(/\/+$/, "");
+        }
+        return text;
+    }
+
+    function pickViaHelper(title, defaultPath) {
         return fetchJson(
             HELPER_BASE + "/pick-folder",
             {
                 method: "POST",
                 mode: "cors",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ title: title || "Seleziona cartella pratica" }),
+                body: JSON.stringify({
+                    title: title || "Seleziona cartella pratica",
+                    default_path: normalizeClientPath(defaultPath || "") || "/Volumes",
+                }),
             },
             HELPER_TIMEOUT_MS
         ).then(function (result) {
             if (!result.response.ok || result.data.error) {
                 throw new Error(result.data.error || "Helper locale: selezione fallita.");
             }
-            return result.data.path || "";
+            return {
+                path: normalizeClientPath(result.data.path || ""),
+                files: result.data.files || [],
+                truncated: !!result.data.truncated,
+                cancelled: !!result.data.cancelled || !result.data.path,
+            };
         });
     }
 
@@ -178,7 +203,7 @@
         });
     }
 
-    function pickViaHelperPopup(title) {
+    function pickViaHelperPopup(title, defaultPath) {
         var callbackId = helperPopupCallbackId();
         var openerOrigin = window.location.origin || "*";
         var safeTitle = title || "Seleziona cartella pratica";
@@ -189,7 +214,9 @@
             "&opener=" +
             encodeURIComponent(openerOrigin) +
             "&cb=" +
-            encodeURIComponent(callbackId);
+            encodeURIComponent(callbackId) +
+            "&default=" +
+            encodeURIComponent(normalizeClientPath(defaultPath || "") || "/Volumes");
         var popup = window.open(
             url,
             "securtek-folder-picker",
@@ -200,7 +227,12 @@
         }
         return waitForHelperPopup("securtek-folder-picked", callbackId, HELPER_TIMEOUT_MS)
             .then(function (data) {
-                return data.path || "";
+                return {
+                    path: normalizeClientPath(data.path || ""),
+                    files: data.files || [],
+                    truncated: !!data.truncated,
+                    cancelled: !!data.cancelled || !data.path,
+                };
             });
     }
 
@@ -238,6 +270,115 @@
             }
             return result.data.message || "File mostrato in Explorer/Finder.";
         });
+    }
+
+    function openFileViaHelper(path) {
+        return fetchJson(
+            HELPER_BASE + "/open-file",
+            {
+                method: "POST",
+                mode: "cors",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ path: path }),
+            },
+            15000
+        ).then(function (result) {
+            if (!result.response.ok || result.data.error) {
+                throw new Error(result.data.error || "Helper locale: impossibile aprire il file.");
+            }
+            return result.data.message || "File aperto.";
+        });
+    }
+
+    function pickFileViaHelper(title, defaultPath) {
+        return fetchJson(
+            HELPER_BASE + "/pick-file",
+            {
+                method: "POST",
+                mode: "cors",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    title: title || "Seleziona file da collegare",
+                    default_path: normalizeClientPath(defaultPath || "") || "/Volumes",
+                }),
+            },
+            HELPER_TIMEOUT_MS
+        ).then(function (result) {
+            if (!result.response.ok || result.data.error) {
+                throw new Error(result.data.error || "Helper locale: selezione file fallita.");
+            }
+            return {
+                path: normalizeClientPath(result.data.path || ""),
+                name: result.data.name || "",
+                cancelled: !!result.data.cancelled || !result.data.path,
+            };
+        });
+    }
+
+    function writeFileViaHelper(folder, name, contentB64) {
+        return fetchJson(
+            HELPER_BASE + "/write-file",
+            {
+                method: "POST",
+                mode: "cors",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    folder: folder,
+                    name: name,
+                    content_b64: contentB64,
+                }),
+            },
+            HELPER_TIMEOUT_MS
+        ).then(function (result) {
+            if (!result.response.ok || result.data.error) {
+                throw new Error(result.data.error || "Helper locale: scrittura file fallita.");
+            }
+            return result.data;
+        });
+    }
+
+    function readFileViaHelper(path) {
+        return fetchJson(
+            HELPER_BASE + "/read-file",
+            {
+                method: "POST",
+                mode: "cors",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ path: path }),
+            },
+            HELPER_TIMEOUT_MS
+        ).then(function (result) {
+            if (!result.response.ok || result.data.error) {
+                throw new Error(result.data.error || "Helper locale: lettura file fallita.");
+            }
+            return result.data;
+        });
+    }
+
+    function fileToBase64(file) {
+        return new Promise(function (resolve, reject) {
+            var reader = new FileReader();
+            reader.onload = function () {
+                var result = String(reader.result || "");
+                var marker = "base64,";
+                var idx = result.indexOf(marker);
+                resolve(idx >= 0 ? result.slice(idx + marker.length) : result);
+            };
+            reader.onerror = function () {
+                reject(new Error("Impossibile leggere il file selezionato."));
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function base64ToBlob(contentB64, mime) {
+        var binary = window.atob(contentB64 || "");
+        var len = binary.length;
+        var bytes = new Uint8Array(len);
+        for (var i = 0; i < len; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return new Blob([bytes], { type: mime || "application/octet-stream" });
     }
 
     function isLocalClientPath(pathValue) {
@@ -328,12 +469,37 @@
         if (!folder) {
             return Promise.resolve({ files: [], truncated: false });
         }
-        if (isBrowsingOnServerLoopback()) {
-            return listFolderWithMeta(folder);
+        return listFolderWithMeta(folder)
+            .then(function (result) {
+                if (result.files && result.files.length > 0) {
+                    return result;
+                }
+                // Elenco vuoto: su accesso remoto riprova via popup same-origin (PNA/CORS).
+                if (isBrowsingOnServerLoopback()) {
+                    return result;
+                }
+                return listFolderViaPopup(folder).catch(function () {
+                    return result;
+                });
+            })
+            .catch(function () {
+                return listFolderViaPopup(folder);
+            });
+    }
+
+    function normalizePickResult(result) {
+        if (!result) {
+            return { path: "", files: [], truncated: false, cancelled: true };
         }
-        return listFolderWithMeta(folder).catch(function () {
-            return listFolderViaPopup(folder);
-        });
+        if (typeof result === "string") {
+            return { path: result, files: [], truncated: false, cancelled: !result };
+        }
+        return {
+            path: result.path || "",
+            files: result.files || [],
+            truncated: !!result.truncated,
+            cancelled: !!result.cancelled || !result.path,
+        };
     }
 
     function fetchFolderPreview(previewUrl, folderPath) {
@@ -360,6 +526,10 @@
             ).then(function (result) {
                 var data = result.data || {};
                 if (result.response.ok && !data.error && !data.is_link) {
+                    // Risposta vuota "client_path": non e' un elenco reale — lascia provare l'helper.
+                    if (data.client_path && (!data.files || data.files.length === 0)) {
+                        throw new Error("Cartella sul client: uso helper locale.");
+                    }
                     return data;
                 }
                 throw new Error(data.error || "Cartella non trovata sul server.");
@@ -378,8 +548,22 @@
             });
         }
 
-        if (!isBrowsingOnServerLoopback() && isLocalClientPath(folder)) {
-            return viaHelper().catch(function (helperErr) {
+        // Percorsi locali: preferisci sempre l'helper del computer dove gira il browser
+        // (anche su 127.0.0.1 il daemon Gunicorn puo' non vedere /Volumes montati in GUI).
+        if (isLocalClientPath(folder)) {
+            return viaHelper().then(function (data) {
+                if (data.files && data.files.length > 0) {
+                    return data;
+                }
+                return viaServer().then(function (serverData) {
+                    if (serverData.files && serverData.files.length > 0) {
+                        return serverData;
+                    }
+                    return data;
+                }).catch(function () {
+                    return data;
+                });
+            }).catch(function (helperErr) {
                 return viaServer().catch(function () {
                     throw helperErr;
                 });
@@ -455,12 +639,12 @@
         );
     }
 
-    function pickWithClientHelper(title) {
+    function pickWithClientHelper(title, defaultPath) {
         return helperHealth().then(function (ok) {
             if (!ok) {
                 throw new Error(helperInstallHint());
             }
-            return pickViaHelper(title);
+            return pickViaHelper(title, defaultPath);
         });
     }
 
@@ -469,14 +653,18 @@
      * Locale: chiamata diretta → Explorer subito, senza popup.
      * Remoto: popup invisibile solo se il browser blocca la chiamata diretta.
      */
-    function pickFolder(pickerUrl, title) {
-        return pickWithClientHelper(title).catch(function (helperErr) {
+    function pickFolder(pickerUrl, title, defaultPath) {
+        return pickWithClientHelper(title, defaultPath)
+            .then(normalizePickResult)
+            .catch(function (helperErr) {
             if (!isBrowsingOnServerLoopback()) {
-                return pickViaHelperPopup(title).catch(function () {
+                return pickViaHelperPopup(title, defaultPath).then(normalizePickResult).catch(function () {
                     throw helperErr;
                 });
             }
-            return pickViaServer(pickerUrl).catch(function () {
+            return pickViaServer(pickerUrl).then(function (path) {
+                return normalizePickResult(path);
+            }).catch(function () {
                 throw helperErr;
             });
         });
@@ -562,10 +750,24 @@
         helperBase: HELPER_BASE,
         isMacClient: isMacClient,
         pickFolder: pickFolder,
+        pickFile: function (title, defaultPath) {
+            return helperHealth().then(function (ok) {
+                if (!ok) {
+                    throw new Error(helperInstallHint());
+                }
+                return pickFileViaHelper(title, defaultPath);
+            });
+        },
+        normalizeClientPath: normalizeClientPath,
         openFolder: openFolder,
         helperHealth: helperHealth,
         listFolder: listFolder,
         revealFile: revealViaHelper,
+        openFile: openFileViaHelper,
+        writeFile: writeFileViaHelper,
+        readFile: readFileViaHelper,
+        fileToBase64: fileToBase64,
+        base64ToBlob: base64ToBlob,
         fetchFolderPreview: fetchFolderPreview,
         resolveCartellaField: resolveCartellaField,
     };

@@ -13,6 +13,7 @@ from datetime import date, datetime, time
 from email import policy
 from email.parser import BytesParser
 import os
+import re
 from pathlib import Path
 from urllib.parse import quote, unquote, urlparse
 from urllib.parse import urlencode
@@ -192,6 +193,23 @@ def is_external_link(value):
     return parsed.scheme in {"http", "https"}
 
 
+def looks_like_client_path(value: str) -> bool:
+    """Percorso tipico del PC/Mac client (non del server Django)."""
+    text = (value or "").strip()
+    # Typo frequente /Volume/ → /Volumes/
+    if text == "/Volume" or text.startswith("/Volume/"):
+        text = "/Volumes" + text[len("/Volume") :]
+    if not text or is_external_link(text):
+        return False
+    # Windows: C:\... oppure \\server\share
+    if re.match(r"^[A-Za-z]:[\\/]", text) or text.startswith("\\\\"):
+        return True
+    # macOS/Linux: percorso assoluto o home
+    if text.startswith("/") or text.startswith("~/"):
+        return True
+    return False
+
+
 def format_file_datetime(timestamp):
     value = datetime.fromtimestamp(timestamp, tz=timezone.get_current_timezone())
     return value.strftime("%d/%m/%Y %H:%M")
@@ -236,6 +254,37 @@ def resolve_categoria_file_path(pratica_categoria, relative_file):
         raise Http404("File non disponibile")
 
     return folder_path, file_path
+
+
+def normalize_categoria_relative_file(relative_file: str) -> str:
+    """Nome relativo sicuro (niente path traversal) per metadati scollega/descrizione."""
+    file_name = unquote(relative_file or "").strip().replace("\\", "/")
+    if not file_name:
+        raise Http404("File non disponibile")
+    parts = Path(file_name).parts
+    if file_name.startswith("/") or ".." in parts:
+        raise Http404("Percorso non valido")
+    return file_name
+
+
+def resolve_categoria_relative_file_for_metadata(pratica_categoria, relative_file: str) -> str:
+    """
+    Valida il nome file per azioni solo-metadata (scollega/descrizione).
+    Se la cartella esiste sul server, verifica anche che il file ci sia;
+    se è un percorso client (es. /Volumes/...), accetta solo il nome relativo.
+    """
+    file_name = normalize_categoria_relative_file(relative_file)
+    cartella = (pratica_categoria.cartella or "").strip()
+    folder_path = get_pratica_categoria_folder_path(pratica_categoria)
+
+    if folder_path:
+        resolve_categoria_file_path(pratica_categoria, file_name)
+        return file_name
+
+    if looks_like_client_path(cartella):
+        return file_name
+
+    raise Http404("File non disponibile")
 
 
 def resolve_preview_folder_file_path(folder_value, relative_file):
@@ -477,10 +526,12 @@ def build_folder_file_entries(pratica_categoria):
     pratica_categoria.file_entries = []
 
     if not cartella:
+        attach_client_folder_actions(pratica_categoria)
         return
 
     if is_external_link(cartella):
         pratica_categoria.cartella_is_link = True
+        attach_client_folder_actions(pratica_categoria)
         return
 
     folder_path = Path(cartella).expanduser()
@@ -490,20 +541,74 @@ def build_folder_file_entries(pratica_categoria):
             try:
                 pratica_categoria.cartella_is_folder = True
                 pratica_categoria.file_entries = list_folder_via_helper(cartella)
+                attach_client_folder_actions(pratica_categoria)
                 return
             except DesktopHelperError:
                 pass
+        # Percorso sul client (es. /Users/martina/... o D:\...): non esiste sul Mini,
+        # ma Scegli/Apri/lista file usano l'helper del browser. Non segnalare errore.
+        if looks_like_client_path(cartella):
+            pratica_categoria.cartella_is_folder = True
+            pratica_categoria.file_entries = []
+            attach_client_folder_actions(pratica_categoria)
+            return
         pratica_categoria.cartella_error = "Cartella non trovata"
+        attach_client_folder_actions(pratica_categoria)
         return
 
     if not folder_path.is_dir():
         pratica_categoria.cartella_error = "Il percorso non è una cartella"
+        attach_client_folder_actions(pratica_categoria)
         return
 
     pratica_categoria.cartella_is_folder = True
     entries, truncated = get_supported_file_entries(folder_path, pratica_categoria)
     pratica_categoria.file_entries = entries
     pratica_categoria.file_entries_truncated = truncated
+    attach_client_folder_actions(pratica_categoria)
+
+
+def attach_client_folder_actions(pratica_categoria):
+    """Metadati per idratazione client (elenco/azioni quando la cartella non e' sul server)."""
+    import json
+
+    if not pratica_categoria or not getattr(pratica_categoria, "pk", None):
+        pratica_categoria.client_file_actions = None
+        pratica_categoria.client_file_actions_json = "{}"
+        return
+
+    pratica_categoria.client_file_actions = {
+        "unlink_url": reverse(
+            "pratiche:pratica_categoria_file_unlink",
+            kwargs={"pratica_pk": pratica_categoria.pratica_id, "pk": pratica_categoria.pk},
+        ),
+        "description_url": reverse(
+            "pratiche:pratica_categoria_file_description",
+            kwargs={"pratica_pk": pratica_categoria.pratica_id, "pk": pratica_categoria.pk},
+        ),
+        "scollegati": list(
+            pratica_categoria.file_metadati.filter(is_active=True, scollegato=True).values_list(
+                "percorso_relativo", flat=True
+            )
+        ),
+        "descriptions": {
+            item.percorso_relativo: item.descrizione or ""
+            for item in pratica_categoria.file_metadati.filter(is_active=True, scollegato=False)
+        },
+        "registered": [
+            {
+                "name": item.percorso_relativo,
+                "description": item.descrizione or "",
+            }
+            for item in pratica_categoria.file_metadati.filter(is_active=True, scollegato=False).order_by(
+                "percorso_relativo"
+            )
+        ],
+    }
+    pratica_categoria.client_file_actions_json = json.dumps(
+        pratica_categoria.client_file_actions,
+        ensure_ascii=False,
+    )
 
 
 def save_category_formset_attachments(request, formset):
@@ -1562,6 +1667,41 @@ class PraticaMacroCategoriaApplyView(LoginRequiredMixin, View):
         return redirect(categoria_return_url(request, pratica.pk))
 
 
+class PraticaMacroCategoriaDeleteView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        pratica = get_object_or_404(Pratica, pk=kwargs["pratica_pk"], is_active=True)
+        collegamento = get_object_or_404(
+            PraticaMacroCategoria,
+            pk=kwargs["pk"],
+            pratica=pratica,
+            is_active=True,
+        )
+        macro_categoria = collegamento.macro_categoria
+        macro_nome = macro_categoria.denominazione
+
+        with transaction.atomic():
+            categorie_qs = PraticaCategoria.objects.filter(
+                pratica=pratica,
+                macro_categoria=macro_categoria,
+                is_active=True,
+            )
+            categorie_rimosse = 0
+            for pratica_categoria in categorie_qs:
+                pratica_categoria.soft_delete(user=request.user)
+                categorie_rimosse += 1
+            collegamento.soft_delete(user=request.user)
+
+        if categorie_rimosse:
+            messages.success(
+                request,
+                f"Macro-categoria «{macro_nome}» rimossa. Categorie scollegate: {categorie_rimosse}.",
+            )
+        else:
+            messages.success(request, f"Macro-categoria «{macro_nome}» rimossa dalla pratica.")
+
+        return redirect(categoria_return_url(request, pratica.pk))
+
+
 class TemplatePraticaListView(LoginRequiredMixin, ListView):
     model = TemplatePratica
     template_name = "pratiche/template_pratica_list.html"
@@ -1751,6 +1891,18 @@ class PraticaCategoriaUpdateView(LoginRequiredMixin, UpdateView):
         append_category_detail_return_to_file_entries(self.request, self.object)
         context["pratica_categoria"] = self.object
         context["show_file_actions"] = True
+        context["client_folder_actions"] = getattr(self.object, "client_file_actions", None) or {
+            "unlink_url": reverse(
+                "pratiche:pratica_categoria_file_unlink",
+                kwargs={"pratica_pk": self.object.pratica_id, "pk": self.object.pk},
+            ),
+            "description_url": reverse(
+                "pratiche:pratica_categoria_file_description",
+                kwargs={"pratica_pk": self.object.pratica_id, "pk": self.object.pk},
+            ),
+            "scollegati": [],
+            "descriptions": {},
+        }
         return context
 
     def get_success_url(self):
@@ -1880,16 +2032,71 @@ class PraticaCategoriaFileFolderOpenView(LoginRequiredMixin, View):
 class PraticaCategoriaFileUploadView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         pratica_categoria = get_pratica_categoria_or_404(kwargs["pratica_pk"], kwargs["pk"])
+        cartella = (pratica_categoria.cartella or "").strip()
         folder_path = get_pratica_categoria_folder_path(pratica_categoria)
+        wants_json = request_wants_json(request)
+        description = (request.POST.get("descrizione") or "").strip()
+        client_written = (request.POST.get("client_written") or "").strip() == "1"
+
+        # File gia' scritti sul client (/Volumes, ecc.): registra solo i metadati.
+        if client_written:
+            names = [Path(name).name for name in request.POST.getlist("file_name") if Path(name).name]
+            if not names:
+                if wants_json:
+                    return JsonResponse({"success": False, "error": "Nessun file da registrare."}, status=400)
+                messages.error(request, "Nessun file da registrare.")
+                return redirect(categoria_file_action_return_url(request, kwargs["pratica_pk"], pratica_categoria.pk))
+
+            for file_name in names:
+                try:
+                    normalize_categoria_relative_file(file_name)
+                except Http404:
+                    continue
+                metadata, created = PraticaCategoriaFile.objects.update_or_create(
+                    pratica_categoria=pratica_categoria,
+                    percorso_relativo=file_name,
+                    is_active=True,
+                    defaults={
+                        "descrizione": description,
+                        "scollegato": False,
+                        "updated_by": request.user,
+                    },
+                )
+                if created:
+                    metadata.created_by = request.user
+                    metadata.save(update_fields=["created_by", "updated_at"])
+
+            if wants_json:
+                return JsonResponse(
+                    {
+                        "success": True,
+                        "count": len(names),
+                        "message": f"{len(names)} file aggiunti correttamente.",
+                    }
+                )
+            messages.success(request, f"{len(names)} file aggiunti correttamente.")
+            return redirect(categoria_file_action_return_url(request, kwargs["pratica_pk"], pratica_categoria.pk))
 
         if not folder_path:
-            messages.error(request, "Collega prima una cartella valida alla categoria.")
+            if looks_like_client_path(cartella):
+                error = (
+                    "La cartella e' sul computer client: usa Aggiungi con helper aggiornato "
+                    "(InstallClient) oppure seleziona i file e ripeti."
+                )
+                if wants_json:
+                    return JsonResponse({"success": False, "error": error, "client_path": True}, status=400)
+                messages.error(request, error)
+            else:
+                if wants_json:
+                    return JsonResponse({"success": False, "error": "Collega prima una cartella valida."}, status=400)
+                messages.error(request, "Collega prima una cartella valida alla categoria.")
             return redirect(categoria_file_action_return_url(request, kwargs["pratica_pk"], pratica_categoria.pk))
 
         uploaded_files = request.FILES.getlist("file")
-        description = (request.POST.get("descrizione") or "").strip()
 
         if not uploaded_files:
+            if wants_json:
+                return JsonResponse({"success": False, "error": "Seleziona un file valido da aggiungere."}, status=400)
             messages.error(request, "Seleziona un file valido da aggiungere.")
             return redirect(categoria_file_action_return_url(request, kwargs["pratica_pk"], pratica_categoria.pk))
 
@@ -1929,6 +2136,14 @@ class PraticaCategoriaFileUploadView(LoginRequiredMixin, View):
             )
             added_count += 1
 
+        if wants_json:
+            return JsonResponse(
+                {
+                    "success": True,
+                    "count": added_count,
+                    "message": f"{added_count} file aggiunti correttamente.",
+                }
+            )
         if added_count:
             messages.success(request, f"{added_count} file aggiunti correttamente.")
         return redirect(categoria_file_action_return_url(request, kwargs["pratica_pk"], pratica_categoria.pk))
@@ -1937,11 +2152,13 @@ class PraticaCategoriaFileUploadView(LoginRequiredMixin, View):
 class PraticaCategoriaFileDescriptionView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         pratica_categoria = get_pratica_categoria_or_404(kwargs["pratica_pk"], kwargs["pk"])
-        relative_file = (request.POST.get("file") or "").strip()
         wants_json = request_wants_json(request)
 
         try:
-            resolve_categoria_file_path(pratica_categoria, relative_file)
+            relative_file = resolve_categoria_relative_file_for_metadata(
+                pratica_categoria,
+                request.POST.get("file") or "",
+            )
         except Http404 as exc:
             if wants_json:
                 return JsonResponse({"success": False, "error": str(exc) or "File non disponibile"}, status=404)
@@ -2005,11 +2222,13 @@ class PraticaCategoriaFileDeleteView(LoginRequiredMixin, View):
 class PraticaCategoriaFileUnlinkView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         pratica_categoria = get_pratica_categoria_or_404(kwargs["pratica_pk"], kwargs["pk"])
-        relative_file = (request.POST.get("file") or "").strip()
         wants_json = request_wants_json(request)
 
         try:
-            resolve_categoria_file_path(pratica_categoria, relative_file)
+            relative_file = resolve_categoria_relative_file_for_metadata(
+                pratica_categoria,
+                request.POST.get("file") or "",
+            )
         except Http404 as exc:
             if wants_json:
                 return JsonResponse({"success": False, "error": str(exc) or "File non disponibile"}, status=404)
@@ -2047,8 +2266,11 @@ class PraticaCategoriaAllegatoUploadView(LoginRequiredMixin, View):
         pratica_categoria = get_pratica_categoria_or_404(kwargs["pratica_pk"], kwargs["categoria_pk"])
         uploaded_files = request.FILES.getlist("file")
         description = (request.POST.get("descrizione") or "").strip()
+        wants_json = request_wants_json(request)
 
         if not uploaded_files:
+            if wants_json:
+                return JsonResponse({"success": False, "error": "Seleziona un file valido da collegare."}, status=400)
             messages.error(request, "Seleziona un file valido da collegare.")
             return redirect(
                 categoria_file_action_return_url(request, kwargs["pratica_pk"], pratica_categoria.pk)
@@ -2063,6 +2285,14 @@ class PraticaCategoriaAllegatoUploadView(LoginRequiredMixin, View):
                 updated_by=request.user,
             )
 
+        if wants_json:
+            return JsonResponse(
+                {
+                    "success": True,
+                    "count": len(uploaded_files),
+                    "message": f"{len(uploaded_files)} file singoli collegati correttamente.",
+                }
+            )
         messages.success(request, f"{len(uploaded_files)} file singoli collegati correttamente.")
         return redirect(categoria_file_action_return_url(request, kwargs["pratica_pk"], pratica_categoria.pk))
 
@@ -2262,7 +2492,7 @@ class FolderPickerView(AjaxLoginRequiredMixin, View):
                             f"Selettore cartella non disponibile: {pick_exc}. "
                             f"Helper: {exc}. "
                             "Su Mac server: ./deploy/macos/install-desktop-helper.sh. "
-                            "Su Mac client: deploy/macos-client/InstallClient.command."
+                            "Su Mac client: Installa Securtek.app (zip Securtek-client-mac) oppure bash InstallClient.command."
                         )
                     },
                     status=500,
@@ -2331,7 +2561,7 @@ class FolderOpenView(AjaxLoginRequiredMixin, View):
                 success=False,
                 error=(
                     f"{exc}. Su Mac server: ./deploy/macos/install-desktop-helper.sh. "
-                    "Su Mac client: deploy/macos-client/InstallClient.command."
+                    "Su Mac client: Installa Securtek.app (zip Securtek-client-mac) oppure bash InstallClient.command."
                 ),
                 status=404 if "non trovata" in str(exc).lower() else 500,
             )
@@ -2368,7 +2598,18 @@ class FolderPreviewView(LoginRequiredMixin, View):
                         }
                     )
                 except DesktopHelperError as exc:
+                    if looks_like_client_path(folder_value):
+                        return JsonResponse(
+                            {
+                                "files": [],
+                                "error": "",
+                                "client_path": True,
+                                "hint": str(exc),
+                            }
+                        )
                     return JsonResponse({"files": [], "error": str(exc)})
+            if looks_like_client_path(folder_value):
+                return JsonResponse({"files": [], "error": "", "client_path": True})
             return JsonResponse({"files": [], "error": "Cartella non trovata"})
 
         if not folder_path.is_dir():
