@@ -5,12 +5,20 @@ from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.generic import ListView, CreateView, UpdateView, DetailView, View
-from django.db.models import Count, Prefetch, Q
+from django.db.models import Count, Exists, OuterRef, Prefetch, Q
 from django.contrib.messages.views import SuccessMessageMixin
 
 from apps.anagrafiche.models import Anagrafica, Contatto, Indirizzo
 from apps.anagrafiche.forms import AnagraficaForm, ContattoFormSet, IndirizzoFormSet, PersonaleFormSet
-from apps.pratiche.models import Pratica, PraticaCategoria, Tecnico
+from apps.pratiche.models import (
+    CategoriaPratica,
+    MacroCategoriaPratica,
+    Pratica,
+    PraticaCategoria,
+    PraticaMacroCategoria,
+    Tecnico,
+    TipologiaPratica,
+)
 
 
 def get_safe_next_url(request):
@@ -36,6 +44,38 @@ def with_next(url, next_url):
     return f"{url}?{urlencode({'next': next_url})}"
 
 
+def _optional_pk(value):
+    value = (value or "").strip()
+    if value.isdigit():
+        return int(value)
+    return None
+
+
+def _anagrafiche_per_pratiche(tipologia_id, macro_categoria_id, categoria_id):
+    """Clienti con almeno una pratica attiva che rispetta tutti i filtri scelti."""
+    pratiche = Pratica.objects.filter(is_active=True)
+    if tipologia_id:
+        pratiche = pratiche.filter(tipologia_id=tipologia_id)
+    if categoria_id:
+        pratiche = pratiche.filter(
+            categoria_collegamenti__is_active=True,
+            categoria_collegamenti__categoria_id=categoria_id,
+        )
+    if macro_categoria_id:
+        collegata = PraticaMacroCategoria.objects.filter(
+            is_active=True,
+            macro_categoria_id=macro_categoria_id,
+            pratica_id=OuterRef("pk"),
+        )
+        sulla_categoria = PraticaCategoria.objects.filter(
+            is_active=True,
+            macro_categoria_id=macro_categoria_id,
+            pratica_id=OuterRef("pk"),
+        )
+        pratiche = pratiche.filter(Exists(collegata) | Exists(sulla_categoria))
+    return pratiche.values("cliente_id")
+
+
 class AnagraficaListView(LoginRequiredMixin, ListView):
     model = Anagrafica
     template_name = "anagrafiche/anagrafica_list.html"
@@ -57,6 +97,9 @@ class AnagraficaListView(LoginRequiredMixin, ListView):
         )
 
         q = (self.request.GET.get("q") or "").strip()
+        tipologia_id = _optional_pk(self.request.GET.get("tipologia"))
+        macro_categoria_id = _optional_pk(self.request.GET.get("macro_categoria"))
+        categoria_id = _optional_pk(self.request.GET.get("categoria"))
 
         if q:
             queryset = queryset.filter(
@@ -65,6 +108,15 @@ class AnagraficaListView(LoginRequiredMixin, ListView):
                 Q(codice_fiscale__icontains=q) |
                 Q(email__icontains=q) |
                 Q(telefono__icontains=q)
+            )
+
+        if tipologia_id or macro_categoria_id or categoria_id:
+            queryset = queryset.filter(
+                pk__in=_anagrafiche_per_pratiche(
+                    tipologia_id,
+                    macro_categoria_id,
+                    categoria_id,
+                )
             )
 
         return queryset.order_by("ragione_sociale")
@@ -83,7 +135,15 @@ class AnagraficaListView(LoginRequiredMixin, ListView):
         params.pop("page", None)
         context["filter_query"] = params.urlencode()
         context["q"] = (self.request.GET.get("q") or "").strip()
-        context["has_filters"] = bool(context["q"])
+        context["tipologie"] = TipologiaPratica.objects.filter(is_active=True).order_by("denominazione")
+        context["macro_categorie"] = MacroCategoriaPratica.objects.filter(is_active=True).order_by("denominazione")
+        context["categorie"] = CategoriaPratica.objects.filter(is_active=True).order_by("denominazione")
+        context["has_filters"] = bool(
+            context["q"]
+            or _optional_pk(self.request.GET.get("tipologia"))
+            or _optional_pk(self.request.GET.get("macro_categoria"))
+            or _optional_pk(self.request.GET.get("categoria"))
+        )
         return context
 
 
@@ -104,15 +164,13 @@ class AnagraficaDetailView(LoginRequiredMixin, DetailView):
             .select_related("studio_appartenenza", "incarico")
             .order_by("cognome", "nome")
         )
-        context["pratiche_in_essere"] = (
+        stati_finali = {
+            Pratica.Stato.COMPLETATA,
+            Pratica.Stato.ANNULLATA,
+            Pratica.Stato.ARCHIVIATA,
+        }
+        pratiche_related = (
             self.object.pratiche.filter(is_active=True)
-            .exclude(
-                stato__in=[
-                    Pratica.Stato.COMPLETATA,
-                    Pratica.Stato.ANNULLATA,
-                    Pratica.Stato.ARCHIVIATA,
-                ]
-            )
             .select_related("responsabile", "tipologia")
             .prefetch_related(
                 Prefetch(
@@ -121,6 +179,35 @@ class AnagraficaDetailView(LoginRequiredMixin, DetailView):
                     to_attr="categorie_attive",
                 )
             )
+        )
+        pratiche_in_essere = pratiche_related.exclude(stato__in=stati_finali)
+
+        tipologia = (self.request.GET.get("tipologia") or "").strip()
+        stato = (self.request.GET.get("stato") or "").strip()
+        stati_validi = {value for value, _label in Pratica.Stato.choices}
+        # "tutte" = tutte le pratiche; default senza param = solo in essere.
+        if stato not in stati_validi and stato != "tutte":
+            stato = ""
+
+        if stato == "tutte":
+            pratiche_filtrate = pratiche_related
+        elif stato in stati_validi:
+            pratiche_filtrate = pratiche_related.filter(stato=stato)
+        else:
+            pratiche_filtrate = pratiche_in_essere
+        if tipologia.isdigit():
+            pratiche_filtrate = pratiche_filtrate.filter(tipologia_id=int(tipologia))
+
+        context["pratiche_in_essere_count"] = pratiche_in_essere.count()
+        context["pratiche_total_count"] = pratiche_related.count()
+        context["pratiche_in_essere"] = pratiche_filtrate
+        context["tipologie"] = TipologiaPratica.objects.filter(is_active=True).order_by("denominazione")
+        context["stati"] = Pratica.Stato.choices
+        context["filtro_tipologia"] = tipologia if tipologia.isdigit() else ""
+        context["filtro_stato"] = stato
+        context["pratiche_has_filters"] = bool(context["filtro_tipologia"] or context["filtro_stato"])
+        context["pratiche_mostra_filtri"] = bool(
+            context["pratiche_total_count"] or context["pratiche_has_filters"]
         )
         from apps.agenda.models import EventoAgenda
 

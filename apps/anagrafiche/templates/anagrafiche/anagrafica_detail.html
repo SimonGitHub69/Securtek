@@ -165,8 +165,8 @@
                             <span class="badge bg-green-lt">{{ indirizzi|length }} indirizz{% if indirizzi|length == 1 %}o{% else %}i{% endif %}</span>
                         {% endif %}
                         <span class="badge bg-purple-lt">{{ personale|length }} personal{% if personale|length == 1 %}e{% else %}i{% endif %}</span>
-                        {% if pratiche_in_essere %}
-                            <span class="badge bg-orange-lt">{{ pratiche_in_essere|length }} pratic{% if pratiche_in_essere|length == 1 %}a{% else %}he{% endif %} attive</span>
+                        {% if pratiche_in_essere_count %}
+                            <span class="badge bg-orange-lt">{{ pratiche_in_essere_count }} pratic{% if pratiche_in_essere_count == 1 %}a{% else %}he{% endif %} attive</span>
                         {% endif %}
                     </div>
                 </div>
@@ -221,7 +221,7 @@
         <div class="st-kpi-content">
             <div>
                 <div class="st-kpi-label">Pratiche in essere</div>
-                <div class="st-kpi-value">{{ pratiche_in_essere|length }}</div>
+                <div class="st-kpi-value">{{ pratiche_in_essere_count }}</div>
             </div>
             <div class="st-kpi-icon bg-orange-lt text-orange">
                 <i class="ti ti-briefcase"></i>
@@ -305,7 +305,7 @@
 
                     <dt class="col-sm-5">Pratiche in essere</dt>
                     <dd class="col-sm-7">
-                        <span class="badge bg-orange-lt">{{ pratiche_in_essere|length }}</span>
+                        <span class="badge bg-orange-lt">{{ pratiche_in_essere_count }}</span>
                     </dd>
 
                     <dt class="col-sm-5">Eventi agenda</dt>
@@ -322,7 +322,14 @@
     <div class="card-header">
         <h3 class="card-title">Pratiche in essere</h3>
         <div class="card-actions">
-            <span class="st-section-count me-2">{{ pratiche_in_essere|length }} pratic{% if pratiche_in_essere|length == 1 %}a{% else %}he{% endif %}</span>
+            <span class="st-section-count me-2">
+                {% if pratiche_has_filters %}
+                    {{ pratiche_in_essere|length }} pratic{% if pratiche_in_essere|length == 1 %}a{% else %}he{% endif %}
+                    <span class="text-secondary">({{ pratiche_in_essere_count }} in essere)</span>
+                {% else %}
+                    {{ pratiche_in_essere_count }} pratic{% if pratiche_in_essere_count == 1 %}a{% else %}he{% endif %}
+                {% endif %}
+            </span>
             {% url 'anagrafiche:anagrafica_detail' anagrafica.pk as anagrafica_return_url %}
             <a href="{% url 'pratiche:pratica_create' %}?cliente={{ anagrafica.pk }}&next={{ anagrafica_return_url|urlencode }}" class="btn btn-primary btn-sm">
                 <i class="ti ti-plus"></i>
@@ -341,6 +348,45 @@
     </div>
 
     <div class="st-collapsible-section" id="anagrafica-detail-pratiche-section">
+    {% if pratiche_mostra_filtri %}
+        <div class="card-body border-bottom py-3">
+            <form method="get" class="row g-2 align-items-end">
+                {% if next_url %}
+                    <input type="hidden" name="next" value="{{ next_url }}">
+                {% endif %}
+                <div class="col-md-4 col-lg-3">
+                    <label class="form-label" for="anagrafica-pratica-tipologia">Tipo di pratica</label>
+                    <select id="anagrafica-pratica-tipologia" name="tipologia" class="form-select" onchange="this.form.submit()">
+                        <option value="">Tutti</option>
+                        {% for tipologia in tipologie %}
+                            <option value="{{ tipologia.pk }}" {% if filtro_tipologia == tipologia.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ tipologia.denominazione }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4 col-lg-3">
+                    <label class="form-label" for="anagrafica-pratica-stato">Stato</label>
+                    <select id="anagrafica-pratica-stato" name="stato" class="form-select" onchange="this.form.submit()">
+                        <option value="" {% if not filtro_stato %}selected{% endif %}>In essere</option>
+                        <option value="tutte" {% if filtro_stato == 'tutte' %}selected{% endif %}>Tutte</option>
+                        {% for value, label in stati %}
+                            <option value="{{ value }}" {% if filtro_stato == value %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% if pratiche_has_filters %}
+                    <div class="col-auto">
+                        <a href="{% url 'anagrafiche:anagrafica_detail' anagrafica.pk %}{% if next_url %}?next={{ next_url|urlencode }}{% endif %}" class="btn btn-outline-secondary">
+                            Pulisci
+                        </a>
+                    </div>
+                {% endif %}
+            </form>
+        </div>
+    {% endif %}
     {% if pratiche_in_essere %}
         <div class="table-responsive">
             <table class="table table-vcenter card-table">
@@ -431,8 +477,13 @@
     {% else %}
         <div class="st-detail-empty">
             <i class="ti ti-folder-off"></i>
-            <div class="fw-semibold mb-1">Nessuna pratica in essere</div>
-            <div class="small">Crea una nuova pratica collegata a questo cliente.</div>
+            {% if pratiche_has_filters %}
+                <div class="fw-semibold mb-1">Nessuna pratica con questi filtri</div>
+                <div class="small">Modifica tipo o stato, oppure <a href="{% url 'anagrafiche:anagrafica_detail' anagrafica.pk %}{% if next_url %}?next={{ next_url|urlencode }}{% endif %}">pulisci i filtri</a>.</div>
+            {% else %}
+                <div class="fw-semibold mb-1">Nessuna pratica in essere</div>
+                <div class="small">Crea una nuova pratica collegata a questo cliente.</div>
+            {% endif %}
         </div>
     {% endif %}
     </div>

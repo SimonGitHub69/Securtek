@@ -42,6 +42,7 @@ $paths = @(
     "apps\anagrafiche\forms\personale.py",
     "apps\anagrafiche\templates\anagrafiche\anagrafica_detail.html",
     "apps\anagrafiche\templates\anagrafiche\anagrafica_form.html",
+    "apps\anagrafiche\templates\anagrafiche\anagrafica_list.html",
     "apps\anagrafiche\templates\anagrafiche\personale_form.html",
     "apps\anagrafiche\views\anagrafica.py",
     "apps\anagrafiche\views\personale.py",
@@ -53,17 +54,24 @@ $paths = @(
     "apps\pratiche\forms.py",
     "apps\pratiche\models.py",
     "apps\pratiche\migrations\0023_templatepratica_tipologia_onetoone.py",
+    "apps\pratiche\migrations\0024_tecnico_pratiche_assegnate.py",
+    "apps\pratiche\migrations\0025_pratica_notifica_scadenza.py",
     "apps\pratiche\urls.py",
     "apps\pratiche\views.py",
     "apps\pratiche\services\desktop_helper_client.py",
     "apps\pratiche\services\desktop_open.py",
     "apps\pratiche\services\folder_picker.py",
+    "apps\pratiche\services\folder_paths.py",
+    "apps\pratiche\services\personale.py",
     "apps\pratiche\templates\pratiche\comunicazione_preview.html",
     "apps\pratiche\templates\pratiche\folder_picker_popup.html",
     "apps\pratiche\templates\pratiche\pratica_categoria_form.html",
     "apps\pratiche\templates\pratiche\pratica_detail.html",
     "apps\pratiche\templates\pratiche\pratica_form.html",
+    "apps\pratiche\templates\pratiche\_file_arrow_icon.html",
     "apps\pratiche\templates\pratiche\_pratica_categorie_edit.html",
+    "apps\pratiche\templates\pratiche\_pratica_form_field.html",
+    "apps\pratiche\templates\pratiche\_pratica_personale.html",
     "apps\pratiche\templates\pratiche\tecnico_form.html",
     # Config
     "config\__init__.py",
@@ -91,6 +99,7 @@ $paths = @(
     "static\securtek\css\admin-password-toggle.css",
     "static\securtek\css\multi-window.css",
     "static\securtek\css\navbar.css",
+    "static\securtek\css\pratica-mask.css",
     "static\securtek\css\scroll-hold.css",
     "static\securtek\css\style.css",
     "static\securtek\js\admin-password-toggle.js",
@@ -102,6 +111,7 @@ $paths = @(
     "static\securtek\js\embed.js",
     "static\securtek\js\logout-on-close.js",
     "static\securtek\js\multi-window.js",
+    "static\securtek\js\pratica-personale.js",
     "static\securtek\js\scroll-hold.js",
     # Templates base
     "templates\admin\base_site.html",
@@ -142,10 +152,10 @@ Questo pacchetto allinea Mac Mini alla versione di sviluppo Windows
 (include pratiche/agenda/anagrafiche, UI maschere, icone azione,
 notifiche mail agenda, desktop helper, scroll, ecc.).
 
-Novita principali v0.2.38:
-- Aggiungi su /Volumes: dopo scrittura i file compaiono subito in tabella
-- Messaggio chiaro se helper assente/vecchio + pulsante Ricarica elenco
-- Fallback: mostra anche file gia' registrati in Securtek se SMB non elenca
+Novita principali v0.2.54:
+- Scheda anagrafica: filtri Tipo di pratica e Stato su Pratiche in essere
+- Stato Tutte / In essere / Archiviata (e altri stati finali) per ritrovare le pratiche
+- Include allineamento completo fino a v0.2.53 (helper cartelle, /version/, ecc.)
 
 ## 1. Mac Mini (SERVER)
 
@@ -175,6 +185,18 @@ Novita principali v0.2.38:
    curl http://127.0.0.1:8000/version/
 
    Deve rispondere: "version": "$version"
+
+   Se risponde ancora la versione precedente, il file VERSION non e' stato
+   sovrascritto oppure Gunicorn non e' ripartito:
+
+   cat ~/Progetti/Securtek/VERSION
+   ls ~/Progetti/Securtek/Securtek-aggiornamento-v$version 2>/dev/null
+
+   Copia il CONTENUTO della cartella estratta, non la cartella intera.
+   Poi riavvia sia il servizio di sistema sia quello utente:
+
+   sudo launchctl kickstart -k system/com.securtek.gunicorn
+   launchctl kickstart -k "gui/`$(id -u)/com.securtek.gunicorn"
 
    Prova testo mail (deve rispettare Parametri mail, senza riga fissa):
    .venv/bin/python manage.py invia_notifiche_agenda --force --dry-run
